@@ -51,11 +51,11 @@ Both cargo measurements are shown together only to demonstrate the two emissions
 Leg Kind      Mode  From   To      Distance      Modelled transit time       CO2e rate  CO2e per tonne  CO2e total   Basis  Choke points
                                                                  hours      g per t-km  kg per t cargo          kg
 1   Pickup    Road  GBLGW  GBFXT        139 km                     2.3            92.0            12.8         154  tonnes
-2   Main      Sea   GBFXT  SGSIN     15,402 km                   671.7             7.6           117.1       2,341     teu  Gibraltar, Suez, Bab-el-Mandeb, Malacca
+2   Main      Sea   GBFXT  SGSIN     15,402 km                   895.2             7.6           117.1       2,341     teu  Gibraltar, Suez, Bab-el-Mandeb, Malacca
 3   Main      Sea   SGSIN  AUMEL      7,300 km                   391.6             7.6            55.5       1,110     teu  Sunda
 4   Delivery  Road  AUMEL  AUMRS        829 km                    13.8            92.0            76.3         915  tonnes
-Total                                23,670 km                 1,079.5                           261.6       4,520          for 12 t of cargo in 2 TEU
-Modelled minimum = 782.3 h travel + 153.2 h sea operations + 96 h port handling + 48 h connections = 1,079.5 h (45.0 days)
+Total                                23,670 km                 1,303.0                           261.6       4,520          for 12 t of cargo in 2 TEU
+Modelled minimum = 782.3 h travel + 376.7 h sea operations + 96 h port handling + 48 h connections = 1,303.0 h (54.3 days)
 Timing         = planning lower bound from configured assumptions; excludes carrier schedules, customs and disruption
 CO2e rate      = grams of CO2e emitted moving 1 tonne 1 km (configured factor for the mode)
 CO2e per tonne = rate × leg distance: kg of CO2e for each tonne of cargo carried over the leg
@@ -326,24 +326,36 @@ For a movement, `transit_hours` is deliberately a **modelled minimum**, calculat
 
 ```text
 travel time
-+ 20% of sea travel time for normal service operations
++ a service allowance: a fraction of sea travel time, chosen by trade corridor
 + 24 hours of cargo handling at each end of every sea leg
 + 48 hours for each connection between consecutive sea legs
 ```
 
-The service allowance represents intermediate calls, restricted-water slowdowns, pilotage and berth approaches that a shortest-path line cannot show. The connection allowance represents a normal transshipment hand-off; set it to zero for a through service. These are transparent, configurable defaults—not observations of a specific carrier or sailing.
+The service allowance covers what a shortest-path line cannot show: the intermediate port calls a scheduled service makes on the way, restricted-water slowdowns, pilotage and berth approaches. One fraction cannot fit every trade, because an Asia–Europe loop calls at four to six ports before its first European discharge while a transpacific service sails almost direct. The library therefore reads the passages and end points of each sea leg and applies the fraction fitted for that corridor. Every leg reports the corridor it used as `operational_allowance_corridor` and the fraction as `operational_allowance_fraction`.
 
-The worked UK–Singapore–Melbourne movement is therefore 782.3 hours of physical travel + 153.2 hours of sea operations + 96 hours of port handling + 48 hours for the Singapore connection = **45.0 days modelled minimum**, rather than the former 36.6-day physical lower bound.
+| Corridor | How it is recognised | Fraction of travel time added |
+|---|---|---:|
+| `asia-north-europe` | Malacca or Sunda, Suez and Gibraltar | 0.63 |
+| `asia-mediterranean` | Malacca or Sunda and Suez, no Gibraltar | 1.33 |
+| `gulf-europe` | Hormuz and Suez | 1.57 |
+| `transpacific` | no passage, East Asia to the Americas | 0.12 |
+| `panama` | Panama | 0.24 |
+| `transatlantic` | no passage, Europe or Africa to the Americas | 0.80 |
+| `default` | anything else | 0.20 |
+
+The fitted fractions come from observed port-to-port sailings, berth departure to berth arrival, for legs departing in 2025 and 2026 in a proprietary dataset: eleven direct lanes and 8,600 sailings. Each fraction is the observed median divided by this library's travelling time at 16 knots, minus one. On those lanes the mean error fell from 11.5 days with the former flat 0.20 to 1.3 days. Corridors without observations keep 0.20. The source and method are recorded in [DATA_PROVENANCE.md](DATA_PROVENANCE.md). The connection allowance represents a normal transshipment hand-off; set it to zero for a through service.
+
+The worked UK–Singapore–Melbourne movement is therefore 782.3 hours of physical travel + 376.7 hours of sea operations (0.63 on the Felixstowe–Singapore leg, 0.20 on the unfitted Singapore–Melbourne leg) + 96 hours of port handling + 48 hours for the Singapore connection = **54.3 days modelled minimum**, against the 43 to 63 days that carriers and forwarders publish for the lane below.
 
 For the reverse Australia–UK direction, a fast indicative combination is Melbourne–Singapore at 13 days ([Maersk](https://www.maersk.com/news/articles/2026/07/06/melbourne-star-seasonal-inducement-of-southern-star-oceania-network)) plus Singapore–Felixstowe at 30 days ([Yang Ming](https://www.yangming.com/en/service/service_overview/route_map?service=FE3)): 43 days before connection waiting or road delivery. A freight-forwarder benchmark gives 42–52 days for Australia–UK and 50 days for Melbourne–Felixstowe FCL ([Shipa Freight](https://www.shipafreight.com/tradelane/australia-to-uk/)). Current complete services can be materially slower; CMA CGM's weekly NEWMO rotation places London Gateway to Melbourne at 62 days and Melbourne back to London at 63 days ([CMA CGM](https://www.cma-cgm.com/ebusiness/schedules/line-services/flyer/NEWMO?route=1)).
 
 | `MovementRequest` timing option | Default | Meaning |
 |---|---:|---|
-| `SeaOperationalAllowance` | `0.20` | Fraction of sea travel time added for normal service operations. |
+| `SeaOperationalAllowance` | `null` | Fraction of sea travel time added for service operations. Null takes the corridor table above; a value applies that fraction to every sea leg. |
 | `PortDwellHours` | `24` | Cargo-handling time at each end of each sea leg. |
 | `TransshipmentConnectionHours` | `48` | Connection time before a sea leg that follows another sea leg. |
 
-Set all three to zero for pure distance-divided-by-speed time. Even with the defaults, customs clearance, cargo cut-offs, booking availability, blank sailings, disruption and the wait for a particular departure are not modelled. Carrier-published schedules or recent AIS observations are required for a scheduled or actual transit estimate; Hapag-Lloyd explains the distinction between transit, dwell and connection effects in its [shipping timings guide](https://www.hapag-lloyd.com/en/online-business/digital-insights-dock/insights/2025/01/from-berth-to-delivery-important-timings-in-shipping-that-might-.html).
+Set `SeaOperationalAllowance`, `PortDwellHours` and `TransshipmentConnectionHours` to zero for pure distance-divided-by-speed time. Even with the defaults, customs clearance, cargo cut-offs, booking availability, blank sailings, disruption and the wait for a particular departure are not modelled. Carrier-published schedules or recent AIS observations are required for a scheduled or actual transit estimate; Hapag-Lloyd explains the distinction between transit, dwell and connection effects in its [shipping timings guide](https://www.hapag-lloyd.com/en/online-business/digital-insights-dock/insights/2025/01/from-berth-to-delivery-important-timings-in-shipping-that-might-.html).
 
 ### Emissions
 

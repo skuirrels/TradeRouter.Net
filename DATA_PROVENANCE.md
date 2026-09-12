@@ -27,3 +27,23 @@ Important limitation: the imported UN/LOCODE resource did not retain an edition 
 ## Licences and attribution
 
 See `THIRD-PARTY-NOTICES.md`. Data licences are separate from the Apache-2.0 licence covering SeaRoute.Net's own code.
+
+## Sea service allowance calibration
+
+The per-corridor operational allowances in `src/SeaRoute/Movements/SeaServiceAllowance.cs` are not embedded data, but they are derived from observations and are recorded here for the same reason.
+
+- Fitted: 12 September 2026.
+- Source: a proprietary dataset of observed sailings, extracted on 28 August 2026 and not redistributed.
+- Measure: for each direct sailing on a load-port to discharge-port pair, the last non-estimate departure event to the last non-estimate arrival event, in UTC. Legs over 120 days or with arrival before departure were dropped. Legs departing 2025 and 2026 only, so the 2024 Red Sea diversions are excluded.
+- Fraction: median observed hours divided by this library's travelling hours at 16 knots for the same pair, minus one, then the median across the lanes in a corridor.
+
+| Corridor | Lanes fitted | Sailings | Fraction |
+| --- | --- | ---: | ---: |
+| asia-north-europe | CNSHA–NLRTM, CNSHA–DEHAM, CNSHA–FRLEH, VNSGN–NLRTM | 3,885 | 0.63 |
+| asia-mediterranean | CNSHA–ITGOA, CNSHA–GRPIR | 656 | 1.33 |
+| gulf-europe | AEJEA–NLRTM | 113 | 1.57 |
+| transpacific | CNSHA–USLAX, VNSGN–USLAX | 1,194 | 0.12 |
+| panama | CNSHA–USNYC | 439 | 0.24 |
+| transatlantic | NLRTM–USNYC | 2,745 | 0.80 |
+
+Before calibration every leg used 0.20. On the eleven fitted lanes the mean error against the observed median fell from 11.5 days to 1.3 days, and the worst lane from 26.7 days to 3.6. Corridors without observations keep 0.20. The mart records Shanghai as `CNSHA`; the library routes it as `CNSHG`.

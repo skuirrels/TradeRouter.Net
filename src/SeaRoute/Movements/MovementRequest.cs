@@ -57,10 +57,12 @@ public sealed class MovementRequest
 
     /// <summary>
     /// Fraction of sea travelling time added for normal service operations that shortest-path geometry cannot
-    /// represent, such as intermediate calls, restricted-water slowdowns, pilotage and berth approaches.
-    /// The default is 0.20 (20%). This is an explicit modelling allowance, not carrier schedule data.
+    /// represent: intermediate port calls, restricted-water slowdowns, pilotage and berth approaches.
+    /// Leave null, the default, and each sea leg takes the fraction for its trade corridor from
+    /// <see cref="SeaServiceAllowance"/>, which was fitted to observed port-to-port sailings. Set a value to
+    /// apply one fraction to every sea leg instead; 0 gives pure distance-divided-by-speed time.
     /// </summary>
-    public double SeaOperationalAllowance { get; set; } = 0.20;
+    public double? SeaOperationalAllowance { get; set; }
 
     /// <summary>
     /// Connection time added before each sea leg that immediately follows another sea leg. The default is

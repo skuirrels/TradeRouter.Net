@@ -546,16 +546,18 @@ public class MovementTests
         var sea = result.Legs[1];
         sea.PortHours.Should().Be(48.0, "24 h at each end of a sea leg");
         sea.DurationHours.Should().BeApproximately(sea.Length / (16.0 * 1.852), 1e-6, "steaming at 16 knots");
-        sea.OperationalAllowanceHours.Should().BeApproximately(sea.DurationHours * 0.20, 1e-9);
+        sea.Feature.Properties.OperationalAllowanceCorridor.Should().Be("asia-north-europe", "Felixstowe to Singapore crosses Gibraltar, Suez and Malacca");
+        sea.OperationalAllowanceHours.Should().BeApproximately(sea.DurationHours * 0.63, 1e-9);
         sea.ConnectionHours.Should().Be(0.0, "the first sea leg has no preceding service to connect from");
-        sea.TransitHours.Should().BeApproximately(sea.DurationHours * 1.20 + 48.0, 1e-9);
+        sea.TransitHours.Should().BeApproximately(sea.DurationHours * 1.63 + 48.0, 1e-9);
 
         var connectingSea = result.Legs[2];
         connectingSea.ConnectionHours.Should().Be(48.0, "consecutive sea legs are modelled as a transshipment");
 
         result.TotalPortHours.Should().Be(2 * 48.0);
+        connectingSea.Feature.Properties.OperationalAllowanceCorridor.Should().Be("default", "Singapore to Melbourne has no fitted corridor");
         result.TotalOperationalAllowanceHours.Should().BeApproximately(
-            result.Legs.Where(leg => leg.Leg.Mode == TransportMode.Sea).Sum(leg => leg.DurationHours) * 0.20,
+            sea.DurationHours * 0.63 + connectingSea.DurationHours * 0.20,
             1e-9);
         result.TotalConnectionHours.Should().Be(48.0);
         result.TotalTransitHours.Should().BeApproximately(
@@ -564,7 +566,7 @@ public class MovementTests
             + result.TotalPortHours
             + result.TotalConnectionHours,
             1e-9);
-        (result.TotalTransitHours / 24.0).Should().BeInRange(44.0, 46.0, "the default is a modelled minimum, not a carrier schedule");
+        (result.TotalTransitHours / 24.0).Should().BeInRange(53.0, 56.0, "the corridor allowances put the UK–Melbourne movement inside the 43 to 63 days carriers publish");
 
         using var doc = JsonDocument.Parse(result.ToJson());
         var seaProperties = doc.RootElement.GetProperty("features")[1].GetProperty("properties");

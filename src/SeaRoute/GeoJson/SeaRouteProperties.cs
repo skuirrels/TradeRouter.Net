@@ -70,6 +70,22 @@ public sealed class SeaRouteProperties
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public double? OperationalAllowanceHours { get; set; }
 
+    /// <summary>
+    /// Fraction of sea travelling time added as the operational allowance for this leg. Chosen from the
+    /// corridor table unless the request sets <c>SeaOperationalAllowance</c>. Sea movement legs only.
+    /// </summary>
+    [JsonPropertyName("operational_allowance_fraction")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? OperationalAllowanceFraction { get; set; }
+
+    /// <summary>
+    /// Trade corridor the operational allowance was taken from, for example "asia-north-europe" or
+    /// "transpacific"; "override" when the request set its own fraction. Sea movement legs only.
+    /// </summary>
+    [JsonPropertyName("operational_allowance_corridor")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? OperationalAllowanceCorridor { get; set; }
+
     /// <summary>Transshipment connection time before the leg in hours. Movement legs only.</summary>
     [JsonPropertyName("connection_hours")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

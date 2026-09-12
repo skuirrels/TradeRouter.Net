@@ -242,9 +242,23 @@ public sealed class SeaRouteEngine : ISeaRouteEngine
             bool isSea = leg.Mode == TransportMode.Sea;
             bool followsSeaLeg = isSea && sequence > 1 && request.Legs[sequence - 2].Mode == TransportMode.Sea;
             feature.Properties.PortHours = isSea ? 2.0 * request.PortDwellHours : 0.0;
-            feature.Properties.OperationalAllowanceHours = isSea
-                ? feature.Properties.DurationHours * request.SeaOperationalAllowance
-                : 0.0;
+            if (isSea)
+            {
+                var (corridor, fraction) = request.SeaOperationalAllowance is { } fixedFraction
+                    ? (SeaServiceAllowance.OverrideCorridor, fixedFraction)
+                    : SeaServiceAllowance.Resolve(feature.Properties.TraversedPassages, from.Coordinate, to.Coordinate);
+                feature.Properties.OperationalAllowanceFraction = fraction;
+                feature.Properties.OperationalAllowanceCorridor = corridor;
+                feature.Properties.OperationalAllowanceHours = feature.Properties.DurationHours * fraction;
+                if (!seaOptions.ReturnPassages)
+                {
+                    feature.Properties.TraversedPassages = null;
+                }
+            }
+            else
+            {
+                feature.Properties.OperationalAllowanceHours = 0.0;
+            }
             feature.Properties.ConnectionHours = followsSeaLeg ? request.TransshipmentConnectionHours : 0.0;
             feature.Properties.TransitHours = feature.Properties.DurationHours
                 + feature.Properties.PortHours
@@ -295,7 +309,11 @@ public sealed class SeaRouteEngine : ISeaRouteEngine
 
     private GeoJsonFeature CalculateSeaLeg(int sequence, MovementLeg leg, ResolvedLocation from, ResolvedLocation to, SeaRouteOptions options)
     {
-        var feature = CalculateRoute(from.Coordinate, to.Coordinate, options);
+        // Passages are always collected for a movement leg: the corridor allowance is chosen from them.
+        // CalculateMovement drops them again when the caller did not ask for ReturnPassages.
+        var routingOptions = options.ReturnPassages ? options : options.Clone();
+        routingOptions.ReturnPassages = true;
+        var feature = CalculateRoute(from.Coordinate, to.Coordinate, routingOptions);
 
         if (feature.Geometry is null || feature.Geometry.Positions.Count < 2)
         {
@@ -475,8 +493,8 @@ public sealed class SeaRouteEngine : ISeaRouteEngine
         ValidatePositiveOptional(request.CargoTeu, nameof(request.CargoTeu));
         if (!double.IsFinite(request.PortDwellHours) || request.PortDwellHours < 0)
             throw new ArgumentOutOfRangeException(nameof(request.PortDwellHours), request.PortDwellHours, "Port dwell must be finite and non-negative.");
-        if (!double.IsFinite(request.SeaOperationalAllowance) || request.SeaOperationalAllowance < 0)
-            throw new ArgumentOutOfRangeException(nameof(request.SeaOperationalAllowance), request.SeaOperationalAllowance, "Sea operational allowance must be finite and non-negative.");
+        if (request.SeaOperationalAllowance is { } allowance && (!double.IsFinite(allowance) || allowance < 0))
+            throw new ArgumentOutOfRangeException(nameof(request.SeaOperationalAllowance), allowance, "Sea operational allowance must be finite and non-negative.");
         if (!double.IsFinite(request.TransshipmentConnectionHours) || request.TransshipmentConnectionHours < 0)
             throw new ArgumentOutOfRangeException(nameof(request.TransshipmentConnectionHours), request.TransshipmentConnectionHours, "Transshipment connection time must be finite and non-negative.");
         if (request.SpeedsKmh.ContainsKey(TransportMode.Sea))
