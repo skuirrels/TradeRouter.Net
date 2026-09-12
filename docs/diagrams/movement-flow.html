@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SeaRoute.Net movement flow</title>
+  <title>TradeRouter.Net movement flow</title>
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -50,11 +50,11 @@
 </head>
 <body>
   <div class="frame">
-    <p class="eyebrow">Flowchart · SeaRoute.Net</p>
+    <p class="eyebrow">Flowchart · TradeRouter.Net</p>
     <h1>How a multi-leg movement is routed</h1>
 
     <svg viewBox="0 0 1200 1184" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="movement-flow-title movement-flow-desc">
-      <title id="movement-flow-title">SeaRoute.Net movement flow</title>
+      <title id="movement-flow-title">TradeRouter.Net movement flow</title>
       <desc id="movement-flow-desc">Flowchart showing a typed movement plan built into continuous legs, each leg's locations resolved, sea legs routed on the Marnet network and road, rail or air legs measured as straight great-circle lines with no lane points or choke points, each producing a leg feature, looping until all legs are done and returning a GeoJSON FeatureCollection with totals. Strips below show fluent API examples for a UK to Melbourne movement and a movement with an air leg.</desc>
       <defs>
         <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#5b6472"/></marker>

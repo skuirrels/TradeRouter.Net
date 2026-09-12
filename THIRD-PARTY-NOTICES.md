@@ -1,6 +1,6 @@
 # Third-party notices
 
-SeaRoute.Net embeds transformed third-party geographic data. The project licence does not replace the terms that apply to those inputs.
+TradeRouter.Net embeds transformed third-party geographic data. The project licence does not replace the terms that apply to those inputs.
 
 ## searoute-py 1.6.0
 

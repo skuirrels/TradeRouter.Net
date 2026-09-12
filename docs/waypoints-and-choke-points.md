@@ -1,10 +1,10 @@
-# Waypoints and choke points in SeaRoute.Net
+# Waypoints and choke points in TradeRouter.Net
 
-This document describes every kind of waypoint that can appear in a route produced by SeaRoute.Net, and every choke point (canal or strait) that the routing network knows about. All counts and distances below were measured against the datasets embedded in the library on 10 September 2026.
+This document describes every kind of waypoint that can appear in a route produced by TradeRouter.Net, and every choke point (canal or strait) that the routing network knows about. All counts and distances below were measured against the datasets embedded in the library on 10 September 2026.
 
 ## 1. Transport modes covered
 
-SeaRoute.Net routes one transport mode, deep-sea shipping on the Eurostat Marnet network. Multi-leg movements may also contain road, rail and air legs, which are measured as straight great-circle lines rather than routed on a network.
+TradeRouter.Net routes one transport mode, deep-sea shipping on the Eurostat Marnet network. Multi-leg movements may also contain road, rail and air legs, which are measured as straight great-circle lines rather than routed on a network.
 
 | Mode | Routed | Network | Leg geometry | Duration basis | Choke points |
 |---|---|---|---|---|---|
@@ -109,7 +109,7 @@ If both request points snap to the same node, the line is drawn straight between
 
 A choke point is not a node. It is a tag on the edges that pass through a canal or strait. The tag is a lower-case identifier such as `suez`, exposed as constants on the `Passage` class.
 
-- **Restriction.** Any passage named in `SeaRouteOptions.Restrictions` has its tagged edges removed from the search. The path then goes round, or fails if there is no alternative.
+- **Restriction.** Any passage named in `TradeRouterOptions.Restrictions` has its tagged edges removed from the search. The path then goes round, or fails if there is no alternative.
 - **Reporting.** With `ReturnPassages = true`, the output property `traversed_passages` lists the tags of every tagged edge the route used, deduplicated.
 - **Default.** `northwest` is restricted unless the caller replaces the restriction set. Every other passage is open by default.
 
@@ -171,10 +171,10 @@ Locations are the bounding box of the tagged edges in the dataset. Detours were 
 ## 4. Reference
 
 ```csharp
-using SeaRoute.Passages;
-using SeaRoute;
+using TradeRouter.Passages;
+using TradeRouter;
 
-var route = SeaRouter.Calculate(
+var route = TradeRoutes.Calculate(
     origin, destination,
     restrictions: [Passage.Northwest, Passage.Suez, Passage.Babalmandab],
     returnPassages: true,

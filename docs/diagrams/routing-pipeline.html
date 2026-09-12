@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SeaRoute.Net routing pipeline</title>
+  <title>TradeRouter.Net routing pipeline</title>
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -50,11 +50,11 @@
 </head>
 <body>
   <div class="frame">
-    <p class="eyebrow">Architecture · SeaRoute</p>
+    <p class="eyebrow">Architecture · TradeRouter</p>
     <h1>How a route is computed, in six steps</h1>
 
     <svg viewBox="0 0 1280 580" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="routing-pipeline-title routing-pipeline-desc">
-      <title id="routing-pipeline-title">SeaRoute.Net routing pipeline</title>
+      <title id="routing-pipeline-title">TradeRouter.Net routing pipeline</title>
       <desc id="routing-pipeline-desc">Six numbered steps from left to right: take the request, optionally resolve ports, snap each point to the shipping-lane network, find the shortest path along the lanes avoiding closed passages, finish the route by adding the endpoints and measuring length and time, and return a GeoJSON feature. Two embedded datasets feed the steps: world ports and the Marnet lane network. A strip below follows a request from port CNSHG, Shanghai, to port GBLON, London, through every step.</desc>
       <defs>
         <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#5b6472"/></marker>

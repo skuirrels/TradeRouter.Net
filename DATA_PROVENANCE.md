@@ -1,6 +1,6 @@
 # Embedded data provenance
 
-This file records the exact inputs and transformations used for the binary resources in `src/SeaRoute/Data`.
+This file records the exact inputs and transformations used for the binary resources in `src/TradeRouter/Data`.
 SHA-256 values are hashes of the files as stored, not of their decompressed JSON.
 
 ## Maritime network and ports
@@ -26,11 +26,11 @@ Important limitation: the imported UN/LOCODE resource did not retain an edition 
 
 ## Licences and attribution
 
-See `THIRD-PARTY-NOTICES.md`. Data licences are separate from the Apache-2.0 licence covering SeaRoute.Net's own code.
+See `THIRD-PARTY-NOTICES.md`. Data licences are separate from the Apache-2.0 licence covering TradeRouter.Net's own code.
 
 ## Sea service allowance calibration
 
-The per-corridor operational allowances in `src/SeaRoute/Movements/SeaServiceAllowance.cs` are not embedded data, but they are derived from observations and are recorded here for the same reason.
+The per-corridor operational allowances in `src/TradeRouter/Movements/SeaServiceAllowance.cs` are not embedded data, but they are derived from observations and are recorded here for the same reason.
 
 - Fitted: 12 September 2026.
 - Source: a proprietary dataset of observed sailings, extracted on 28 August 2026 and not redistributed.

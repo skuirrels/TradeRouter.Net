@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/benchmarks/">
+    <Project Path="benchmarks/TradeRouter.Benchmarks/TradeRouter.Benchmarks.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/TradeRouter/TradeRouter.csproj" />
+    <Project Path="src/TradeRouter.Sample/TradeRouter.Sample.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/TradeRouter.Tests/TradeRouter.Tests.csproj" />
+  </Folder>
+</Solution>

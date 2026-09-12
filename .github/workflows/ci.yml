@@ -21,19 +21,19 @@ jobs:
             10.0.x
 
       - name: Restore
-        run: dotnet restore SeaRoute.Net.slnx -m:1 -nr:false
+        run: dotnet restore TradeRouter.Net.slnx -m:1 -nr:false
 
       - name: Build
-        run: dotnet build SeaRoute.Net.slnx -c Release --no-restore -m:1 -nr:false
+        run: dotnet build TradeRouter.Net.slnx -c Release --no-restore -m:1 -nr:false
 
       - name: Test .NET 8 and .NET 10
-        run: dotnet test tests/SeaRoute.Tests/SeaRoute.Tests.csproj -c Release --no-build -m:1 -nr:false
+        run: dotnet test tests/TradeRouter.Tests/TradeRouter.Tests.csproj -c Release --no-build -m:1 -nr:false
 
       - name: Pack
-        run: dotnet pack src/SeaRoute/SeaRoute.csproj -c Release --no-build -m:1 -nr:false -o artifacts
+        run: dotnet pack src/TradeRouter/TradeRouter.csproj -c Release --no-build -m:1 -nr:false -o artifacts
 
       - uses: actions/upload-artifact@v7
         with:
-          name: SeaRoute.Net-package
+          name: TradeRouter.Net-package
           path: artifacts/*.nupkg
           if-no-files-found: error

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg viewBox="0 0 1200 1184" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="movement-flow-title movement-flow-desc">
-  <title id="movement-flow-title">SeaRoute.Net movement flow</title>
+  <title id="movement-flow-title">TradeRouter.Net movement flow</title>
   <desc id="movement-flow-desc">Flowchart showing a typed movement plan built into continuous legs, each leg's locations resolved, sea legs routed on the Marnet network and road, rail or air legs measured as straight great-circle lines with no lane points or choke points, each producing a leg feature, looping until all legs are done and returning a GeoJSON FeatureCollection with totals. Strips below show fluent API examples for a UK to Melbourne movement and a movement with an air leg.</desc>
   <defs>
     <style>@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&amp;family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500;600&amp;display=swap');</style>

@@ -1,4 +1,4 @@
-# SeaRoute.Net
+# TradeRouter.Net
 
 ## Git and GitHub attribution
 
@@ -9,7 +9,7 @@
 ## Build
 
 - Run `dotnet build`, `dotnet test` and `dotnet pack` with `-m:1 -nr:false`. Multi-node MSBuild fails in the sandbox with MSB4166.
-- Solution file is `SeaRoute.Net.slnx`. There is no `.sln`.
+- Solution file is `TradeRouter.Net.slnx`. There is no `.sln`.
 
 ## Dependencies
 

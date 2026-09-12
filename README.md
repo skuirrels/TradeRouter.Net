@@ -1,20 +1,20 @@
-# SeaRoute.Net
+# TradeRouter.Net
 
 [![.NET 8 | 10](https://img.shields.io/badge/.NET-8.0%20%7C%2010.0-512BD4?logo=dotnet)](https://dotnet.microsoft.com)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
-[![Dependencies: none](https://img.shields.io/badge/dependencies-none-brightgreen)](src/SeaRoute/SeaRoute.csproj)
+[![Dependencies: none](https://img.shields.io/badge/dependencies-none-brightgreen)](src/TradeRouter/TradeRouter.csproj)
 
 Shortest sea route between ports identified by UN/LOCODE, as a single self-contained .NET library.
 
 Give it two UN/LOCODE port codes and it returns RFC 7946 GeoJSON with the distance, voyage duration, ports used and canals and straits passed through. Port codes are the native input; raw coordinates remain available as a fallback for custom or unresolved locations. Ordinary routes are `LineString`; antimeridian crossings are split into `MultiLineString`. The maritime network and world ports database are compressed and embedded in the assembly, so there is nothing to download, configure or host.
 
 ```csharp
-using SeaRoute;
+using TradeRouter;
 
-var route = SeaRouter.Calculate(
+var route = TradeRoutes.Calculate(
     "FRMRS", // Marseille
     "ZACPT", // Cape Town
-    new SeaRouteOptions { AppendOriginDestination = true });
+    new TradeRouterOptions { AppendOriginDestination = true });
 
 Console.WriteLine($"{route.Properties.Length:N0} {route.Properties.Units}, {route.Properties.DurationHours:N0} h");
 // 10,997 km, 371 h
@@ -25,8 +25,8 @@ Console.WriteLine($"{route.Properties.Length:N0} {route.Properties.Units}, {rout
 Route pickup, two sea legs and final delivery using UN/LOCODEs throughout. The result contains every leg, totals, a modelled minimum time, emissions, choke points and a GeoJSON `FeatureCollection`.
 
 ```csharp
-using SeaRoute;
-using SeaRoute.Movements;
+using TradeRouter;
+using TradeRouter.Movements;
 
 var plan = MovementPlan
     .From(Waypoint.Place("GBLGW"))
@@ -35,9 +35,9 @@ var plan = MovementPlan
     .ThenTo(Waypoint.Port("AUMEL"), TransportMode.Sea)
     .DeliverTo(Waypoint.Place("AUMRS"), TransportMode.Road);
 
-var movement = SeaRouter.CalculateMovement(
+var movement = TradeRoutes.CalculateMovement(
     plan,
-    seaOptions: new SeaRouteOptions { ReturnPassages = true },
+    seaOptions: new TradeRouterOptions { ReturnPassages = true },
     cargoTonnes: 12.0, // Optional: actual weight used for inland emissions
     cargoTeu: 2.0);    // Optional: one 40-foot container, used for sea emissions
 
@@ -84,7 +84,7 @@ CO2e total     = kg of CO2e for this shipment: cargo weight on non-sea legs, 76 
 Every request goes through the same six steps, in order. The datasets are decompressed and indexed once on first use, then shared read-only by every thread.
 
 <p align="center">
-  <img src="docs/diagrams/routing-pipeline.svg" alt="SeaRoute.Net routing pipeline in six numbered steps: take the request, optionally resolve ports, snap each end to the nearest shipping-lane point, find the shortest path along the lanes avoiding closed passages, add the real endpoints and measure length and time, return a GeoJSON feature. A strip below follows Shanghai (CNSHG) to London (GBLON) through each step." width="100%">
+  <img src="docs/diagrams/routing-pipeline.svg" alt="TradeRouter.Net routing pipeline in six numbered steps: take the request, optionally resolve ports, snap each end to the nearest shipping-lane point, find the shortest path along the lanes avoiding closed passages, add the real endpoints and measure length and time, return a GeoJSON feature. A strip below follows Shanghai (CNSHG) to London (GBLON) through each step." width="100%">
 </p>
 
 Source: [docs/diagrams/routing-pipeline.svg](docs/diagrams/routing-pipeline.svg) (vector) and [routing-pipeline.html](docs/diagrams/routing-pipeline.html).
@@ -121,7 +121,7 @@ Implementation notes:
 `CalculateRoute` returns a `GeoJsonFeature`. `ToJson()` serialises it to standard GeoJSON that Leaflet, Mapbox GL, OpenLayers, deck.gl, QGIS and PostGIS all consume directly.
 
 <p align="center">
-  <img src="docs/diagrams/output-model.svg" alt="SeaRoute.Net output model: a GeoJsonFeature holds nullable GeoJsonGeometry represented by LineString or MultiLineString and SeaRouteProperties; a movement is a GeoJsonFeatureCollection of leg features with MovementProperties totals" width="100%">
+  <img src="docs/diagrams/output-model.svg" alt="TradeRouter.Net output model: a GeoJsonFeature holds nullable GeoJsonGeometry represented by LineString or MultiLineString and TradeRouterProperties; a movement is a GeoJsonFeatureCollection of leg features with MovementProperties totals" width="100%">
 </p>
 
 Source: [docs/diagrams/output-model.svg](docs/diagrams/output-model.svg) (vector) and [output-model.html](docs/diagrams/output-model.html).
@@ -157,7 +157,7 @@ Example output for Jebel Ali (AEJEA) to St John's, Antigua (AGSJO) with Suez clo
 The current version is 2.0.0. It is not yet on nuget.org, so either reference the project directly or build the package locally (see [Building, testing and trying it out](#building-testing-and-trying-it-out)) and add it from that folder:
 
 ```bash
-dotnet add package SeaRoute.Net --source ./artifacts
+dotnet add package TradeRouter.Net --source ./artifacts
 ```
 
 Targets `net8.0` and `net10.0`. The package has no dependencies beyond the base class library and `System.Text.Json`.
@@ -171,45 +171,45 @@ Breaking changes in 2.0.0: `GeoJsonFeature.Geometry` is now nullable `GeoJsonGeo
 UN/LOCODE port codes are the primary input. The code must identify one record in the embedded port list; the selected port records are returned in `port_origin` and `port_dest`.
 
 ```csharp
-var route = SeaRouter.Calculate("FRLEH", "CNTSN"); // Le Havre to Tianjin
+var route = TradeRoutes.Calculate("FRLEH", "CNTSN"); // Le Havre to Tianjin
 
 Console.WriteLine($"{route.Properties.PortOrigin!.Name} to {route.Properties.PortDest!.Name}");
 Console.WriteLine($"{route.Properties.Length:N0} {route.Properties.Units}");
 ```
 
-Some upstream port codes occur more than once. A code-only route throws when a code is ambiguous instead of choosing an arbitrary record; use `SeaRouteEngine.Default.Ports.GetByCodeCandidates(code)` to inspect those records.
+Some upstream port codes occur more than once. A code-only route throws when a code is ambiguous instead of choosing an arbitrary record; use `TradeRouterEngine.Default.Ports.GetByCodeCandidates(code)` to inspect those records.
 
 ### Engine or static facade
 
-`SeaRouteEngine.Default` is a lazily initialised singleton that owns the graph and port index. Register it for dependency injection, or use it directly:
+`TradeRouterEngine.Default` is a lazily initialised singleton that owns the graph and port index. Register it for dependency injection, or use it directly:
 
 ```csharp
-builder.Services.AddSingleton<ISeaRouteEngine>(SeaRouteEngine.Default);
+builder.Services.AddSingleton<ITradeRouterEngine>(TradeRouterEngine.Default);
 ```
 
 ```csharp
-public sealed class ShippingController(ISeaRouteEngine seaRoute) : ControllerBase
+public sealed class ShippingController(ITradeRouterEngine tradeRouter) : ControllerBase
 {
     [HttpGet("route")]
     public IActionResult GetRoute(string from, string to)
     {
-        var feature = seaRoute.CalculateRoute(from, to);
+        var feature = tradeRouter.CalculateRoute(from, to);
         return Content(feature.ToJson(), "application/geo+json");
     }
 }
 ```
 
-The static `SeaRouter` class wraps the same engine. Use the `SeaRouteOptions` overload when routing by port code, or the named-parameter overload for coordinate fallback routing.
+The static `TradeRoutes` class wraps the same engine. Use the `TradeRouterOptions` overload when routing by port code, or the named-parameter overload for coordinate fallback routing.
 
 ### Avoiding canals and straits
 
 ```csharp
-using SeaRoute.Passages;
+using TradeRouter.Passages;
 
-var route = SeaRouter.Calculate(
+var route = TradeRoutes.Calculate(
     "AEJEA", // Jebel Ali
     "AGSJS", // St John's, Antigua
-    new SeaRouteOptions
+    new TradeRouterOptions
     {
         Restrictions = [Passage.Suez],
         ReturnPassages = true
@@ -225,24 +225,24 @@ Recognised passages: `Babalmandab`, `Bering`, `Bosporus`, `Chili` (Magellan Stra
 Coordinates are the fallback when an endpoint has no usable port code, when your authoritative position differs from the embedded data, or when routing to an offshore/custom point. Coordinate order is longitude, latitude.
 
 ```csharp
-using SeaRoute.Common;
+using TradeRouter.Common;
 
-var route = SeaRouter.Calculate(
+var route = TradeRoutes.Calculate(
     new Coordinate(5.333333, 43.333333),    // custom position near Marseille
     new Coordinate(18.366667, -33.916667),  // custom position near Cape Town
     appendOrigDest: true);
 ```
 
-When a broader UN/LOCODE entry is known but is not a uniquely routable port record, `SeaRouter.Locate(code)` can resolve its published position for use with this coordinate overload.
+When a broader UN/LOCODE entry is known but is not a uniquely routable port record, `TradeRoutes.Locate(code)` can resolve its published position for use with this coordinate overload.
 
 ### Inland points resolved to the nearest terminal
 
 ```csharp
-using SeaRoute.Ports;
+using TradeRouter.Ports;
 
-var route = SeaRouter.Calculate(
-    SeaRouter.Locate("FRPAR").Coordinate,    // Paris, inland
-    SeaRouter.Locate("JPTYO").Coordinate,    // Tokyo
+var route = TradeRoutes.Calculate(
+    TradeRoutes.Locate("FRPAR").Coordinate,    // Paris, inland
+    TradeRoutes.Locate("JPTYO").Coordinate,    // Tokyo
     includePorts: true,
     appendOrigDest: true,
     portParams: new PortParameters { OnlyTerminals = true });
@@ -258,7 +258,7 @@ var belgium = new AreaFeature(
     name: "BE",
     preferredPorts: [new PortProps("BEANR", share: 250), new PortProps("FRLEH", share: 200)]);
 
-var routes = SeaRouteEngine.Default.CalculateRoutes(SeaRouter.Locate("BEBRU").Coordinate, SeaRouter.Locate("JPTYO").Coordinate, new SeaRouteOptions
+var routes = TradeRouterEngine.Default.CalculateRoutes(TradeRoutes.Locate("BEBRU").Coordinate, TradeRoutes.Locate("JPTYO").Coordinate, new TradeRouterOptions
 {
     IncludePorts = true,
     PortParameters = new PortParameters { PortsInAreasFrom = [belgium] }
@@ -272,13 +272,13 @@ var routes = SeaRouteEngine.Default.CalculateRoutes(SeaRouter.Locate("BEBRU").Co
 A `MovementPlan` builds a continuous route from typed waypoints and transport modes. Each destination automatically becomes the next leg's origin, so intermediate UN/LOCODEs are stated once. Declared waypoint types and sea, rail and air modes are checked against known UN/LOCODE functions. Pickup and delivery ordering is enforced while the plan is built. Sea legs are routed on the lane network. Road, rail and air legs are straight great-circle lines between their two waypoints, never touching lane points or choke points, with a configurable speed per mode: 60, 80 and 800 km/h by default.
 
 <p align="center">
-  <img src="docs/diagrams/movement-flow.png" alt="SeaRoute.Net movement flow: a typed MovementPlan builds continuous legs, each leg's locations are resolved, sea legs are routed on Marnet and road, rail or air legs are measured as straight great-circle lines, producing one feature per leg and a FeatureCollection with totals; worked examples show fluent plans from the UK to Melbourne by sea and by air" width="70%">
+  <img src="docs/diagrams/movement-flow.png" alt="TradeRouter.Net movement flow: a typed MovementPlan builds continuous legs, each leg's locations are resolved, sea legs are routed on Marnet and road, rail or air legs are measured as straight great-circle lines, producing one feature per leg and a FeatureCollection with totals; worked examples show fluent plans from the UK to Melbourne by sea and by air" width="70%">
 </p>
 
 Source: [docs/diagrams/movement-flow.svg](docs/diagrams/movement-flow.svg) (vector) and [movement-flow.html](docs/diagrams/movement-flow.html).
 
 ```csharp
-using SeaRoute.Movements;
+using TradeRouter.Movements;
 
 var plan = MovementPlan
     .From(Waypoint.Place("GBLGW"))
@@ -289,7 +289,7 @@ var plan = MovementPlan
 
 // Every code resolves from the embedded port list or UN/LOCODE list. For a code neither list can place,
 // pass a dictionary of coordinates as the second argument.
-var movement = SeaRouter.CalculateMovement(plan);
+var movement = TradeRoutes.CalculateMovement(plan);
 
 Console.WriteLine(movement.ToText());
 string geoJson = movement.ToJson();   // FeatureCollection, one feature per leg
@@ -307,7 +307,7 @@ Codes resolve in this order:
 4. The port list anyway, for codes UN/LOCODE lacks coordinates for.
 5. An `ILocationResolver`, if one is set.
 
-Each resolved location reports its `Source`. The embedded UN/LOCODE data has no coordinates for about a fifth of its entries. A small supplement file, [unlocode-supplement.json](src/SeaRoute/Data/unlocode-supplement.json), fills a few of those from cited sources and records the source on the entry; it never overrides UNECE. Codes that neither list can place still need a caller coordinate, and the error for one names the place and its functions. An unknown code throws an `ArgumentException` naming the code rather than guessing. Some port codes occur more than once in the upstream list: code-only lookup throws when ambiguous, `GetByCodeCandidates` returns every record, and `GetByCode(code, near)` disambiguates geographically.
+Each resolved location reports its `Source`. The embedded UN/LOCODE data has no coordinates for about a fifth of its entries. A small supplement file, [unlocode-supplement.json](src/TradeRouter/Data/unlocode-supplement.json), fills a few of those from cited sources and records the source on the entry; it never overrides UNECE. Codes that neither list can place still need a caller coordinate, and the error for one names the place and its functions. An unknown code throws an `ArgumentException` naming the code rather than guessing. Some port codes occur more than once in the upstream list: code-only lookup throws when ambiguous, `GetByCodeCandidates` returns every record, and `GetByCode(code, near)` disambiguates geographically.
 
 ### Time
 
@@ -315,7 +315,7 @@ Each resolved location reports its `Source`. The embedded UN/LOCODE data has no 
 
 | Mode | Default speed | Where to change it |
 |---|---|---|
-| Sea | 16 knots, about 30 km/h | `SeaRouteOptions.SpeedKnots` |
+| Sea | 16 knots, about 30 km/h | `TradeRouterOptions.SpeedKnots` |
 | Road | 60 km/h | `MovementRequest.SpeedsKmh[TransportMode.Road]` |
 | Rail | 80 km/h | `MovementRequest.SpeedsKmh[TransportMode.Rail]` |
 | Air | 800 km/h | `MovementRequest.SpeedsKmh[TransportMode.Air]` |
@@ -362,7 +362,7 @@ Set `SeaOperationalAllowance`, `PortDwellHours` and `TransshipmentConnectionHour
 Every movement leg carries a well-to-wheel CO2e estimate, and the totals add them up. The figures are intensity-based: grams of CO2e per tonne of cargo per kilometre, from the GLEC Framework defaults that ISO 14083 builds on. Pass `cargoTonnes` to get absolute kilograms as well.
 
 ```csharp
-var movement = SeaRouter.CalculateMovement(plan, cargoTonnes: 20.0);
+var movement = TradeRoutes.CalculateMovement(plan, cargoTonnes: 20.0);
 
 foreach (var leg in movement.Legs)
     Console.WriteLine($"{leg.Leg.Mode}: {leg.Co2eGramsPerTonneKm} g/t-km, {leg.Co2eKgPerTonne:N1} kg/t, {leg.Co2eKg:N0} kg");
@@ -403,7 +403,7 @@ Everything here is deliberate and documented, but each is a simplification you s
 
 ## Options reference
 
-| `SeaRouteOptions` | Default | Description |
+| `TradeRouterOptions` | Default | Description |
 |---|---|---|
 | `Units` | `Km` | `Km`, `Meters`, `Miles`, `Feet`, `Inches`, `Yards`, `NauticalMiles`, `Degrees`, `Radians`, `Centimeters`. |
 | `SpeedKnots` | `16` | Vessel speed used for `duration_hours`. A typical slow-steaming service speed; the fleet averaged under 14 knots in 2023. |
@@ -432,18 +432,18 @@ Cold start, including decompressing and indexing the embedded data, is about 75 
 Run the benchmarks yourself:
 
 ```bash
-dotnet run -c Release --project benchmarks/SeaRoute.Benchmarks
+dotnet run -c Release --project benchmarks/TradeRouter.Benchmarks
 ```
 
 ## Repository layout
 
 ```
-SeaRoute.Net.slnx
+TradeRouter.Net.slnx
 Directory.Build.props
 LICENSE                     Apache-2.0
 CLAUDE.md                   contributor rules for AI-assisted changes
 src/
-  SeaRoute/                 the library, packed as SeaRoute.Net
+  TradeRouter/              the library, packed as TradeRouter.Net
     Common/                 Coordinate, Haversine, DistanceUnit, antimeridian normaliser, point-in-polygon
     Data/                   marnet.json.gz, ports.json.gz, unlocode.json.gz and their loader
     GeoJson/                Feature, FeatureCollection, LineString/MultiLineString and serializer
@@ -453,15 +453,15 @@ src/
     Passages/               passage identifiers
     Ports/                  Port, PortDatabase, PortParameters, AreaFeature, PortProps
     Spatial/                spherical 3D KD-tree
-    ISeaRouteEngine.cs      engine interface
-    SeaRouteEngine.cs       ISeaRouteEngine implementation
-    SeaRouteOptions.cs      request options
-    SeaRouter.cs            static facade
-  SeaRoute.Sample/          console app exercising every entry point
+    ITradeRouterEngine.cs   engine interface
+    TradeRouterEngine.cs    ITradeRouterEngine implementation
+    TradeRouterOptions.cs   request options
+    TradeRoutes.cs          static facade
+  TradeRouter.Sample/       console app exercising every entry point
 tests/
-  SeaRoute.Tests/           multi-target xunit suite: routing, passages, ports, spatial, graph and movements
+  TradeRouter.Tests/        multi-target xunit suite: routing, passages, ports, spatial, graph and movements
 benchmarks/
-  SeaRoute.Benchmarks/      BenchmarkDotNet routing benchmarks
+  TradeRouter.Benchmarks/   BenchmarkDotNet routing benchmarks
 docs/
   waypoints-and-choke-points.md   every waypoint type and all 13 passages with measured detours
   diagrams/                 editable HTML diagrams with SVG and selected PNG exports
@@ -470,15 +470,15 @@ docs/
 ## Building, testing and trying it out
 
 ```bash
-dotnet build SeaRoute.Net.slnx -c Release -m:1 -nr:false
+dotnet build TradeRouter.Net.slnx -c Release -m:1 -nr:false
 ```
 
 ```bash
-dotnet test tests/SeaRoute.Tests -c Release -m:1 -nr:false
+dotnet test tests/TradeRouter.Tests -c Release -m:1 -nr:false
 ```
 
 ```bash
-dotnet run --project src/SeaRoute.Sample
+dotnet run --project src/TradeRouter.Sample
 ```
 
 The sample prints twelve worked examples covering coordinates, port codes, restrictions, terminal resolution, area weighting, A*, blocked routes, GeoJSON output, the Shanghai to London walkthrough and three multi-leg movements printed as tables, one with an air leg. Add `--geojson` to print a full feature.
@@ -486,7 +486,7 @@ The sample prints twelve worked examples covering coordinates, port codes, restr
 To produce the NuGet package locally:
 
 ```bash
-dotnet pack src/SeaRoute/SeaRoute.csproj -c Release -m:1 -nr:false -o ./artifacts
+dotnet pack src/TradeRouter/TradeRouter.csproj -c Release -m:1 -nr:false -o ./artifacts
 ```
 
 ## Data
@@ -500,4 +500,4 @@ All datasets are embedded as gzip-compressed JSON, about 1.7 MB in total, and lo
 
 ## Licence
 
-SeaRoute.Net code is licensed under the [Apache License, Version 2.0](LICENSE). Embedded data retains its own terms; see [third-party notices](THIRD-PARTY-NOTICES.md).
+TradeRouter.Net code is licensed under the [Apache License, Version 2.0](LICENSE). Embedded data retains its own terms; see [third-party notices](THIRD-PARTY-NOTICES.md).

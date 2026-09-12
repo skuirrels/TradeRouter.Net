@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg viewBox="0 0 1280 804" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="output-model-title output-model-desc">
-  <title id="output-model-title">SeaRoute.Net output model</title>
-  <desc id="output-model-desc">Entity-relationship diagram of SeaRoute.Net output: a route is a GeoJsonFeature holding nullable GeoJsonGeometry, represented as a LineString or an antimeridian-split MultiLineString, plus route properties; a movement is a collection of leg features with movement totals.</desc>
+  <title id="output-model-title">TradeRouter.Net output model</title>
+  <desc id="output-model-desc">Entity-relationship diagram of TradeRouter.Net output: a route is a GeoJsonFeature holding nullable GeoJsonGeometry, represented as a LineString or an antimeridian-split MultiLineString, plus route properties; a movement is a collection of leg features with movement totals.</desc>
   <defs>
     <style>@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&amp;family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500;600&amp;display=swap');</style>
     <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#5b6472"/></marker>
@@ -16,7 +16,7 @@
   <line x1="160" y1="264" x2="160" y2="320" stroke="#5b6472" stroke-width="1"/>
   <!-- Feature.geometry -> Geometry (1:0..1) -->
   <line x1="576" y1="172" x2="672" y2="172" stroke="#5b6472" stroke-width="1"/>
-  <!-- Feature.properties -> SeaRouteProperties (1:1) -->
+  <!-- Feature.properties -> TradeRouterProperties (1:1) -->
   <path d="M576,236 H608 Q616,236 616,244 V332 Q616,340 624,340 H672" fill="none" stroke="#5b6472" stroke-width="1"/>
   <!-- Properties.port_origin -> Port (1:0..1) -->
   <line x1="952" y1="400" x2="1032" y2="400" stroke="#5b6472" stroke-width="1"/>
@@ -127,7 +127,7 @@
   <text x="368" y="200" fill="#181818" font-size="10" font-family="'Geist Mono', monospace">→ geometry</text>
   <text x="560" y="200" fill="#5b6472" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">GeoJsonGeometry?</text>
   <text x="368" y="220" fill="#181818" font-size="10" font-family="'Geist Mono', monospace">→ properties</text>
-  <text x="560" y="220" fill="#5b6472" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">SeaRouteProperties</text>
+  <text x="560" y="220" fill="#5b6472" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">TradeRouterProperties</text>
   <text x="368" y="240" fill="#181818" font-size="10" font-family="'Geist Mono', monospace">ToJson(indented)</text>
   <text x="560" y="240" fill="#5b6472" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">string</text>
 
@@ -144,14 +144,14 @@
   <text x="688" y="200" fill="#181818" font-size="10" font-family="'Geist Mono', monospace">positions</text>
   <text x="896" y="200" fill="#5b6472" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">[lon, lat][] · flattened</text>
 
-  <!-- Entity: SeaRouteProperties -->
+  <!-- Entity: TradeRouterProperties -->
   <rect x="672" y="280" width="280" height="424" rx="6" fill="#f6f7f8"/>
   <rect x="672" y="280" width="280" height="424" rx="6" fill="#ffffff" stroke="#181818" stroke-width="1"/>
   <rect x="672" y="280" width="280" height="40" rx="6" fill="rgba(24,24,24,0.04)" stroke="none"/>
   <rect x="672" y="312" width="280" height="8" fill="rgba(24,24,24,0.04)"/>
   <line x1="672" y1="320" x2="952" y2="320" stroke="rgba(24,24,24,0.22)" stroke-width="1"/>
   <text x="688" y="296" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">ENTITY</text>
-  <text x="688" y="312" fill="#181818" font-size="12" font-weight="600" font-family="'Geist', sans-serif">SeaRouteProperties</text>
+  <text x="688" y="312" fill="#181818" font-size="12" font-weight="600" font-family="'Geist', sans-serif">TradeRouterProperties</text>
   <text x="688" y="340" fill="#181818" font-size="10" font-family="'Geist Mono', monospace">length</text>
   <text x="936" y="340" fill="#5b6472" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">double</text>
   <text x="688" y="360" fill="#181818" font-size="10" font-family="'Geist Mono', monospace">units</text>
