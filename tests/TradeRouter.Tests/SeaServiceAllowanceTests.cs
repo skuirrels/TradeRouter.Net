@@ -17,18 +17,42 @@ public class SeaServiceAllowanceTests
     private static readonly Coordinate NewYork = new(-74.05, 40.67);
     private static readonly Coordinate Singapore = new(103.85, 1.26);
     private static readonly Coordinate Melbourne = new(144.93, -37.83);
+    private static readonly Coordinate Lagos = new(3.41, 6.42);
+    private static readonly Coordinate Santos = new(-46.32, -23.97);
 
     [Theory]
     [InlineData("asia-north-europe", 0.63, new[] { Passage.Malacca, Passage.Babalmandab, Passage.Suez, Passage.Gibraltar })]
     [InlineData("asia-mediterranean", 1.33, new[] { Passage.Malacca, Passage.Babalmandab, Passage.Suez })]
     [InlineData("gulf-europe", 1.57, new[] { Passage.Ormuz, Passage.Babalmandab, Passage.Suez, Passage.Gibraltar })]
-    [InlineData("panama", 0.24, new[] { Passage.Panama })]
     public void Resolve_ChoosesCorridorFromPassages(string corridor, double fraction, string[] passages)
     {
         var (resolvedCorridor, resolvedFraction) = SeaServiceAllowance.Resolve(passages, Shanghai, Rotterdam);
 
         resolvedCorridor.Should().Be(corridor);
         resolvedFraction.Should().Be(fraction);
+    }
+
+    [Fact]
+    public void Resolve_PanamaCorridorNeedsAnAmericanEndPoint()
+    {
+        SeaServiceAllowance.Resolve([Passage.Panama], Shanghai, NewYork).Should().Be(("panama", 0.24));
+        SeaServiceAllowance.Resolve([Passage.Panama], NewYork, Shanghai).Should().Be(("panama", 0.24));
+        // East Asia to North Europe through Panama is a Suez-avoiding Asia–Europe service, not the fitted Panama lane.
+        SeaServiceAllowance.Resolve([Passage.Panama], Shanghai, Rotterdam).Should().Be(("asia-north-europe-cape", 0.22));
+        SeaServiceAllowance.Resolve([Passage.Panama], Rotterdam, Shanghai).Should().Be(("asia-north-europe-cape", 0.22));
+    }
+
+    [Fact]
+    public void Resolve_RecognisesCapeRoutesBetweenAsiaOrTheGulfAndEurope()
+    {
+        SeaServiceAllowance.Resolve([Passage.Sunda, Passage.SouthAfrica], Shanghai, Rotterdam).Should().Be(("asia-north-europe-cape", 0.22));
+        SeaServiceAllowance.Resolve([Passage.SouthAfrica, Passage.Malacca], Rotterdam, Shanghai).Should().Be(("asia-north-europe-cape", 0.22));
+        SeaServiceAllowance.Resolve([Passage.Sunda, Passage.SouthAfrica, Passage.Gibraltar], Shanghai, Genoa).Should().Be(("asia-mediterranean-cape", 0.37));
+        SeaServiceAllowance.Resolve([Passage.Ormuz, Passage.SouthAfrica], JebelAli, Rotterdam).Should().Be(("gulf-europe-cape", 0.46));
+
+        // The Cape alone does not make a Europe corridor: West Africa and Brazil keep the default.
+        SeaServiceAllowance.Resolve([Passage.Sunda, Passage.SouthAfrica], Shanghai, Lagos).Should().Be(("default", 0.20));
+        SeaServiceAllowance.Resolve([Passage.Sunda, Passage.SouthAfrica], Shanghai, Santos).Should().Be(("default", 0.20));
     }
 
     [Fact]
@@ -119,6 +143,46 @@ public class SeaServiceAllowanceTests
             double modelledDays = (sea.DurationHours + sea.OperationalAllowanceHours) / 24.0;
 
             modelledDays.Should().BeApproximately(observed, 4.0, $"{from} to {to} should follow the fitted corridor");
+        }
+    }
+
+    [Theory]
+    [InlineData(new[] { Passage.Northwest, Passage.Suez }, Passage.Panama)]
+    [InlineData(new[] { Passage.Northwest, Passage.Suez, Passage.Panama }, Passage.SouthAfrica)]
+    public void Movement_AsiaToEuropeAvoidingSuezUsesTheCapeCorridor(string[] restrictions, string expectedPassage)
+    {
+        var plan = MovementPlan.From(Waypoint.Port("CNSHG")).ThenTo(Waypoint.Port("NLRTM"), TransportMode.Sea);
+        var options = new TradeRouterOptions { Restrictions = [.. restrictions], ReturnPassages = true };
+        var sea = TradeRoutes.CalculateMovement(plan, seaOptions: options).Legs[0];
+
+        sea.Feature.Properties.TraversedPassages.Should().Contain(expectedPassage).And.NotContain(Passage.Suez);
+        sea.Feature.Properties.OperationalAllowanceCorridor.Should().Be("asia-north-europe-cape");
+        sea.Feature.Properties.OperationalAllowanceFraction.Should().Be(0.22);
+    }
+
+    [Fact]
+    public void Movement_CapeCorridorFractionsMatchTheObservedLanesWithinFiveDays()
+    {
+        // The same 2025–26 observed medians, modelled on the Cape route. The two Mediterranean lanes sit
+        // either side of their corridor median, which leaves each about five days out.
+        var observedDays = new Dictionary<(string From, string To), double>
+        {
+            [("CNSHG", "NLRTM")] = 45.5,
+            [("CNSHG", "DEHAM")] = 44.0,
+            [("CNSHG", "ITGOA")] = 53.6,
+            [("CNSHG", "GRPIR")] = 45.9,
+            [("AEJEA", "NLRTM")] = 42.2
+        };
+        var options = new TradeRouterOptions { Restrictions = [Passage.Northwest, Passage.Suez, Passage.Panama] };
+
+        foreach (var ((from, to), observed) in observedDays)
+        {
+            var plan = MovementPlan.From(Waypoint.Port(from)).ThenTo(Waypoint.Port(to), TransportMode.Sea);
+            var sea = TradeRoutes.CalculateMovement(plan, seaOptions: options).Legs[0];
+            double modelledDays = (sea.DurationHours + sea.OperationalAllowanceHours) / 24.0;
+
+            sea.Feature.Properties.OperationalAllowanceCorridor.Should().EndWith("-cape");
+            modelledDays.Should().BeApproximately(observed, 5.0, $"{from} to {to} round the Cape should follow the fitted corridor");
         }
     }
 }

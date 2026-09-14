@@ -339,11 +339,14 @@ The service allowance covers what a shortest-path line cannot show: the intermed
 | `asia-mediterranean` | Malacca or Sunda and Suez, no Gibraltar | 1.33 |
 | `gulf-europe` | Hormuz and Suez | 1.57 |
 | `transpacific` | no passage, East Asia to the Americas | 0.12 |
-| `panama` | Panama | 0.24 |
+| `panama` | Panama, with one end in the Americas | 0.24 |
 | `transatlantic` | no passage, Europe or Africa to the Americas | 0.80 |
+| `asia-north-europe-cape` | no Suez, East Asia to North Europe round the Cape or through Panama | 0.22 |
+| `asia-mediterranean-cape` | no Suez, East Asia round the Cape and through Gibraltar | 0.37 |
+| `gulf-europe-cape` | no Suez, Hormuz and the Cape to Europe | 0.46 |
 | `default` | anything else | 0.20 |
 
-The fitted fractions come from observed port-to-port sailings, berth departure to berth arrival, for legs departing in 2025 and 2026 in a proprietary dataset: eleven direct lanes and 8,600 sailings. Each fraction is the observed median divided by this library's travelling time at 16 knots, minus one. On those lanes the mean error fell from 11.5 days with the former flat 0.20 to 1.3 days. Corridors without observations keep 0.20. The source and method are recorded in [DATA_PROVENANCE.md](DATA_PROVENANCE.md). The connection allowance represents a normal transshipment hand-off; set it to zero for a through service.
+The fitted fractions come from observed port-to-port sailings, berth departure to berth arrival, for legs departing in 2025 and 2026 in a proprietary dataset: eleven direct lanes and 8,600 sailings. Each fraction is the observed median divided by this library's travelling time at 16 knots, minus one. On those lanes the mean error fell from 11.5 days with the former flat 0.20 to 1.3 days. The three `-cape` corridors apply the same observations to this library's Cape route, for legs where Suez is closed; Panama is used only when a caller leaves it open, and takes the North Europe Cape fraction. Close `Northwest` alongside `Suez`, because setting `Restrictions` replaces the default list. Corridors without observations keep 0.20. The source and method are recorded in [DATA_PROVENANCE.md](DATA_PROVENANCE.md). The connection allowance represents a normal transshipment hand-off; set it to zero for a through service.
 
 The worked UK–Singapore–Melbourne movement is therefore 782.3 hours of physical travel + 376.7 hours of sea operations (0.63 on the Felixstowe–Singapore leg, 0.20 on the unfitted Singapore–Melbourne leg) + 96 hours of port handling + 48 hours for the Singapore connection = **54.3 days modelled minimum**, against the 43 to 63 days that carriers and forwarders publish for the lane below.
 

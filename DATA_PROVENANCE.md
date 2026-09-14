@@ -35,7 +35,7 @@ The per-corridor operational allowances in `src/TradeRouter/Movements/SeaService
 
 - Fitted: 12 September 2026.
 - Source: a proprietary dataset of observed sailings, extracted on 28 August 2026 and not redistributed.
-- Measure: for each direct sailing on a load-port to discharge-port pair, the last non-estimate departure event to the last non-estimate arrival event, in UTC. Legs over 120 days or with arrival before departure were dropped. Legs departing 2025 and 2026 only, so the 2024 Red Sea diversions are excluded.
+- Measure: for each direct sailing on a load-port to discharge-port pair, the last non-estimate departure event to the last non-estimate arrival event, in UTC. Legs over 120 days or with arrival before departure were dropped. Legs departing 2025 and 2026 only. The data records no routing, so it cannot show whether a sailing went through Suez or round the Cape; the Cape comparison below suggests most Asia–Europe sailings in this period went round the Cape.
 - Fraction: median observed hours divided by this library's travelling hours at 16 knots for the same pair, minus one, then the median across the lanes in a corridor.
 
 | Corridor | Lanes fitted | Sailings | Fraction |
@@ -48,3 +48,22 @@ The per-corridor operational allowances in `src/TradeRouter/Movements/SeaService
 | transatlantic | NLRTM–USNYC | 2,745 | 0.80 |
 
 Before calibration every leg used 0.20. On the eleven fitted lanes the mean error against the observed median fell from 11.5 days to 1.3 days, and the worst lane from 26.7 days to 3.6. Corridors without observations keep 0.20. The mart records Shanghai as `CNSHA`; the library routes it as `CNSHG`.
+
+### Cape corridors
+
+- Fitted: 14 September 2026, from the same proprietary dataset, extracted again since the first fit. Nothing from the dataset is embedded or read at runtime; only the resulting fractions are in the code.
+- Measure: as above. The re-run reproduced the first fit closely, for example CNSHA–NLRTM 45.5 days from 2,092 sailings against 45.6 days, and 3,969 Asia–North Europe sailings against 3,885.
+- Denominator: this library's travelling time at 16 knots for a movement leg with `Northwest`, `Suez` and `Panama` restricted, so the leg sails round the Cape of Good Hope.
+- Fraction: median observed hours divided by that Cape travelling time, minus one, then the median across the lanes in a corridor.
+
+| Corridor | Lane | Sailings | Observed days | Cape travel days | Lane fraction | Corridor fraction |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| asia-north-europe-cape | CNSHA–NLRTM | 2,092 | 45.5 | 36.09 | 0.261 | 0.22 |
+| | CNSHA–DEHAM | 1,458 | 44.0 | 36.76 | 0.197 | |
+| | CNSHA–FRLEH | 347 | 40.9 | 35.58 | 0.150 | |
+| | VNSGN–NLRTM | 72 | 40.7 | 32.52 | 0.252 | |
+| asia-mediterranean-cape | CNSHA–ITGOA | 547 | 53.6 | 35.53 | 0.508 | 0.37 |
+| | CNSHA–GRPIR | 115 | 45.9 | 37.02 | 0.240 | |
+| gulf-europe-cape | AEJEA–NLRTM | 114 | 42.2 | 28.86 | 0.462 | 0.46 |
+
+The Asia–North Europe Cape fraction of 0.22 is close to the unfitted default and far below the Suez-route 0.63. Observed times therefore match Cape routing plus a normal service allowance, and the Suez-route fractions absorb the Cape detour. The two Mediterranean lanes disagree, so each is about five days from the corridor median. A leg the router sends through Panama between East Asia and Europe, which happens when Suez is closed and Panama is not, takes the North Europe Cape fraction; its travelling time is within a day of the Cape route. The `panama` corridor now requires one end in the Americas.

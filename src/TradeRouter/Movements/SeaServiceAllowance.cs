@@ -39,6 +39,9 @@ public static class SeaServiceAllowance
         ["transpacific"] = 0.12,        // no passage, East Asia to the Americas: CNSHA–USLAX, VNSGN–USLAX
         ["panama"] = 0.24,              // Panama: CNSHA–USNYC
         ["transatlantic"] = 0.80,       // no passage, Europe or Africa to the Americas: NLRTM–USNYC
+        ["asia-north-europe-cape"] = 0.22,  // no Suez, Asia to North Europe: the four asia-north-europe lanes on the Cape route
+        ["asia-mediterranean-cape"] = 0.37, // no Suez, Asia to the Mediterranean: the two asia-mediterranean lanes on the Cape route
+        ["gulf-europe-cape"] = 0.46,        // no Suez, Hormuz and the Cape: AEJEA–NLRTM on the Cape route
         [DefaultCorridor] = DefaultFraction
     };
 
@@ -57,8 +60,13 @@ public static class SeaServiceAllowance
         double lonFrom = from.WithNormalizedLongitude().Longitude;
         double lonTo = to.WithNormalizedLongitude().Longitude;
 
+        bool panama = passages.Contains(Passage.Panama);
+        bool americanEnd = InAmericas(lonFrom) || InAmericas(lonTo);
+        bool europeanEnd = InEurope(lonFrom, from.Latitude) || InEurope(lonTo, to.Latitude);
+        bool eastAsianEnd = lonFrom >= 90.0 || lonTo >= 90.0;
+
         string corridor;
-        if (passages.Contains(Passage.Panama))
+        if (panama && americanEnd)
         {
             corridor = "panama";
         }
@@ -70,8 +78,19 @@ public static class SeaServiceAllowance
         {
             // Through Gibraltar the leg ends in North Europe, or beyond it in the Americas, which is unfitted.
             corridor = passages.Contains(Passage.Gibraltar)
-                ? (InAmericas(lonFrom) || InAmericas(lonTo) ? DefaultCorridor : "asia-north-europe")
+                ? (americanEnd ? DefaultCorridor : "asia-north-europe")
                 : "asia-mediterranean";
+        }
+        else if (!suez && europeanEnd && passages.Contains(Passage.SouthAfrica) && passages.Contains(Passage.Ormuz))
+        {
+            corridor = "gulf-europe-cape";
+        }
+        else if (!suez && europeanEnd && !americanEnd && ((eastOfIndia && passages.Contains(Passage.SouthAfrica)) || (panama && eastAsianEnd)))
+        {
+            // Asia–Europe services that avoid Suez sail round the Cape. A leg the router sends through Panama,
+            // because the caller closed Suez but not Panama, is a similar distance and takes the same corridor.
+            // Round the Cape only the Mediterranean is reached through Gibraltar.
+            corridor = passages.Contains(Passage.Gibraltar) ? "asia-mediterranean-cape" : "asia-north-europe-cape";
         }
         else if (!suez && CrossesPacific(lonFrom, lonTo))
         {
@@ -98,6 +117,10 @@ public static class SeaServiceAllowance
         (InEuropeOrAfrica(lonA) && InAmericas(lonB)) || (InEuropeOrAfrica(lonB) && InAmericas(lonA));
 
     private static bool InEuropeOrAfrica(double lon) => lon is >= -30.0 and <= 60.0;
+
+    // Europe, including the Mediterranean and Black Sea coasts, lies north of 30°N between 30°W and 42°E.
+    // The bound keeps West Africa, the Red Sea and the Gulf out.
+    private static bool InEurope(double lon, double lat) => lat >= 30.0 && lon is >= -30.0 and <= 42.0;
 
     private static bool InAmericas(double lon) => lon < -30.0 && lon > -170.0;
 }
