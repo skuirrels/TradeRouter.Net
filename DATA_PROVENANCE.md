@@ -21,6 +21,7 @@ The searoute-py project credits [Eurostat SeaRoute](https://github.com/eurostat/
 - Publisher: [United Nations Economic Commission for Europe, UN/LOCODE](https://unlocode.unece.org/).
 - Embedded `unlocode.json.gz`: SHA-256 `6e39b6efc925d804af5b304a4db2f701782cc4226fe31e2b97cd3b0bccfb052a`; 106,588 codes, of which 84,516 contain publisher coordinates.
 - Embedded `unlocode-supplement.json`: SHA-256 `6ce12ca501948e6f8c5e962fe901673627e2d05a9e1a666118896261a2437716`; four attributed coordinate supplements, applied only when the UN/LOCODE row has no coordinate.
+- Embedded `unlocode-seaport-supplement.json`: SHA-256 `3b515fb9e5ee7d178a1409d43c5503c05e55405b01c8fdc0c3eb4f4a3887a56e`; two attributed codes, BRALU and CADCN, whose UN/LOCODE function gains the sea-port flag. Each is a port-list record whose UN/LOCODE row records only a road terminal, confirmed as a deep-sea terminal by the source named on the entry.
 
 Important limitation: the imported UN/LOCODE resource did not retain an edition or source-file checksum, and repository history does not identify one. It must therefore not be described as the current official edition. The [UNECE publications page](https://unlocode.unece.org/publications/) is the authority for the current production and pre-release datasets. A future refresh should replace this resource from a named publication and record its source checksum here.
 

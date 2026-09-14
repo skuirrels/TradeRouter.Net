@@ -201,6 +201,36 @@ public class MovementTests
         act.Should().Throw<ArgumentException>().WithMessage("*CNTSN*declared as Port*airport*");
     }
 
+    [Theory]
+    [InlineData("BRALU")] // Alumar, Sao Luis: UN/LOCODE records only a road terminal
+    [InlineData("CADCN")] // Duncan Bay, Campbell River: UN/LOCODE records only a road terminal
+    public void Movement_AcceptsSeaPortConfirmedBySupplement(string code)
+    {
+        TradeRouterEngine.Default.UnLocodes.GetByCode(code)!.IsSeaPort.Should().BeTrue();
+
+        var plan = MovementPlan
+            .From(Waypoint.Port("NLRTM"))
+            .ThenTo(Waypoint.Port(code), TransportMode.Sea);
+        var result = TradeRoutes.CalculateMovement(plan);
+
+        var destination = result.Legs[0].To;
+        destination.Source.Should().Be("ports");
+        destination.Port!.PortCode.Should().Be(code);
+        result.Legs[0].Length.Should().BeGreaterThan(0.0);
+    }
+
+    [Fact]
+    public void Movement_StillRejectsInlandPortListRecordAsSeaPort()
+    {
+        // Calgary is in the port list as an inland terminal 650 km from the nearest lane point.
+        var plan = MovementPlan
+            .From(Waypoint.Port("USSEA"))
+            .ThenTo(Waypoint.Port("CACAL"), TransportMode.Sea);
+        var act = () => TradeRoutes.CalculateMovement(plan);
+
+        act.Should().Throw<ArgumentException>().WithMessage("*CACAL*declared as Port*");
+    }
+
     [Fact]
     public void Movement_ResolvesAirportsAndPortsFromUnLocodeWithoutCallerCoordinates()
     {

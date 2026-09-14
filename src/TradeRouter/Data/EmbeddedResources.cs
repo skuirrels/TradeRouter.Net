@@ -69,6 +69,7 @@ public static class EmbeddedResources
         using var doc = JsonDocument.Parse(gzipStream);
 
         var supplement = LoadUnLocodeSupplement();
+        var confirmedSeaPorts = LoadSeaPortSupplement();
         var entries = new List<UnLocode>(110_000);
         foreach (var item in doc.RootElement.EnumerateArray())
         {
@@ -78,6 +79,9 @@ public static class EmbeddedResources
                 ? new Coordinate(item[2].GetDouble(), item[3].GetDouble())
                 : null;
             var functions = (LocationFunctions)item[4].GetInt32();
+            // Codes UNECE lists without the sea-port function but that are documented deep-sea terminals.
+            if (confirmedSeaPorts.Contains(code))
+                functions |= LocationFunctions.SeaPort;
             string coordinateSource = coordinate.HasValue ? "UNECE" : "";
 
             // The supplement only fills codes UNECE publishes without coordinates; it never overrides UNECE.
@@ -111,6 +115,27 @@ public static class EmbeddedResources
             var coordinate = new Coordinate(item.GetProperty("lon").GetDouble(), item.GetProperty("lat").GetDouble());
             string source = item.GetProperty("source").GetString() ?? "supplement";
             result[code] = (coordinate, source);
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Loads unlocode-seaport-supplement.json: codes that UNECE publishes without the sea-port function but
+    /// that cited sources document as sea ports, so movements may declare them as ports and route sea legs.
+    /// </summary>
+    private static HashSet<string> LoadSeaPortSupplement()
+    {
+        var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        using var stream = CurrentAssembly.GetManifestResourceStream("TradeRouter.Data.unlocode-seaport-supplement.json");
+        if (stream == null)
+            return result;
+
+        using var doc = JsonDocument.Parse(stream);
+        foreach (var item in doc.RootElement.EnumerateArray())
+        {
+            string code = item.GetProperty("code").GetString() ?? "";
+            if (code.Length > 0)
+                result.Add(code);
         }
         return result;
     }

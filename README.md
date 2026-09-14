@@ -392,6 +392,7 @@ Everything here is deliberate and documented, but each is a simplification you s
 
 - **Port list versus UN/LOCODE tie-break.** When both lists know a code, the port list position is used only if the two names match or one is a prefix of the other after stripping accents and punctuation. If they disagree, UN/LOCODE's position is used and no port record is attached. Check `Source` on the resolved location when it matters.
 - **Supplemented coordinates.** Four codes have coordinates researched by hand rather than published by UNECE; the supplement file names each source.
+- **Sea-port function checks.** A port waypoint or sea leg is rejected when UN/LOCODE records no sea-port function, even if the port list holds the code, because that list also contains inland terminals such as Calgary. Two codes UNECE under-records, Alumar (`BRALU`) and Duncan Bay (`CADCN`), are confirmed as sea ports by [unlocode-seaport-supplement.json](src/TradeRouter/Data/unlocode-seaport-supplement.json) with cited sources. Other affected ports need a `Waypoint.Place` or a new supplement entry.
 - **Duplicate port codes.** The tagged upstream list contains 38 codes with multiple records. Code-only lookup never silently chooses one; provide a nearby coordinate or inspect the candidates.
 - **UN/LOCODE edition.** The embedded import did not preserve its UNECE publication edition. Its hash and record counts are documented, but it is not claimed to be the latest release.
 - **Single routes with several area matches** return the first feature from `CalculateRoute`; use `CalculateRoutes` to see them all.
@@ -495,6 +496,7 @@ dotnet pack src/TradeRouter/TradeRouter.csproj -c Release -m:1 -nr:false -o ./ar
 - **World ports**, transformed from searoute-py 1.6.0: 3,962 records with code, name, country, terminal flag and permitted destination countries.
 - **UN/LOCODE**, the UNECE code list for trade and transport locations: 106,588 codes with name and function flags, of which 84,516 carry coordinates to one minute of arc. Used to resolve movement legs that name airports, terminals and inland places. Loaded only when a movement needs it.
 - **UN/LOCODE supplement**: a hand-maintained JSON file of coordinates for codes UNECE publishes without any, each with its source. Currently four entries: Gatwick, Shanghai Railway Station, Shanghai Hongqiao and Melrose. Applied only where UNECE has no coordinate.
+- **UN/LOCODE sea-port supplement**: a hand-maintained JSON file of codes that UNECE publishes without the sea-port function but that cited sources document as sea ports. Currently two entries: Alumar and Duncan Bay. It only adds the sea-port function and never removes one.
 
 All datasets are embedded as gzip-compressed JSON, about 1.7 MB in total, and loaded lazily on first use. Exact input and output hashes, transformations and the known UN/LOCODE edition gap are in [DATA_PROVENANCE.md](DATA_PROVENANCE.md); licensing and attribution are in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 

@@ -34,7 +34,7 @@ public enum LocationFunctions
 /// <param name="Code">Five-character UN/LOCODE.</param>
 /// <param name="Name">Location name without diacritics.</param>
 /// <param name="Coordinate">Position to one minute of arc, or null when UNECE publishes none.</param>
-/// <param name="Functions">Recorded functions.</param>
+/// <param name="Functions">Recorded functions, with the sea-port function added for codes listed in the sea-port supplement file.</param>
 /// <param name="CoordinateSource">"UNECE" when the position comes from the code list, otherwise the researched source named in the supplement file; empty when there is no position.</param>
 public sealed record UnLocode(string Code, string Name, Coordinate? Coordinate, LocationFunctions Functions, string CoordinateSource = "")
 {
