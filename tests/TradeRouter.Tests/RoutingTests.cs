@@ -13,7 +13,7 @@ public class RoutingTests
     {
         var route = TradeRoutes.Calculate(
             "AEJEA",
-            "AGSJS",
+            "AGSJO",
             new TradeRouterOptions
             {
                 Restrictions = [Passages.Passage.Suez],
@@ -25,6 +25,43 @@ public class RoutingTests
         route.Properties.TraversedPassages.Should().Contain(Passages.Passage.Ormuz);
         route.Properties.TraversedPassages.Should().Contain(Passages.Passage.SouthAfrica);
         route.Properties.TraversedPassages.Should().NotContain(Passages.Passage.Suez);
+    }
+
+    [Theory]
+    [InlineData("AGSJO", "AGSJS")] // Saint John's, Antigua
+    [InlineData("JOAQJ", "JOAQB")] // Aqaba
+    public void PortCodeRoute_OfficialUnLocodeResolvesThroughItsAlias(string officialCode, string portListCode)
+    {
+        TradeRouterEngine.Default.Ports.GetByCode(officialCode).Should().BeNull("the port list holds this port under another code");
+
+        var viaAlias = TradeRoutes.Calculate("AEJEA", officialCode);
+        var direct = TradeRoutes.Calculate("AEJEA", portListCode);
+
+        viaAlias.Properties.PortDest!.PortCode.Should().Be(portListCode);
+        viaAlias.Properties.Length.Should().Be(direct.Properties.Length);
+    }
+
+    [Fact]
+    public void PortCodeAliases_EachNameAnOfficialSeaPortAndOneUnambiguousPortRecord()
+    {
+        var aliases = Data.EmbeddedResources.LoadPortCodeAliases();
+        aliases.Should().HaveCountGreaterThan(50);
+
+        foreach (var (code, portCode) in aliases)
+        {
+            TradeRouterEngine.Default.Ports.GetByCodeCandidates(code).Should().BeEmpty($"{code} must not shadow a port-list record");
+            TradeRouterEngine.Default.UnLocodes.GetByCode(code)!.IsSeaPort.Should().BeTrue($"{code} must be a UN/LOCODE sea port");
+            TradeRouterEngine.Default.UnLocodes.GetByCode(portCode).Should().BeNull($"{portCode} is aliased only because UN/LOCODE lacks it");
+            TradeRouterEngine.Default.Ports.GetByCodeCandidates(portCode).Should().ContainSingle($"{code} must map to one {portCode} record");
+        }
+    }
+
+    [Fact]
+    public void PortCodeRoute_UnknownCodeStillThrows()
+    {
+        var act = () => TradeRoutes.Calculate("AEJEA", "XXZZZ");
+
+        act.Should().Throw<ArgumentException>().WithMessage("*XXZZZ*not found*");
     }
 
     [Fact]

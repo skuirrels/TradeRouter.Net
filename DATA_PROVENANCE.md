@@ -23,6 +23,10 @@ The searoute-py project credits [Eurostat SeaRoute](https://github.com/eurostat/
 - Embedded `unlocode-supplement.json`: SHA-256 `6ce12ca501948e6f8c5e962fe901673627e2d05a9e1a666118896261a2437716`; four attributed coordinate supplements, applied only when the UN/LOCODE row has no coordinate.
 - Embedded `unlocode-seaport-supplement.json`: SHA-256 `3b515fb9e5ee7d178a1409d43c5503c05e55405b01c8fdc0c3eb4f4a3887a56e`; two attributed codes, BRALU and CADCN, whose UN/LOCODE function gains the sea-port flag. Each is a port-list record whose UN/LOCODE row records only a road terminal, confirmed as a deep-sea terminal by the source named on the entry.
 
+- Embedded `port-code-aliases.json`: SHA-256 `456a4e27f55e62365b149010b59b236dd3d46731ed21cb34efa1ce3f87638742`; 61 official UN/LOCODE sea-port codes, each mapped to the port-list record held under a code UN/LOCODE lacks.
+
+`tools/find-port-code-aliases.py` lists candidates from the embedded data: a port-list code absent from UN/LOCODE, paired with a same-country UN/LOCODE sea port that the port list does not hold, within 25 km, ranked by name similarity. On 14 September 2026 it produced 81 candidates at a similarity of 0.5 or more. 61 were kept after manual review because the names are the same place, including spelling variants such as Nauplia and Nafplion. 20 were rejected as different places, for example Londerzeel against Moerzeke and Mina Abdullah against Mina Al Ahmadi, or as the inland New Delhi depot. Each entry records both names and the distance.
+
 Important limitation: the imported UN/LOCODE resource did not retain an edition or source-file checksum, and repository history does not identify one. It must therefore not be described as the current official edition. The [UNECE publications page](https://unlocode.unece.org/publications/) is the authority for the current production and pre-release datasets. A future refresh should replace this resource from a named publication and record its source checksum here.
 
 ## Licences and attribution

@@ -25,6 +25,7 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
     private readonly Lazy<MaritimeGraph> _lazyGraph;
     private readonly Lazy<PortDatabase> _lazyPorts;
     private readonly Lazy<UnLocodeDatabase> _lazyUnLocodes = new(EmbeddedResources.LoadUnLocodes, LazyThreadSafetyMode.ExecutionAndPublication);
+    private readonly Lazy<IReadOnlyDictionary<string, string>> _lazyPortCodeAliases = new(EmbeddedResources.LoadPortCodeAliases, LazyThreadSafetyMode.ExecutionAndPublication);
 
     /// <inheritdoc />
     public MaritimeGraph Graph => _lazyGraph.Value;
@@ -85,15 +86,28 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
     /// <inheritdoc />
     public GeoJsonFeature CalculateRoute(string originPortCode, string destPortCode, TradeRouterOptions? options = null)
     {
-        var originPort = Ports.GetByCode(originPortCode)
+        var originPort = GetPortByCodeOrAlias(originPortCode)
             ?? throw new ArgumentException($"Port '{originPortCode}' not found in port database.", nameof(originPortCode));
-        var destPort = Ports.GetByCode(destPortCode)
+        var destPort = GetPortByCodeOrAlias(destPortCode)
             ?? throw new ArgumentException($"Port '{destPortCode}' not found in port database.", nameof(destPortCode));
 
         var feature = CalculateRoute(originPort.Coordinate, destPort.Coordinate, options);
         feature.Properties.PortOrigin = originPort;
         feature.Properties.PortDest = destPort;
         return feature;
+    }
+
+    /// <summary>
+    /// Finds a port by its code. A code the port list does not hold is looked up in the reviewed alias list,
+    /// which maps official UN/LOCODEs such as AGSJO to the port list's own code for the same port, here AGSJS.
+    /// </summary>
+    private Port? GetPortByCodeOrAlias(string portCode)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(portCode);
+        var port = Ports.GetByCode(portCode);
+        if (port != null)
+            return port;
+        return _lazyPortCodeAliases.Value.TryGetValue(portCode.Trim(), out var alias) ? Ports.GetByCode(alias) : null;
     }
 
     /// <inheritdoc />

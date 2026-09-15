@@ -141,6 +141,28 @@ public static class EmbeddedResources
     }
 
     /// <summary>
+    /// Loads port-code-aliases.json: official UN/LOCODE sea-port codes mapped to the differently coded record that
+    /// the embedded port list holds for the same port, reviewed from name and position.
+    /// </summary>
+    public static IReadOnlyDictionary<string, string> LoadPortCodeAliases()
+    {
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        using var stream = CurrentAssembly.GetManifestResourceStream("TradeRouter.Data.port-code-aliases.json");
+        if (stream == null)
+            return result;
+
+        using var doc = JsonDocument.Parse(stream);
+        foreach (var item in doc.RootElement.EnumerateArray())
+        {
+            string code = item.GetProperty("code").GetString() ?? "";
+            string port = item.GetProperty("port").GetString() ?? "";
+            if (code.Length > 0 && port.Length > 0)
+                result[code] = port;
+        }
+        return result;
+    }
+
+    /// <summary>
     /// Loads and builds the PortDatabase from the embedded ports.json.gz dataset.
     /// </summary>
     public static PortDatabase LoadPortDatabase()
