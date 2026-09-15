@@ -26,6 +26,7 @@ public class MovementTextTests
 
         text.Should().StartWith("Leg Kind");
         text.Should().Contain("Modelled transit time");
+        text.Should().Contain("Distance basis");
         text.Should().Contain("Pickup    Road  GBLGW  GBFXT");
         text.Should().Contain("Main      Sea   GBFXT  SGSIN");
         text.Should().Contain("Delivery  Road  AUMEL  AUMRS");
@@ -36,6 +37,7 @@ public class MovementTextTests
         text.Should().Contain("port handling");
         text.Should().Contain("connections");
         text.Should().Contain("planning lower bound");
+        text.Should().Contain("circuity_estimate is a planning estimate");
         text.Should().Contain(result.TotalLength.ToString("N0", CultureInfo.InvariantCulture));
         text.Should().Contain(result.TotalTransitHours.ToString("N1", CultureInfo.InvariantCulture));
         text.Should().Contain(result.TotalCo2eKg!.Value.ToString("N0", CultureInfo.InvariantCulture));

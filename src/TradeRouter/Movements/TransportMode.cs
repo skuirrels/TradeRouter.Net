@@ -2,13 +2,13 @@ namespace TradeRouter.Movements;
 
 /// <summary>
 /// Transport mode of a movement leg. Only <see cref="Sea"/> is routed on the maritime network;
-/// the other modes are modelled as straight great-circle legs between their endpoints.
+/// road can use supplied, provider-routed or estimated distance, while rail and air use great-circle distance.
 /// </summary>
 public enum TransportMode
 {
     /// <summary>Ocean or coastal shipping, routed on the Marnet graph.</summary>
     Sea,
-    /// <summary>Road haulage, straight-line leg.</summary>
+    /// <summary>Road haulage, resolved by a supplied route, provider or fallback estimator.</summary>
     Road,
     /// <summary>Rail, straight-line leg.</summary>
     Rail,

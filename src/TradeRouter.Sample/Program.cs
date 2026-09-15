@@ -97,7 +97,8 @@ Print("9. CNSHG Shanghai to GBLON London, step by step",
     $"   finished route {finished.Geometry?.Positions.Count ?? 0} points, {finished.Properties.Length:N0} km, {finished.Properties.DurationHours:N1} h{Environment.NewLine}" +
     $"   result         GeoJSON Feature, {finished.ToJson().Length:N0} characters");
 
-// 10 to 12. Multi-leg movements, one leg per line. Sea legs are routed; road and air legs are straight lines.
+// 10 to 12. Multi-leg movements. Sea legs use the maritime network; road legs use a supplied route,
+//    a configured provider, or the labelled built-in circuity estimate. Air legs use great-circle distance.
 //    Every code resolves from the embedded port list or UN/LOCODE list, so no coordinates are supplied.
 //    Gatwick (GBLGW), Shanghai Railway Station (CNSHZ) and Melrose (AUMRS) have no coordinates in the UNECE
 //    list; the library's supplement file fills them from cited sources. AUMRS is Melrose, an inland South
@@ -122,19 +123,41 @@ PrintMovement(
     tonnes: 12.0,
     teu: 2.0);
 
-PrintMovement(
-    "12. Movement with an air leg",
-    MovementPlan
-        .From(Waypoint.Place("GBLGW"))
-        .PickupTo(Waypoint.Airport("GBLHR"), TransportMode.Road)
-        .ThenTo(Waypoint.Airport("AUMEL"), TransportMode.Air)
-        .DeliverTo(Waypoint.Place("AUMRS"), TransportMode.Road));
+var airPlan = MovementPlan
+    .From(Waypoint.Place("GBLGW"))
+    .PickupTo(Waypoint.Airport("GBLHR"), TransportMode.Road)
+    .ThenTo(Waypoint.Airport("AUMEL"), TransportMode.Air)
+    .DeliverTo(Waypoint.Place("AUMRS"), TransportMode.Road);
+var airRequest = new MovementRequest
+{
+    Legs = airPlan.Legs.ToList(),
+    SeaOptions = new TradeRouterOptions { ReturnPassages = true },
+    CargoTonnes = 20.0
+};
+airRequest.RoadRouteOverrides[1] = new SuppliedRoadRoute
+{
+    DistanceKm = 64.0,
+    Source = "known-route"
+};
+PrintMovementRequest("12. Movement with an air leg and a supplied 64 km Gatwick-Heathrow road distance", airRequest);
 
 static void PrintMovement(string title, MovementPlan plan, double tonnes = 20.0, double? teu = null)
 {
     // CO2e per leg uses GLEC well-to-wheel defaults per mode. With a TEU count, sea legs are charged per
     // container (76 g per TEU-km) rather than per tonne, so a light box is not under-counted.
-    var movement = TradeRoutes.CalculateMovement(plan, seaOptions: new TradeRouterOptions { ReturnPassages = true }, cargoTonnes: tonnes, cargoTeu: teu);
+    var request = new MovementRequest
+    {
+        Legs = plan.Legs.ToList(),
+        SeaOptions = new TradeRouterOptions { ReturnPassages = true },
+        CargoTonnes = tonnes,
+        CargoTeu = teu
+    };
+    PrintMovementRequest(title, request);
+}
+
+static void PrintMovementRequest(string title, MovementRequest request)
+{
+    var movement = TradeRoutes.CalculateMovement(request);
 
     Console.WriteLine();
     Console.WriteLine(title);

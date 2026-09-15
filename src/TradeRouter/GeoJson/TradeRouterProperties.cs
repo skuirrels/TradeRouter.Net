@@ -16,9 +16,49 @@ public sealed class TradeRouterProperties
     [JsonPropertyName("units")]
     public string Units { get; set; } = "km";
 
-    /// <summary>Estimated voyage duration in hours.</summary>
+    /// <summary>Travelling duration in hours, provider-modelled when available or otherwise derived from configured speed.</summary>
     [JsonPropertyName("duration_hours")]
     public double DurationHours { get; set; }
+
+    /// <summary>How the distance was obtained, for example "road_network", "supplied", "circuity_estimate" or "great_circle".</summary>
+    [JsonPropertyName("distance_basis")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? DistanceBasis { get; set; }
+
+    /// <summary>Great-circle lower bound in the requested units when a road distance was supplied, routed or estimated.</summary>
+    [JsonPropertyName("straight_line_length")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? StraightLineLength { get; set; }
+
+    /// <summary>Provider, estimator or caller provenance for the distance.</summary>
+    [JsonPropertyName("distance_source")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? DistanceSource { get; set; }
+
+    /// <summary>Routing profile used for a road-network result.</summary>
+    [JsonPropertyName("routing_profile")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? RoutingProfile { get; set; }
+
+    /// <summary>Version identifier configured for the road-network dataset.</summary>
+    [JsonPropertyName("routing_data_version")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? RoutingDataVersion { get; set; }
+
+    /// <summary>How travelling duration was derived, such as "provider" or "assumed_speed".</summary>
+    [JsonPropertyName("duration_basis")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? DurationBasis { get; set; }
+
+    /// <summary>How the emitted geometry was obtained, such as "road_network" or "great_circle".</summary>
+    [JsonPropertyName("geometry_basis")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? GeometryBasis { get; set; }
+
+    /// <summary>Warning attached to an estimated road distance or provider fallback.</summary>
+    [JsonPropertyName("distance_warning")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? DistanceWarning { get; set; }
 
     /// <summary>Origin port details if ports are included.</summary>
     [JsonPropertyName("port_origin")]

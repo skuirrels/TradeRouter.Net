@@ -80,4 +80,25 @@ public sealed class MovementRequest
         [TransportMode.Rail] = 80.0,
         [TransportMode.Air] = 800.0
     };
+
+    /// <summary>
+    /// Optional road-network provider, such as <see cref="OsrmRoadRouteProvider"/>. It is used only by
+    /// <c>CalculateMovementAsync</c>; synchronous movement calculation rejects a request that expects to call it.
+    /// </summary>
+    public IRoadRouteProvider? RoadRouteProvider { get; set; }
+
+    /// <summary>Controls provider use and fallback behavior for road legs.</summary>
+    public RoadRoutingMode RoadRoutingMode { get; set; } = RoadRoutingMode.PreferNetworkThenEstimate;
+
+    /// <summary>
+    /// Deterministic fallback used when a road-network route is not configured or lies outside its coverage.
+    /// Defaults to a coarse 1.3 road-circuity multiplier.
+    /// </summary>
+    public IRoadDistanceEstimator RoadDistanceEstimator { get; set; } = CircuityRoadDistanceEstimator.Default;
+
+    /// <summary>
+    /// Authoritative caller-supplied road routes keyed by one-based leg sequence. These take precedence over
+    /// both a configured provider and the fallback estimator.
+    /// </summary>
+    public Dictionary<int, SuppliedRoadRoute> RoadRouteOverrides { get; } = [];
 }

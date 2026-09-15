@@ -73,7 +73,8 @@ public class MovementTests
         var pickup = result.Legs[0];
         pickup.Leg.Mode.Should().Be(TransportMode.Road);
         pickup.Feature.Geometry!.Coordinates.Should().HaveCount(2);
-        pickup.Length.Should().BeInRange(120.0, 160.0);
+        pickup.Length.Should().BeInRange(160.0, 210.0);
+        pickup.Feature.Properties.DistanceBasis.Should().Be("circuity_estimate");
         pickup.DurationHours.Should().BeApproximately(pickup.Length / 60.0, 1e-6);
         pickup.To.Port.Should().NotBeNull();
         pickup.To.Port!.Name.Should().Be("Felixstowe");
@@ -265,7 +266,7 @@ public class MovementTests
 
         result.Legs[0].From.Source.Should().Be("resolver");
         result.Legs[0].From.Name.Should().Be("London");
-        result.Legs[0].Length.Should().BeInRange(100.0, 140.0);
+        result.Legs[0].Length.Should().BeInRange(130.0, 170.0);
     }
 
     [Fact]
@@ -362,7 +363,7 @@ public class MovementTests
         var result = TradeRouterEngine.Default.CalculateMovement(request);
 
         result.Legs[0].From.Source.Should().Be("coordinates");
-        result.Legs[0].Length.Should().BeInRange(100.0, 140.0);
+        result.Legs[0].Length.Should().BeInRange(130.0, 170.0);
     }
 
     [Fact]

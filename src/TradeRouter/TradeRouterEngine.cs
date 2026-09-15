@@ -24,6 +24,7 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
 
     private readonly Lazy<MaritimeGraph> _lazyGraph;
     private readonly Lazy<PortDatabase> _lazyPorts;
+    private readonly string _maritimeDistanceSource;
     private readonly Lazy<UnLocodeDatabase> _lazyUnLocodes = new(EmbeddedResources.LoadUnLocodes, LazyThreadSafetyMode.ExecutionAndPublication);
     private readonly Lazy<IReadOnlyDictionary<string, string>> _lazyPortCodeAliases = new(EmbeddedResources.LoadPortCodeAliases, LazyThreadSafetyMode.ExecutionAndPublication);
 
@@ -42,7 +43,7 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
     /// Creates a new instance of <see cref="TradeRouterEngine"/> using default embedded datasets.
     /// </summary>
     public TradeRouterEngine()
-        : this(EmbeddedResources.LoadMaritimeGraph, EmbeddedResources.LoadPortDatabase)
+        : this(EmbeddedResources.LoadMaritimeGraph, EmbeddedResources.LoadPortDatabase, "marnet")
     {
     }
 
@@ -57,17 +58,27 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
             throw new ArgumentException("The custom graph must be finalized with BuildIndex() before it is used by an engine.", nameof(graph));
         _lazyGraph = new Lazy<MaritimeGraph>(() => graph);
         _lazyPorts = new Lazy<PortDatabase>(() => ports);
+        _maritimeDistanceSource = "custom_graph";
     }
 
     /// <summary>
     /// Creates a new instance of <see cref="TradeRouterEngine"/> with custom factory delegates.
     /// </summary>
     public TradeRouterEngine(Func<MaritimeGraph> graphFactory, Func<PortDatabase> portsFactory)
+        : this(graphFactory, portsFactory, "custom_graph")
+    {
+    }
+
+    private TradeRouterEngine(
+        Func<MaritimeGraph> graphFactory,
+        Func<PortDatabase> portsFactory,
+        string maritimeDistanceSource)
     {
         ArgumentNullException.ThrowIfNull(graphFactory);
         ArgumentNullException.ThrowIfNull(portsFactory);
         _lazyGraph = new Lazy<MaritimeGraph>(() => ValidateGraph(graphFactory()), LazyThreadSafetyMode.ExecutionAndPublication);
         _lazyPorts = new Lazy<PortDatabase>(() => portsFactory() ?? throw new InvalidOperationException("The port factory returned null."), LazyThreadSafetyMode.ExecutionAndPublication);
+        _maritimeDistanceSource = maritimeDistanceSource;
     }
 
     /// <inheritdoc />
@@ -198,6 +209,10 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
                     Length = totalLength,
                     Units = units.ToUnitString(),
                     DurationHours = duration,
+                    DistanceBasis = "maritime_network",
+                    DistanceSource = _maritimeDistanceSource,
+                    DurationBasis = "assumed_speed",
+                    GeometryBasis = "maritime_network",
                     PortOrigin = includePorts && pFrom != null ? pFrom : null,
                     PortDest = includePorts && pTo != null ? pTo : null,
                     TraversedPassages = returnPassages ? Passage.FilterValidPassages(traversedPassages) : null
@@ -215,7 +230,35 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
     {
         ArgumentNullException.ThrowIfNull(request);
         ValidateMovement(request);
+        bool hasRoadLegWithoutOverride = request.Legs
+            .Select((leg, index) => (Leg: leg, Sequence: index + 1))
+            .Any(item => item.Leg.Mode == TransportMode.Road && !request.RoadRouteOverrides.ContainsKey(item.Sequence));
+        if (request.RoadRouteProvider != null &&
+            request.RoadRoutingMode != RoadRoutingMode.EstimateOnly &&
+            hasRoadLegWithoutOverride)
+        {
+            throw new InvalidOperationException(
+                "This movement is configured to call a road-route provider. Use CalculateMovementAsync so provider I/O does not block the calling thread.");
+        }
 
+        return CalculateMovementCoreAsync(request, allowProvider: false, CancellationToken.None).GetAwaiter().GetResult();
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<MovementResult> CalculateMovementAsync(
+        MovementRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ValidateMovement(request);
+        return await CalculateMovementCoreAsync(request, allowProvider: true, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async ValueTask<MovementResult> CalculateMovementCoreAsync(
+        MovementRequest request,
+        bool allowProvider,
+        CancellationToken cancellationToken)
+    {
         // Movement legs always include their resolved endpoints so consecutive legs join end to end.
         var seaOptions = (request.SeaOptions ?? new TradeRouterOptions()).Clone();
         seaOptions.AppendOriginDestination = true;
@@ -226,6 +269,7 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
 
         for (int i = 0; i < request.Legs.Count; i++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var leg = request.Legs[i];
             int sequence = i + 1;
             var from = ResolveLocation(leg.From, request, resolvedByCode);
@@ -244,9 +288,30 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
                 }
             }
 
-            var feature = leg.Mode == TransportMode.Sea
-                ? CalculateSeaLeg(sequence, leg, from, to, seaOptions)
-                : CalculateStraightLeg(from, to, leg.Mode, units, request.SpeedsKmh);
+            GeoJsonFeature feature;
+            if (leg.Mode == TransportMode.Sea)
+            {
+                feature = CalculateSeaLeg(sequence, leg, from, to, seaOptions);
+                feature.Properties.DistanceBasis = "maritime_network";
+                feature.Properties.DistanceSource = _maritimeDistanceSource;
+                feature.Properties.GeometryBasis = "maritime_network";
+                feature.Properties.DurationBasis = "assumed_speed";
+            }
+            else if (leg.Mode == TransportMode.Road)
+            {
+                feature = await CalculateRoadLegAsync(
+                    sequence,
+                    from,
+                    to,
+                    units,
+                    request,
+                    allowProvider,
+                    cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                feature = CalculateStraightLeg(from, to, leg.Mode, units, request.SpeedsKmh);
+            }
 
             feature.Properties.Leg = sequence;
             feature.Properties.Mode = leg.Mode.ToWireString();
@@ -353,7 +418,7 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
         var coords = RouteNormalizer.NormalizeRoute([from.Coordinate, to.Coordinate]);
         double length = Haversine.CalculatePathLength(coords, units);
 
-        // Reuse the sea-leg duration helper by expressing the road speed in knots.
+        // Reuse the sea-leg duration helper by expressing the configured non-sea speed in knots.
         double speedKnots = speedKmh / DistanceUnit.Km.GetSpeedCoefficient();
 
         return new GeoJsonFeature
@@ -364,10 +429,253 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
                 Length = length,
                 Units = units.ToUnitString(),
                 DurationHours = Haversine.CalculateDurationHours(speedKnots, length, units),
+                DistanceBasis = "great_circle",
+                DistanceSource = "built_in",
+                DurationBasis = "assumed_speed",
+                GeometryBasis = "great_circle",
                 PortOrigin = from.Port,
                 PortDest = to.Port
             }
         };
+    }
+
+    private static async ValueTask<GeoJsonFeature> CalculateRoadLegAsync(
+        int sequence,
+        ResolvedLocation from,
+        ResolvedLocation to,
+        DistanceUnit units,
+        MovementRequest request,
+        bool allowProvider,
+        CancellationToken cancellationToken)
+    {
+        double straightLineKm = Haversine.DistanceKm(from.Coordinate, to.Coordinate);
+
+        if (request.RoadRouteOverrides.TryGetValue(sequence, out var supplied))
+        {
+            return CreateRoadLegFeature(
+                from,
+                to,
+                units,
+                request.SpeedsKmh,
+                supplied.DistanceKm,
+                supplied.DurationHours,
+                supplied.Geometry,
+                distanceBasis: "supplied",
+                distanceSource: supplied.Source,
+                profile: null,
+                dataVersion: null,
+                warning: null,
+                straightLineKm);
+        }
+
+        if (request.RoadRoutingMode == RoadRoutingMode.RequireNetwork && request.RoadRouteProvider is null)
+        {
+            throw new InvalidOperationException(
+                $"Road leg {sequence} ({from.Label} to {to.Label}) requires a road-network provider, but none is configured.");
+        }
+
+        if (allowProvider && request.RoadRouteProvider != null && request.RoadRoutingMode != RoadRoutingMode.EstimateOnly)
+        {
+            RoadRouteResult result = await request.RoadRouteProvider
+                .RouteAsync(new RoadRouteRequest(sequence, from, to), cancellationToken)
+                .ConfigureAwait(false)
+                ?? throw new InvalidOperationException($"Road-route provider returned null for leg {sequence}.");
+            ValidateProviderSource(sequence, result);
+
+            switch (result.Status)
+            {
+                case RoadRouteStatus.Success:
+                    ValidateProviderSuccess(sequence, result);
+                    return CreateRoadLegFeature(
+                        from,
+                        to,
+                        units,
+                        request.SpeedsKmh,
+                        result.DistanceKm!.Value,
+                        result.DurationHours,
+                        result.Geometry,
+                        distanceBasis: "road_network",
+                        distanceSource: result.Source,
+                        profile: result.Profile,
+                        dataVersion: result.DataVersion,
+                        warning: null,
+                        straightLineKm);
+
+                case RoadRouteStatus.NoRoute:
+                    throw new InvalidOperationException(
+                        $"Road leg {sequence} ({from.Label} to {to.Label}) has no route according to {result.Source}: {result.Message ?? "no reason supplied"}");
+
+                case RoadRouteStatus.OutsideCoverage:
+                case RoadRouteStatus.Unavailable:
+                    if (request.RoadRoutingMode == RoadRoutingMode.RequireNetwork)
+                    {
+                        throw new InvalidOperationException(
+                            $"Road leg {sequence} ({from.Label} to {to.Label}) could not be routed by {result.Source}: {result.Message ?? result.Status.ToString()}");
+                    }
+                    return EstimateRoadLeg(
+                        sequence,
+                        from,
+                        to,
+                        units,
+                        request,
+                        straightLineKm,
+                        $"{result.Source} returned {result.Status}: {result.Message ?? "no reason supplied"}.");
+
+                default:
+                    throw new InvalidOperationException($"Road-route provider returned unknown status '{result.Status}'.");
+            }
+        }
+
+        return EstimateRoadLeg(sequence, from, to, units, request, straightLineKm, providerWarning: null);
+    }
+
+    private static GeoJsonFeature EstimateRoadLeg(
+        int sequence,
+        ResolvedLocation from,
+        ResolvedLocation to,
+        DistanceUnit units,
+        MovementRequest request,
+        double straightLineKm,
+        string? providerWarning)
+    {
+        var estimate = request.RoadDistanceEstimator.Estimate(
+            new RoadDistanceEstimateRequest(sequence, from, to, straightLineKm))
+            ?? throw new InvalidOperationException($"Road-distance estimator returned null for leg {sequence}.");
+        if (string.IsNullOrWhiteSpace(estimate.Model))
+            throw new InvalidOperationException($"Road-distance estimator returned a blank model for leg {sequence}.");
+        if (string.IsNullOrWhiteSpace(estimate.Warning))
+            throw new InvalidOperationException($"Road-distance estimator returned a blank warning for leg {sequence}.");
+        if (!double.IsFinite(estimate.DistanceKm) || estimate.DistanceKm < straightLineKm)
+        {
+            throw new InvalidOperationException(
+                $"Road-distance estimator '{estimate.Model}' returned {estimate.DistanceKm} km for a {straightLineKm} km great-circle lower bound.");
+        }
+
+        string warning = string.IsNullOrWhiteSpace(providerWarning)
+            ? estimate.Warning
+            : $"{providerWarning} {estimate.Warning}";
+        return CreateRoadLegFeature(
+            from,
+            to,
+            units,
+            request.SpeedsKmh,
+            estimate.DistanceKm,
+            durationHours: null,
+            geometry: null,
+            distanceBasis: "circuity_estimate",
+            distanceSource: estimate.Model,
+            profile: null,
+            dataVersion: null,
+            warning,
+            straightLineKm);
+    }
+
+    private static GeoJsonFeature CreateRoadLegFeature(
+        ResolvedLocation from,
+        ResolvedLocation to,
+        DistanceUnit units,
+        IReadOnlyDictionary<TransportMode, double> speedsKmh,
+        double distanceKm,
+        double? durationHours,
+        IReadOnlyList<Coordinate>? geometry,
+        string distanceBasis,
+        string distanceSource,
+        string? profile,
+        string? dataVersion,
+        string? warning,
+        double straightLineKm)
+    {
+        if (!double.IsFinite(distanceKm) || distanceKm < 0.0)
+            throw new ArgumentOutOfRangeException(nameof(distanceKm), distanceKm, "Road distance must be finite and non-negative.");
+        if (durationHours.HasValue && (!double.IsFinite(durationHours.Value) || durationHours.Value < 0.0))
+            throw new ArgumentOutOfRangeException(nameof(durationHours), durationHours, "Road duration must be finite and non-negative.");
+        if (string.IsNullOrWhiteSpace(distanceSource))
+            throw new ArgumentException("Road distance source cannot be blank.", nameof(distanceSource));
+        var coordinates = BuildContinuousRoadGeometry(from.Coordinate, to.Coordinate, geometry);
+        double length = distanceKm * 1000.0 * units.GetConversionFactorFromMeters();
+        double straightLineLength = straightLineKm * 1000.0 * units.GetConversionFactorFromMeters();
+        double resolvedDuration;
+        if (durationHours.HasValue)
+        {
+            resolvedDuration = durationHours.Value;
+        }
+        else
+        {
+            if (!speedsKmh.TryGetValue(TransportMode.Road, out double speedKmh) || speedKmh <= 0.0)
+                throw new ArgumentException("No positive speed configured for mode Road. Set MovementRequest.SpeedsKmh[TransportMode.Road].");
+            resolvedDuration = distanceKm / speedKmh;
+        }
+
+        return new GeoJsonFeature
+        {
+            Geometry = GeoJsonGeometry.FromCoordinates(RouteNormalizer.NormalizeRoute(coordinates)),
+            Properties = new TradeRouterProperties
+            {
+                Length = length,
+                Units = units.ToUnitString(),
+                DurationHours = resolvedDuration,
+                DistanceBasis = distanceBasis,
+                StraightLineLength = straightLineLength,
+                DistanceSource = distanceSource,
+                RoutingProfile = profile,
+                RoutingDataVersion = dataVersion,
+                DurationBasis = durationHours.HasValue
+                    ? distanceBasis == "supplied" ? "supplied" : "provider"
+                    : "assumed_speed",
+                GeometryBasis = geometry is { Count: >= 2 }
+                    ? distanceBasis == "supplied" ? "supplied" : "road_network"
+                    : "great_circle",
+                DistanceWarning = warning,
+                PortOrigin = from.Port,
+                PortDest = to.Port
+            }
+        };
+    }
+
+    private static IReadOnlyList<Coordinate> BuildContinuousRoadGeometry(
+        Coordinate from,
+        Coordinate to,
+        IReadOnlyList<Coordinate>? routedGeometry)
+    {
+        var coordinates = new List<Coordinate>((routedGeometry?.Count ?? 0) + 2);
+        AddIfDifferent(coordinates, from);
+        if (routedGeometry is { Count: >= 2 })
+        {
+            foreach (var coordinate in routedGeometry)
+                AddIfDifferent(coordinates, coordinate);
+        }
+        AddIfDifferent(coordinates, to);
+
+        // GeoJSON LineString requires two positions, including for a zero-length road leg.
+        if (coordinates.Count == 1)
+            coordinates.Add(to);
+
+        return coordinates;
+    }
+
+    private static void AddIfDifferent(List<Coordinate> coordinates, Coordinate coordinate)
+    {
+        coordinate.Validate();
+        if (coordinates.Count == 0 || coordinates[^1] != coordinate)
+            coordinates.Add(coordinate);
+    }
+
+    private static void ValidateProviderSource(int sequence, RoadRouteResult result)
+    {
+        if (string.IsNullOrWhiteSpace(result.Source))
+            throw new InvalidOperationException($"Road-route provider returned a blank source for leg {sequence}.");
+    }
+
+    private static void ValidateProviderSuccess(int sequence, RoadRouteResult result)
+    {
+        if (!result.DistanceKm.HasValue || !double.IsFinite(result.DistanceKm.Value) || result.DistanceKm.Value < 0.0)
+            throw new InvalidOperationException($"Road-route provider returned an invalid distance for leg {sequence}.");
+        if (result.DurationHours.HasValue && (!double.IsFinite(result.DurationHours.Value) || result.DurationHours.Value < 0.0))
+            throw new InvalidOperationException($"Road-route provider returned an invalid duration for leg {sequence}.");
+        if (result.DistanceKm.Value > 0.0 && result.DurationHours is <= 0.0)
+            throw new InvalidOperationException($"Road-route provider returned a non-positive duration for non-zero leg {sequence}.");
+        if (result.Geometry is { Count: > 0 and < 2 })
+            throw new InvalidOperationException($"Road-route provider returned fewer than two geometry positions for leg {sequence}.");
     }
 
     private ResolvedLocation ResolveLocation(
@@ -502,6 +810,10 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
             throw new ArgumentException("A movement needs at least one leg.", nameof(request));
         if (request.Emissions is null)
             throw new ArgumentException("Movement emissions cannot be null.", nameof(request));
+        if (request.RoadDistanceEstimator is null)
+            throw new ArgumentException("Movement road-distance estimator cannot be null.", nameof(request));
+        if (!Enum.IsDefined(request.RoadRoutingMode))
+            throw new ArgumentException("Movement road-routing mode is unknown.", nameof(request));
         request.Emissions.Validate();
         ValidatePositiveOptional(request.CargoTonnes, nameof(request.CargoTonnes));
         ValidatePositiveOptional(request.CargoTeu, nameof(request.CargoTeu));
@@ -541,6 +853,31 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
             if (string.IsNullOrWhiteSpace(code))
                 throw new ArgumentException("Movement coordinate keys cannot be blank.", nameof(request));
             coordinate.Validate();
+        }
+
+        foreach (var (sequence, route) in request.RoadRouteOverrides)
+        {
+            if (sequence < 1 || sequence > request.Legs.Count)
+                throw new ArgumentException($"Road route override sequence {sequence} is outside the movement's leg range.", nameof(request));
+            if (request.Legs[sequence - 1].Mode != TransportMode.Road)
+                throw new ArgumentException($"Road route override sequence {sequence} does not refer to a road leg.", nameof(request));
+            if (route is null)
+                throw new ArgumentException($"Road route override sequence {sequence} is null.", nameof(request));
+            if (!double.IsFinite(route.DistanceKm) || route.DistanceKm < 0.0)
+                throw new ArgumentOutOfRangeException(nameof(request), route.DistanceKm, $"Road route override sequence {sequence} has an invalid distance.");
+            if (route.DurationHours.HasValue && (!double.IsFinite(route.DurationHours.Value) || route.DurationHours.Value < 0.0))
+                throw new ArgumentOutOfRangeException(nameof(request), route.DurationHours, $"Road route override sequence {sequence} has an invalid duration.");
+            if (route.DistanceKm > 0.0 && route.DurationHours is <= 0.0)
+                throw new ArgumentOutOfRangeException(nameof(request), route.DurationHours, $"Road route override sequence {sequence} has a non-positive duration for a non-zero distance.");
+            if (string.IsNullOrWhiteSpace(route.Source))
+                throw new ArgumentException($"Road route override sequence {sequence} has a blank source.", nameof(request));
+            if (route.Geometry is { Count: > 0 and < 2 })
+                throw new ArgumentException($"Road route override sequence {sequence} geometry needs at least two positions.", nameof(request));
+            if (route.Geometry != null)
+            {
+                foreach (var coordinate in route.Geometry)
+                    coordinate.Validate();
+            }
         }
     }
 

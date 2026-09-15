@@ -25,7 +25,7 @@ public sealed class LegResult
     /// <summary>Leg length in the movement's units.</summary>
     public double Length => Feature.Properties.Length;
 
-    /// <summary>Travelling time in hours: distance divided by the mode's speed.</summary>
+    /// <summary>Travelling time in hours: provider-modelled when supplied, otherwise distance divided by the mode's speed.</summary>
     public double DurationHours => Feature.Properties.DurationHours;
 
     /// <summary>Port time in hours: dwell at each end of a sea leg, zero for road, rail and air.</summary>

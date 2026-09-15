@@ -164,6 +164,14 @@ public static class TradeRoutes
         return Engine.CalculateMovement(request);
     }
 
+    /// <summary>Routes a multi-leg movement asynchronously, allowing a configured road-network provider to be called.</summary>
+    public static ValueTask<MovementResult> CalculateMovementAsync(
+        MovementRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        return Engine.CalculateMovementAsync(request, cancellationToken);
+    }
+
     private static MovementResult CalculateMovement(
         IReadOnlyList<MovementLeg> legs,
         IReadOnlyDictionary<string, Coordinate>? coordinates,

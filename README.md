@@ -48,14 +48,15 @@ var geoJson = movement.ToJson(writeIndented: true);
 Both cargo measurements are shown together only to demonstrate the two emissions bases; real callers can provide either measurement, both when reliably known, or neither. When both are supplied, sea legs use TEU in preference to tonnes, while road, rail and air legs use the stated tonnes. `ToText()` produces the full end-to-end report directly from the calculated movement; `ToJson()` returns the same movement as GeoJSON for mapping or downstream processing. The time is labelled **modelled minimum** because it is built from documented assumptions rather than a live carrier schedule.
 
 ```text
-Leg Kind      Mode  From   To      Distance      Modelled transit time       CO2e rate  CO2e per tonne  CO2e total   Basis  Choke points
-                                                                 hours      g per t-km  kg per t cargo          kg
-1   Pickup    Road  GBLGW  GBFXT        139 km                     2.3            92.0            12.8         154  tonnes
-2   Main      Sea   GBFXT  SGSIN     15,402 km                   895.2             7.6           117.1       2,341     teu  Gibraltar, Suez, Bab-el-Mandeb, Malacca
-3   Main      Sea   SGSIN  AUMEL      7,300 km                   391.6             7.6            55.5       1,110     teu  Sunda
-4   Delivery  Road  AUMEL  AUMRS        829 km                    13.8            92.0            76.3         915  tonnes
-Total                                23,670 km                 1,303.0                           261.6       4,520          for 12 t of cargo in 2 TEU
-Modelled minimum = 782.3 h travel + 376.7 h sea operations + 96 h port handling + 48 h connections = 1,303.0 h (54.3 days)
+Leg Kind      Mode  From   To      Distance       Distance basis   Modelled transit time       CO2e rate  CO2e per tonne  CO2e total   Basis  Choke points
+                                                                                   hours      g per t-km  kg per t cargo          kg
+1   Pickup    Road  GBLGW  GBFXT        181 km   circuity_estimate                     3.0            92.0            16.6         200  tonnes
+2   Main      Sea   GBFXT  SGSIN     15,402 km    maritime_network                   895.2             7.6           117.1       2,341     teu  Gibraltar, Suez, Bab-el-Mandeb, Malacca
+3   Main      Sea   SGSIN  AUMEL      7,300 km    maritime_network                   391.6             7.6            55.5       1,110     teu  Sunda
+4   Delivery  Road  AUMEL  AUMRS      1,078 km   circuity_estimate                    18.0            92.0            99.2       1,190  tonnes
+Total                                23,960 km                                     1,307.8                           288.3       4,840          for 12 t of cargo in 2 TEU
+Modelled minimum = 787.1 h travel + 376.7 h sea operations + 96 h port handling + 48 h connections = 1,307.8 h (54.5 days)
+Distance basis = maritime_network/road_network are network routes; supplied is caller-provided; circuity_estimate is a planning estimate; great_circle is straight-line
 Timing         = planning lower bound from configured assumptions; excludes carrier schedules, customs and disruption
 CO2e rate      = grams of CO2e emitted moving 1 tonne 1 km (configured factor for the mode)
 CO2e per tonne = rate × leg distance: kg of CO2e for each tonne of cargo carried over the leg
@@ -106,7 +107,7 @@ These apply to single routes and to multi-leg movements, which are described [be
 - **Lane**: a straight link between two neighbouring lane points. Sea legs travel only along lanes.
 - **Snapping**: moving a waypoint's position to its nearest lane point so a sea leg can start or end on the map, then joining the two with a straight line so the leg still begins and ends at the waypoint.
 - **Choke point**: a lane that runs through a canal or strait, tagged with its name. Thirteen exist. Closing one makes the router route round it.
-- **Straight leg**: a road, rail or air leg. One straight line between its two waypoints, no lane points involved.
+- **Non-sea leg**: road legs use a supplied or road-network route when available and otherwise a labelled circuity estimate. Rail and air legs use great-circle distance. None uses maritime lane points or choke points.
 
 Implementation notes:
 
@@ -148,7 +149,13 @@ Example output for Jebel Ali (AEJEA) to St John's, Antigua (AGSJO) with Suez clo
 |---|---|
 | `length` | Total route length in the requested unit. |
 | `units` | Unit identifier, for example `km`, `naut`, `mi`. |
-| `duration_hours` | Length divided by vessel speed, default 16 knots. |
+| `duration_hours` | Travelling duration: provider-modelled for a road-network result when available, otherwise length divided by the configured mode speed. |
+| `distance_basis` | Provenance class for the distance: `maritime_network`, `road_network`, `supplied`, `circuity_estimate` or `great_circle`. |
+| `straight_line_length` | Great-circle lower bound for a road leg, in the requested unit. |
+| `distance_source` | Provider, estimator or caller label that produced the distance. |
+| `routing_profile`, `routing_data_version` | Road-provider profile and caller-configured dataset version when known. |
+| `duration_basis`, `geometry_basis` | How travelling time and emitted geometry were obtained. |
+| `distance_warning` | Present when a road leg fell back to an estimate. |
 | `port_origin`, `port_dest` | Present when routing by port code or with `IncludePorts`. |
 | `traversed_passages` | Present when `ReturnPassages` is set. Lower-case identifiers listed below. |
 
@@ -269,10 +276,10 @@ var routes = TradeRouterEngine.Default.CalculateRoutes(TradeRoutes.Locate("BEBRU
 
 ### Multi-leg movements
 
-A `MovementPlan` builds a continuous route from typed waypoints and transport modes. Each destination automatically becomes the next leg's origin, so intermediate UN/LOCODEs are stated once. Declared waypoint types and sea, rail and air modes are checked against known UN/LOCODE functions. Pickup and delivery ordering is enforced while the plan is built. Sea legs are routed on the lane network. Road, rail and air legs are straight great-circle lines between their two waypoints, never touching lane points or choke points, with a configurable speed per mode: 60, 80 and 800 km/h by default.
+A `MovementPlan` builds a continuous route from typed waypoints and transport modes. Each destination automatically becomes the next leg's origin, so intermediate UN/LOCODEs are stated once. Declared waypoint types and sea, rail and air modes are checked against known UN/LOCODE functions. Pickup and delivery ordering is enforced while the plan is built. Sea legs are routed on the maritime lane network. Road legs use a supplied value, an optional road-network provider, or a labelled built-in estimate. Rail and air legs use great-circle distance. None of the non-sea modes touches maritime lane points or choke points. Default assumed speeds are 60, 80 and 800 km/h for road, rail and air.
 
 <p align="center">
-  <img src="docs/diagrams/movement-flow.png" alt="TradeRouter.Net movement flow: a typed MovementPlan builds continuous legs, each leg's locations are resolved, sea legs are routed on Marnet and road, rail or air legs are measured as straight great-circle lines, producing one feature per leg and a FeatureCollection with totals; worked examples show fluent plans from the UK to Melbourne by sea and by air" width="70%">
+  <img src="docs/diagrams/movement-flow.svg" alt="TradeRouter.Net movement flow: a typed MovementPlan builds continuous legs, resolves each leg's locations, routes sea legs on Marnet, resolves road distance from a supplied route, road provider or fallback estimate, and measures rail and air legs by great-circle distance" width="70%">
 </p>
 
 Source: [docs/diagrams/movement-flow.svg](docs/diagrams/movement-flow.svg) (vector) and [movement-flow.html](docs/diagrams/movement-flow.html).
@@ -297,7 +304,7 @@ string geoJson = movement.ToJson();   // FeatureCollection, one feature per leg
 
 The string overload remains available as an import convenience when a source system already supplies human-written leg lines. Code-first callers should use `MovementPlan`; the strings above are only the UN/LOCODE identifiers themselves.
 
-Each leg feature carries `leg`, `mode`, `kind`, `from` and `to` in its properties, plus the time components described below. The collection carries the corresponding totals. Every leg starts and ends at its resolved locations, so consecutive legs join end to end; `AppendOriginDestination` is always on for movement legs. A sea leg with no route under the given restrictions throws an `InvalidOperationException` naming the leg rather than contributing zero. Build a `MovementRequest` directly when you need custom speeds, timing assumptions or emission factors.
+Each leg feature carries `leg`, `mode`, `kind`, `from` and `to` in its properties, plus distance provenance and the time components described below. The collection carries the corresponding totals. Every leg starts and ends at its resolved locations, so consecutive legs join end to end; `AppendOriginDestination` is always on for movement legs. A sea or confirmed road-network leg with no route throws an `InvalidOperationException` naming the leg rather than contributing zero. Build a `MovementRequest` directly when you need road routing, custom speeds, timing assumptions or emission factors.
 
 Codes resolve in this order:
 
@@ -309,14 +316,96 @@ Codes resolve in this order:
 
 Each resolved location reports its `Source`. The embedded UN/LOCODE data has no coordinates for about a fifth of its entries. A small supplement file, [unlocode-supplement.json](src/TradeRouter/Data/unlocode-supplement.json), fills a few of those from cited sources and records the source on the entry; it never overrides UNECE. Codes that neither list can place still need a caller coordinate, and the error for one names the place and its functions. An unknown code throws an `ArgumentException` naming the code rather than guessing. Some port codes occur more than once in the upstream list: code-only lookup throws when ambiguous, `GetByCodeCandidates` returns every record, and `GetByCode(code, near)` disambiguates geographically.
 
+### Road routing
+
+Road legs follow this precedence: a `RoadRouteOverrides` entry for the one-based leg number, then a configured `IRoadRouteProvider`, then the built-in `IRoadDistanceEstimator`. The default estimator multiplies the great-circle lower bound by 1.3. It is deterministic and more realistic than treating roads as straight, but it remains a coarse planning assumption: it does not know the actual road network, ferries, borders, mountains or local restrictions. Its result is therefore labelled `circuity_estimate`, includes the lower bound in `straight_line_length`, and carries a `distance_warning`.
+
+Use the built-in estimate explicitly when OSRM is not configured or should not be called:
+
+```csharp
+var request = new MovementRequest
+{
+    Legs = plan.Legs.ToList(),
+    RoadRoutingMode = RoadRoutingMode.EstimateOnly,
+    RoadDistanceEstimator = new CircuityRoadDistanceEstimator() // default factor: 1.3
+};
+
+var movement = TradeRouterEngine.Default.CalculateMovement(request);
+// Road legs report distance_basis "circuity_estimate" and distance_source "circuity-1.3".
+```
+
+Use an authoritative supplied distance when you already know the route. For the Gatwick (`GBLGW`) to Heathrow (`GBLHR`) example:
+
+```csharp
+var request = new MovementRequest
+{
+    Legs = MovementParser.Parse("Pickup GBLGW to Airport GBLHR Road"),
+    CargoTonnes = 20.0
+};
+request.RoadRouteOverrides[1] = new SuppliedRoadRoute
+{
+    DistanceKm = 64.0,
+    Source = "known-route"
+};
+
+var movement = TradeRouterEngine.Default.CalculateMovement(request);
+// Distance 64 km; distance_basis "supplied"; time and emissions use 64 km.
+```
+
+For network distance, run OSRM separately and configure the included HTTP adapter. The library does not start, stop or download data for the OSRM service:
+
+```csharp
+using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+var request = new MovementRequest
+{
+    Legs = plan.Legs.ToList(),
+    RoadRouteProvider = new OsrmRoadRouteProvider(
+        httpClient,
+        new Uri("http://127.0.0.1:5000"),
+        profile: "driving",
+        dataVersion: "your-osm-snapshot"),
+    RoadRoutingMode = RoadRoutingMode.PreferNetworkThenEstimate
+};
+
+var movement = await TradeRouterEngine.Default.CalculateMovementAsync(request);
+```
+
+The adapter is geography-neutral. Its coverage is exactly the OSM extract loaded into your OSRM service: that may be a region, a country, several merged extracts or the planet. OSRM otherwise permits unlimited coordinate snapping, so the adapter bounds each endpoint to a road within 10 km by default; set `maximumSnapDistanceMeters` in the constructor when your endpoint data needs a different tolerance. This prevents a coordinate outside a regional extract from silently snapping to a distant edge of that extract. See the official [OSRM HTTP API options](https://github.com/Project-OSRM/osrm-backend/blob/master/docs/http.md). The current verified multi-architecture image name used below is `ghcr.io/project-osrm/osrm-backend:26.8.0-debian`; use the [OSRM backend documentation](https://github.com/Project-OSRM/osrm-backend) to select and pin the version you deploy.
+
+This generic offline setup deliberately does not choose England, or any other geography, for you. Set `OSRM_PBF_URL` to the extract whose coverage you need and give `OSRM_DATASET` the downloaded file's base name without `.osm.pbf`. Run it from a writable directory and check the extract plus generated files fit the available disk space.
+
+```bash
+export OSRM_DATA_DIR="$PWD/osrm-data"
+export OSRM_DATASET="chosen-extract-latest"
+export OSRM_PBF_URL="https://your-provider.example/path/chosen-extract-latest.osm.pbf"
+export OSRM_IMAGE="ghcr.io/project-osrm/osrm-backend:26.8.0-debian"
+
+mkdir -p "$OSRM_DATA_DIR"
+curl -L "$OSRM_PBF_URL" -o "$OSRM_DATA_DIR/$OSRM_DATASET.osm.pbf"
+
+docker run --rm -t -v "$OSRM_DATA_DIR:/data" "$OSRM_IMAGE" \
+  osrm-extract -p /opt/car.lua "/data/$OSRM_DATASET.osm.pbf"
+docker run --rm -t -v "$OSRM_DATA_DIR:/data" "$OSRM_IMAGE" \
+  osrm-partition "/data/$OSRM_DATASET.osrm"
+docker run --rm -t -v "$OSRM_DATA_DIR:/data" "$OSRM_IMAGE" \
+  osrm-customize "/data/$OSRM_DATASET.osrm"
+docker run --rm -d --name traderouter-osrm \
+  -p 127.0.0.1:5000:5000 \
+  -v "$OSRM_DATA_DIR:/data" \
+  "$OSRM_IMAGE" \
+  osrm-routed --algorithm mld "/data/$OSRM_DATASET.osrm"
+```
+
+`PreferNetworkThenEstimate` falls back only when the provider is unavailable or an endpoint is outside its loaded coverage, and records the reason in `distance_warning`. A provider-confirmed `NoRoute` is an error rather than silently inventing a distance. `RequireNetwork` also treats unavailable or out-of-coverage results as errors. `EstimateOnly` never calls the provider. Because provider calls are I/O, use `CalculateMovementAsync`; synchronous calculation is still available for supplied routes and estimates.
+
 ### Time
 
-`duration_hours` on every route and leg is travelling time: distance divided by an assumed average speed.
+`duration_hours` on every route and leg is travelling time. An OSRM road result uses OSRM's modelled duration when it is present; other legs, supplied road distances without a duration, and estimated road distances use distance divided by the configured average speed.
 
 | Mode | Default speed | Where to change it |
 |---|---|---|
 | Sea | 16 knots, about 30 km/h | `TradeRouterOptions.SpeedKnots` |
-| Road | 60 km/h | `MovementRequest.SpeedsKmh[TransportMode.Road]` |
+| Road | OSRM or supplied duration when returned; otherwise 60 km/h | `MovementRequest.SpeedsKmh[TransportMode.Road]` changes estimated and supplied-without-duration calculations |
 | Rail | 80 km/h | `MovementRequest.SpeedsKmh[TransportMode.Rail]` |
 | Air | 800 km/h | `MovementRequest.SpeedsKmh[TransportMode.Air]` |
 
@@ -402,7 +491,7 @@ Everything here is deliberate and documented, but each is a simplification you s
 - **Single routes with several area matches** return the first feature from `CalculateRoute`; use `CalculateRoutes` to see them all.
 - **Single routes with no path** return null geometry and zero length rather than throwing; movement legs throw.
 - **Untagged lane links.** Three internal tags in the lane data, `segment`, `segment2` and `pacific_ocean`, stitch the antimeridian and are never reported or restrictable.
-- **Straight legs.** Road, rail and air legs are great-circle lines, not routed on any network.
+- **Road estimates and non-road geometry.** Without a supplied value or provider, road distance is a 1.3× great-circle circuity estimate, not a road-network route. When no road geometry is available, the GeoJSON still joins the resolved endpoints with a straight display line and reports `geometry_basis: great_circle`; this does not change the separately reported estimated or routed distance. Rail and air use great-circle distance.
 - **Time and emissions are estimates.** Movement time is labelled modelled minimum and exposes every allowance, but it still has no carrier schedule, customs, cargo cut-off, booking availability or disruption data.
 - **Per-thread search buffers** hold about 300 KB for the lifetime of each thread that routes.
 

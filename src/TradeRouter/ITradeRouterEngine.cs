@@ -43,11 +43,19 @@ public interface ITradeRouterEngine
     GeoJsonFeature CalculateRoute(string originPortCode, string destPortCode, TradeRouterOptions? options = null);
 
     /// <summary>
-    /// Routes a multi-leg movement. Sea legs use the maritime network; road, rail and air legs are straight great-circle lines.
+    /// Routes a multi-leg movement synchronously. Sea legs use the maritime network; road legs use supplied routes or
+    /// the configured estimator; rail and air legs are straight great-circle lines.
     /// Implementations that predate movements keep compiling and throw <see cref="NotSupportedException"/>.
     /// </summary>
     MovementResult CalculateMovement(MovementRequest request)
         => throw new NotSupportedException($"{GetType().Name} does not support multi-leg movements.");
+
+    /// <summary>
+    /// Routes a multi-leg movement asynchronously, allowing a configured road-network provider to be called.
+    /// Implementations that predate asynchronous movements keep compiling and throw <see cref="NotSupportedException"/>.
+    /// </summary>
+    ValueTask<MovementResult> CalculateMovementAsync(MovementRequest request, CancellationToken cancellationToken = default)
+        => ValueTask.FromException<MovementResult>(new NotSupportedException($"{GetType().Name} does not support asynchronous multi-leg movements."));
 
     /// <summary>
     /// Resolves a UN/LOCODE to a position using the embedded port list and UN/LOCODE list, the same way movement
