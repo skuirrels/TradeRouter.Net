@@ -20,3 +20,4 @@ The small coordinate supplement identifies its source in each JSON row. The cite
 - [Shanghai railway station](https://en.wikipedia.org/wiki/Shanghai_railway_station)
 - [Shanghai Hongqiao International Airport](https://en.wikipedia.org/wiki/Shanghai_Hongqiao_International_Airport)
 - [Melrose, South Australia](https://en.wikipedia.org/wiki/Melrose,_South_Australia)
+- [Guildford](https://wiki.openstreetmap.org/wiki/Guildford)

@@ -20,7 +20,7 @@ The searoute-py project credits [Eurostat SeaRoute](https://github.com/eurostat/
 
 - Publisher: [United Nations Economic Commission for Europe, UN/LOCODE](https://unlocode.unece.org/).
 - Embedded `unlocode.json.gz`: SHA-256 `6e39b6efc925d804af5b304a4db2f701782cc4226fe31e2b97cd3b0bccfb052a`; 106,588 codes, of which 84,516 contain publisher coordinates.
-- Embedded `unlocode-supplement.json`: SHA-256 `6ce12ca501948e6f8c5e962fe901673627e2d05a9e1a666118896261a2437716`; four attributed coordinate supplements, applied only when the UN/LOCODE row has no coordinate.
+- Embedded `unlocode-supplement.json`: SHA-256 `cbe8f8ec16cc80d9788a2bad022e6f27219a8f4f6812aad546131b4b301ee308`; five attributed coordinate supplements, applied only when the UN/LOCODE row has no coordinate.
 - Embedded `unlocode-seaport-supplement.json`: SHA-256 `3b515fb9e5ee7d178a1409d43c5503c05e55405b01c8fdc0c3eb4f4a3887a56e`; two attributed codes, BRALU and CADCN, whose UN/LOCODE function gains the sea-port flag. Each is a port-list record whose UN/LOCODE row records only a road terminal, confirmed as a deep-sea terminal by the source named on the entry.
 
 - Embedded `port-code-aliases.json`: SHA-256 `456a4e27f55e62365b149010b59b236dd3d46731ed21cb34efa1ce3f87638742`; 61 official UN/LOCODE sea-port codes, each mapped to the port-list record held under a code UN/LOCODE lacks.

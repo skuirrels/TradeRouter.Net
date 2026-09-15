@@ -43,8 +43,8 @@ public interface ITradeRouterEngine
     GeoJsonFeature CalculateRoute(string originPortCode, string destPortCode, TradeRouterOptions? options = null);
 
     /// <summary>
-    /// Routes a multi-leg movement synchronously. Sea legs use the maritime network; road legs use supplied routes or
-    /// the configured estimator; rail and air legs are straight great-circle lines.
+    /// Routes a multi-leg movement synchronously. Sea legs use the maritime network; road legs use the configured
+    /// estimator; rail and air legs are straight great-circle lines. Import-only road results are also supported.
     /// Implementations that predate movements keep compiling and throw <see cref="NotSupportedException"/>.
     /// </summary>
     MovementResult CalculateMovement(MovementRequest request)

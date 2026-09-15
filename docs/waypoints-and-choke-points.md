@@ -4,17 +4,17 @@ This document describes every kind of waypoint that can appear in a route produc
 
 ## 1. Transport modes covered
 
-TradeRouter.Net routes deep-sea shipping on the Eurostat Marnet network. Multi-leg movements may also contain road, rail and air legs. Road distance comes from a supplied route, an optional road-network provider, or a labelled built-in circuity estimate; rail and air use great-circle distance.
+TradeRouter.Net routes deep-sea shipping on the Eurostat Marnet network. Multi-leg movements may also contain road, rail and air legs. Road distance comes from an optional road-network provider or a labelled built-in circuity estimate; rail and air use great-circle distance.
 
 | Mode | Routed | Network | Leg geometry | Duration basis | Choke points |
 |---|---|---|---|---|---|
 | Sea | Yes | Marnet, 9,708 nodes, 31,950 directed edges | Network path | `SpeedKnots`, default 16, plus 24 h port dwell per leg end in movements | 13 tagged passages, listed in section 3 |
-| Road | When supplied or an `IRoadRouteProvider` is configured | Configured provider, for example OSRM | Supplied/network path when returned; otherwise a straight display line | Provider/supplied duration when returned; otherwise `SpeedsKmh[Road]`, default 60 | None |
+| Road | When an `IRoadRouteProvider` is configured | Configured provider, for example OSRM | Network path when returned; otherwise a straight display line | Provider duration when returned; otherwise `SpeedsKmh[Road]`, default 60 | None |
 | Rail | No | None | Straight line, 2 points | `SpeedsKmh[Rail]`, default 80 | None |
 | Air | No | None | Straight line, 2 points | `SpeedsKmh[Air]`, default 800 | None |
 | Inland waterway | No | None | Not supported as a mode | n/a | None |
 
-Straight-line elements still exist where the leg joins an inland origin or destination to its nearest maritime-network point, and for rail, air, or road legs without supplied/network geometry. They are display connections and are not checked against land. An estimated road leg reports its circuity-adjusted distance separately from that straight display geometry.
+Straight-line elements still exist where the leg joins an inland origin or destination to its nearest maritime-network point, and for rail, air, or estimated road legs without network geometry. They are display connections and are not checked against land. An estimated road leg reports its circuity-adjusted distance separately from that straight display geometry.
 
 Movement legs are normally built with the fluent `MovementPlan` API from typed `Waypoint` values and `TransportMode` members. Each destination automatically becomes the next leg's origin, so every location code is stated once; the plan also enforces that Pickup is first and Delivery is last. `MovementParser` remains available only when an integration already supplies human-written leg lines. Known UN/LOCODE functions are checked against the declared waypoint types and against sea, rail and air modes. Location codes resolve against caller-supplied coordinates first, then the embedded port list when UN/LOCODE agrees on the name, then the embedded UN/LOCODE list where it carries coordinates, then an `ILocationResolver`. The embedded list has no coordinates for about a fifth of its entries; a small supplement fills a few from cited sources, and the rest must be supplied by the caller. A sea leg with no route raises an error naming the leg.
 

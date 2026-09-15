@@ -56,7 +56,7 @@ Leg Kind      Mode  From   To      Distance       Distance basis   Modelled tran
 4   Delivery  Road  AUMEL  AUMRS      1,078 km   circuity_estimate                    18.0            92.0            99.2       1,190  tonnes
 Total                                23,960 km                                     1,307.8                           288.3       4,840          for 12 t of cargo in 2 TEU
 Modelled minimum = 787.1 h travel + 376.7 h sea operations + 96 h port handling + 48 h connections = 1,307.8 h (54.5 days)
-Distance basis = maritime_network/road_network are network routes; supplied is caller-provided; circuity_estimate is a planning estimate; great_circle is straight-line
+Distance basis = maritime_network/road_network are network routes; circuity_estimate is a planning estimate; great_circle is straight-line
 Timing         = planning lower bound from configured assumptions; excludes carrier schedules, customs and disruption
 CO2e rate      = grams of CO2e emitted moving 1 tonne 1 km (configured factor for the mode)
 CO2e per tonne = rate × leg distance: kg of CO2e for each tonne of cargo carried over the leg
@@ -107,7 +107,7 @@ These apply to single routes and to multi-leg movements, which are described [be
 - **Lane**: a straight link between two neighbouring lane points. Sea legs travel only along lanes.
 - **Snapping**: moving a waypoint's position to its nearest lane point so a sea leg can start or end on the map, then joining the two with a straight line so the leg still begins and ends at the waypoint.
 - **Choke point**: a lane that runs through a canal or strait, tagged with its name. Thirteen exist. Closing one makes the router route round it.
-- **Non-sea leg**: road legs use a supplied or road-network route when available and otherwise a labelled circuity estimate. Rail and air legs use great-circle distance. None uses maritime lane points or choke points.
+- **Non-sea leg**: road legs use a configured road-network provider when available and otherwise a labelled circuity estimate. Rail and air legs use great-circle distance. None uses maritime lane points or choke points.
 
 Implementation notes:
 
@@ -276,10 +276,10 @@ var routes = TradeRouterEngine.Default.CalculateRoutes(TradeRoutes.Locate("BEBRU
 
 ### Multi-leg movements
 
-A `MovementPlan` builds a continuous route from typed waypoints and transport modes. Each destination automatically becomes the next leg's origin, so intermediate UN/LOCODEs are stated once. Declared waypoint types and sea, rail and air modes are checked against known UN/LOCODE functions. Pickup and delivery ordering is enforced while the plan is built. Sea legs are routed on the maritime lane network. Road legs use a supplied value, an optional road-network provider, or a labelled built-in estimate. Rail and air legs use great-circle distance. None of the non-sea modes touches maritime lane points or choke points. Default assumed speeds are 60, 80 and 800 km/h for road, rail and air.
+A `MovementPlan` builds a continuous route from typed waypoints and transport modes. Each destination automatically becomes the next leg's origin, so intermediate UN/LOCODEs are stated once. Declared waypoint types and sea, rail and air modes are checked against known UN/LOCODE functions. Pickup and delivery ordering is enforced while the plan is built. Sea legs are routed on the maritime lane network. Road legs use an optional road-network provider or a labelled built-in estimate. Rail and air legs use great-circle distance. None of the non-sea modes touches maritime lane points or choke points. Default assumed speeds are 60, 80 and 800 km/h for road, rail and air.
 
 <p align="center">
-  <img src="docs/diagrams/movement-flow.svg" alt="TradeRouter.Net movement flow: a typed MovementPlan builds continuous legs, resolves each leg's locations, routes sea legs on Marnet, resolves road distance from a supplied route, road provider or fallback estimate, and measures rail and air legs by great-circle distance" width="70%">
+  <img src="docs/diagrams/movement-flow.svg" alt="TradeRouter.Net movement flow: a typed MovementPlan builds continuous legs, resolves each leg's locations, routes sea legs on Marnet, resolves road distance from a road provider or fallback estimate, and measures rail and air legs by great-circle distance" width="70%">
 </p>
 
 Source: [docs/diagrams/movement-flow.svg](docs/diagrams/movement-flow.svg) (vector) and [movement-flow.html](docs/diagrams/movement-flow.html).
@@ -318,7 +318,11 @@ Each resolved location reports its `Source`. The embedded UN/LOCODE data has no 
 
 ### Road routing
 
-Road legs follow this precedence: a `RoadRouteOverrides` entry for the one-based leg number, then a configured `IRoadRouteProvider`, then the built-in `IRoadDistanceEstimator`. The default estimator multiplies the great-circle lower bound by 1.3. It is deterministic and more realistic than treating roads as straight, but it remains a coarse planning assumption: it does not know the actual road network, ferries, borders, mountains or local restrictions. Its result is therefore labelled `circuity_estimate`, includes the lower bound in `straight_line_length`, and carries a `distance_warning`.
+Application and sample road legs must use a configured `IRoadRouteProvider` or the built-in `IRoadDistanceEstimator`. The default estimator multiplies the great-circle lower bound by 1.3. It is deterministic and more realistic than treating roads as straight, but it remains a coarse planning assumption: it does not know the actual road network, ferries, borders, mountains or local restrictions. Its result is therefore labelled `circuity_estimate`, includes the lower bound in `straight_line_length`, and carries a `distance_warning`.
+
+`RoadRouteOverrides` is reserved for importing a complete route result from an authoritative upstream system. Do not put a literal distance in application or sample code to correct or force an output; use the estimator or a provider such as OSRM.
+
+CI runs [check-no-hardcoded-sample-routes.sh](scripts/check-no-hardcoded-sample-routes.sh) and fails if the sample introduces a fixed road distance or route override.
 
 Use the built-in estimate explicitly when OSRM is not configured or should not be called:
 
@@ -335,24 +339,6 @@ var request = new MovementRequest
 
 var movement = TradeRouterEngine.Default.CalculateMovement(request);
 // Road legs report distance_basis "circuity_estimate" and distance_source "circuity-1.3".
-```
-
-Use an authoritative supplied distance when you already know the route. For the Gatwick (`GBLGW`) to Heathrow (`GBLHR`) example:
-
-```csharp
-var request = new MovementRequest
-{
-    Legs = MovementParser.Parse("Pickup GBLGW to Airport GBLHR Road"),
-    CargoTonnes = 20.0
-};
-request.RoadRouteOverrides[1] = new SuppliedRoadRoute
-{
-    DistanceKm = 64.0,
-    Source = "known-route"
-};
-
-var movement = TradeRouterEngine.Default.CalculateMovement(request);
-// Distance 64 km; distance_basis "supplied"; time and emissions use 64 km.
 ```
 
 For network distance, run OSRM separately and configure the included HTTP adapter. The library does not start, stop or download data for the OSRM service:
@@ -375,61 +361,58 @@ var request = new MovementRequest
 var movement = await TradeRouterEngine.Default.CalculateMovementAsync(request);
 ```
 
-No `dataVersion` value is required to make routing work. The optional constructor argument is only a caller-defined provenance label copied to `routing_data_version` in the result; it neither selects nor loads an OSRM dataset. If you track immutable snapshots, a value such as `dataVersion: "great-britain-260914"` identifies the extract used to build the running service. Omit it when you do not know that information.
+No `dataVersion` value is required to make routing work. The optional constructor argument is only a caller-defined provenance label copied to `routing_data_version` in the result; it neither selects nor loads an OSRM dataset. The sample runner fills it from the resolved extract filenames—for example, `england-260914+south-africa-260914`. Omit it when you do not know that information.
 
 The adapter is geography-neutral. Its coverage is exactly the OSM extract loaded into your OSRM service: that may be a region, a country, several merged extracts or the planet. OSRM otherwise permits unlimited coordinate snapping, so the adapter bounds each endpoint to a road within 10 km by default; set `maximumSnapDistanceMeters` in the constructor when your endpoint data needs a different tolerance. This prevents a coordinate outside a regional extract from silently snapping to a distant edge of that extract. See the official [OSRM HTTP API options](https://github.com/Project-OSRM/osrm-backend/blob/master/docs/http.md). The current verified multi-architecture image name used below is `ghcr.io/project-osrm/osrm-backend:26.8.0-debian`; use the [OSRM backend documentation](https://github.com/Project-OSRM/osrm-backend) to select and pin the version you deploy.
 
-Here is a complete offline smoke test for the Gatwick-to-Heathrow example. Great Britain is selected only to give this example a real, manageable download; it is not a TradeRouter coverage restriction. The pinned Geofabrik extract is about 2 GB, and preprocessing needs additional disk space and can take some time.
+The sample includes a runner that reuses a reachable OSRM service or tries to prepare and start a local container before running both the estimated and OSRM examples.
+
+By default, the runner downloads only the road-network extracts needed by the OSRM-backed sample routes: England for Gatwick, Heathrow and Guildford, plus South Africa for Cape Town to Johannesburg. The air and sea legs use TradeRouter.Net rather than OSRM, so they do not need road data. The two Geofabrik extracts total about 2 GB, compared with roughly 88 GB for the complete planet.
+
+The runner resolves each `latest` URL to a dated snapshot, records the resolved URLs and resumes interrupted downloads. It then clips the regions required by the sample, merges those smaller extracts into one disconnected `traderouter-samples.osm.pbf`, and preprocesses that dataset with OSRM. The configurable regions are listed in [osrm-sample-regions.tsv](src/TradeRouter.Sample/osrm-sample-regions.tsv). It reuses downloaded extracts, clipped regions, the merged PBF, generated OSRM files and the running container on later runs. Osmium performs the clipping and merge; when it is not installed locally, the sample builds the small helper image defined by `src/TradeRouter.Sample/osmium-tool.Dockerfile`.
+
+The default command stores all downloaded and generated files under the ignored `osrm-data` directory:
 
 ```bash
-mkdir -p osrm-data
-cd osrm-data
-
-curl -L \
-  https://download.geofabrik.de/europe/great-britain-260914.osm.pbf \
-  -o great-britain-260914.osm.pbf
-
-docker run --rm -t -v "$PWD:/data" \
-  ghcr.io/project-osrm/osrm-backend:26.8.0-debian \
-  osrm-extract -p /opt/car.lua /data/great-britain-260914.osm.pbf
-docker run --rm -t -v "$PWD:/data" \
-  ghcr.io/project-osrm/osrm-backend:26.8.0-debian \
-  osrm-partition /data/great-britain-260914.osrm
-docker run --rm -t -v "$PWD:/data" \
-  ghcr.io/project-osrm/osrm-backend:26.8.0-debian \
-  osrm-customize /data/great-britain-260914.osrm
-docker run --rm -d --name traderouter-osrm \
-  -p 127.0.0.1:5000:5000 \
-  -v "$PWD:/data" \
-  ghcr.io/project-osrm/osrm-backend:26.8.0-debian \
-  osrm-routed --algorithm mld /data/great-britain-260914.osrm
-
-curl --retry 10 --retry-delay 1 --retry-connrefused --fail \
-  "http://127.0.0.1:5000/route/v1/driving/-0.19028,51.14806;-0.45,51.46667?overview=false"
+./src/TradeRouter.Sample/run-with-osrm.sh
 ```
 
-The final `curl` must return JSON with `"code":"Ok"`. To cover another geography, replace the PBF URL and the matching `great-britain-260914` base name in all four OSRM commands. Use a planet extract only when you genuinely need worldwide road coverage and have the substantial processing resources it requires.
-
-With that container running, open a second terminal at the TradeRouter.Net repository root and run the executable sample's OSRM example:
+To deliberately use a different single extract, set both its URL and a distinct dataset name. For example, planet coverage remains available as an explicit opt-in:
 
 ```bash
-TRADEROUTER_OSRM_URL=http://127.0.0.1:5000 \
-TRADEROUTER_OSRM_DATA_VERSION=great-britain-260914 \
+TRADEROUTER_OSRM_DATA_DIR="$PWD/osrm-data/planet" \
+TRADEROUTER_OSRM_DATASET=planet-latest \
+TRADEROUTER_OSRM_PBF_URL=https://planet.openstreetmap.org/pbf/planet-latest.osm.pbf \
+./src/TradeRouter.Sample/run-with-osrm.sh
+```
+
+See the Geofabrik pages for the [England](https://download.geofabrik.de/europe/united-kingdom/england.html) and [South Africa](https://download.geofabrik.de/africa/south-africa.html) extracts, and the OpenStreetMap [planet documentation](https://wiki.openstreetmap.org/wiki/Planet.osm). The runner never moves or deletes a downloaded PBF. `TRADEROUTER_OSRM_DATA_DIR`, `TRADEROUTER_OSRM_DATASET` and `TRADEROUTER_OSRM_PBF_URL` remain available when you deliberately want a different stored dataset.
+
+The script accepts `--geojson` and passes it to the sample. `TRADEROUTER_OSRM_IMAGE` and `TRADEROUTER_OSRM_CONTAINER` override the OSRM container defaults. `TRADEROUTER_OSMIUM_IMAGE` can name an existing Osmium image instead of building the included helper. `TRADEROUTER_OSRM_DATA_VERSION` optionally records an immutable provenance label; it does not select the dataset.
+
+Set `TRADEROUTER_OSRM_SAMPLE_REGIONS_FILE` to another tab-separated region file when the sample routes change. Each non-comment row contains an extract name, its download URL, an Osmium bounding box and a readiness-probe coordinate. `TRADEROUTER_OSRM_PROBE_COORDINATE` can override the probe. This keeps dataset coverage in configuration instead of embedding it in the runner.
+
+If the runner reports that the OSRM image cannot run, its local Docker layer may be corrupt. Follow the two exact `docker image rm` and `docker pull` commands printed by the runner, then rerun the script. The downloaded map files are not removed.
+
+If a service is already running at another URL, bypass local container startup with:
+
+```bash
+TRADEROUTER_OSRM_URL=https://your-osrm-service.example \
 dotnet run --project src/TradeRouter.Sample
 ```
 
-Example 13 always shows the built-in `EstimateOnly` result. Example 14 uses `OsrmRoadRouteProvider` and `RequireNetwork`, so it must return an OSRM route rather than silently fall back. When `TRADEROUTER_OSRM_URL` is not set, example 14 is clearly reported as skipped and the rest of the sample still runs. `TRADEROUTER_OSRM_DATA_VERSION` is optional output provenance and may be omitted.
+Example 13 always shows the built-in `EstimateOnly` result. Examples 14 and 15 use `OsrmRoadRouteProvider` and `RequireNetwork`, so they must return OSRM routes rather than silently fall back. Example 15 covers two continents: Cape Town to Johannesburg by road, Johannesburg to London Heathrow by air, and Heathrow to Guildford by road. When `TRADEROUTER_OSRM_URL` is not set, both OSRM examples are clearly reported as skipped and the rest of the sample still runs. `TRADEROUTER_OSRM_DATA_VERSION` is optional output provenance and may be omitted.
 
-`PreferNetworkThenEstimate` falls back only when the provider is unavailable or an endpoint is outside its loaded coverage, and records the reason in `distance_warning`. A provider-confirmed `NoRoute` is an error rather than silently inventing a distance. `RequireNetwork` also treats unavailable or out-of-coverage results as errors. `EstimateOnly` never calls the provider. Because provider calls are I/O, use `CalculateMovementAsync`; synchronous calculation is still available for supplied routes and estimates.
+`PreferNetworkThenEstimate` falls back only when the provider is unavailable or an endpoint is outside its loaded coverage, and records the reason in `distance_warning`. A provider-confirmed `NoRoute` is an error rather than silently inventing a distance. `RequireNetwork` also treats unavailable or out-of-coverage results as errors. `EstimateOnly` never calls the provider. Because provider calls are I/O, use `CalculateMovementAsync`; synchronous calculation is available for estimates.
 
 ### Time
 
-`duration_hours` on every route and leg is travelling time. An OSRM road result uses OSRM's modelled duration when it is present; other legs, supplied road distances without a duration, and estimated road distances use distance divided by the configured average speed.
+`duration_hours` on every route and leg is travelling time. An OSRM road result uses OSRM's modelled duration when it is present; other legs and estimated road distances use distance divided by the configured average speed.
 
 | Mode | Default speed | Where to change it |
 |---|---|---|
 | Sea | 16 knots, about 30 km/h | `TradeRouterOptions.SpeedKnots` |
-| Road | OSRM or supplied duration when returned; otherwise 60 km/h | `MovementRequest.SpeedsKmh[TransportMode.Road]` changes estimated and supplied-without-duration calculations |
+| Road | OSRM duration when returned; otherwise 60 km/h | `MovementRequest.SpeedsKmh[TransportMode.Road]` changes estimated calculations |
 | Rail | 80 km/h | `MovementRequest.SpeedsKmh[TransportMode.Rail]` |
 | Air | 800 km/h | `MovementRequest.SpeedsKmh[TransportMode.Air]` |
 
@@ -507,7 +490,7 @@ Source: Smart Freight Centre, [GLEC Framework, July 2022 edition](https://smart-
 Everything here is deliberate and documented, but each is a simplification you should know about.
 
 - **Port list versus UN/LOCODE tie-break.** When both lists know a code, the port list position is used only if the two names match or one is a prefix of the other after stripping accents and punctuation. If they disagree, UN/LOCODE's position is used and no port record is attached. Check `Source` on the resolved location when it matters.
-- **Supplemented coordinates.** Four codes have coordinates researched by hand rather than published by UNECE; the supplement file names each source.
+- **Supplemented coordinates.** Five codes have coordinates researched from cited sources rather than published by UNECE; the supplement file names each source.
 - **Sea-port function checks.** A port waypoint or sea leg is rejected when UN/LOCODE records no sea-port function, even if the port list holds the code, because that list also contains inland terminals such as Calgary. Two codes UNECE under-records, Alumar (`BRALU`) and Duncan Bay (`CADCN`), are confirmed as sea ports by [unlocode-seaport-supplement.json](src/TradeRouter/Data/unlocode-seaport-supplement.json) with cited sources. Other affected ports need a `Waypoint.Place` or a new supplement entry.
 - **Port-code aliases.** 264 port-list codes are not UN/LOCODEs. Only 61 are mapped from an official code, where the names and positions within 25 km show the same port; the rest route only by their port-list code or by coordinates. Nearest-port matching is not used, because it pairs different places such as Perth and Claremont.
 - **Duplicate port codes.** The tagged upstream list contains 38 codes with multiple records. Code-only lookup never silently chooses one; provide a nearby coordinate or inspect the candidates.
@@ -599,7 +582,13 @@ dotnet test tests/TradeRouter.Tests -c Release -m:1 -nr:false
 dotnet run --project src/TradeRouter.Sample
 ```
 
-The sample contains fourteen numbered examples covering coordinates, port codes, restrictions, terminal resolution, area weighting, A*, blocked routes, GeoJSON output, the Shanghai to London walkthrough and multi-leg movements. Examples 13 and 14 compare the built-in road estimate with OSRM for the same Gatwick-to-Heathrow leg. Example 14 runs when `TRADEROUTER_OSRM_URL` is set as shown in [Road routing](#road-routing); otherwise it reports that it was skipped. Add `--geojson` to print a full feature.
+To prepare or reuse the default local OSRM container and run the same sample:
+
+```bash
+./src/TradeRouter.Sample/run-with-osrm.sh
+```
+
+The sample contains fifteen numbered examples covering coordinates, port codes, restrictions, terminal resolution, area weighting, A*, blocked routes, GeoJSON output, the Shanghai to London walkthrough and multi-leg movements. Examples 13 and 14 compare the built-in road estimate with OSRM for the same Gatwick-to-Heathrow leg. Example 15 demonstrates OSRM-backed road legs in South Africa and the United Kingdom around a Johannesburg-to-Heathrow air leg. Examples 14 and 15 run when `TRADEROUTER_OSRM_URL` is set as shown in [Road routing](#road-routing); otherwise they report that they were skipped. Add `--geojson` to print a full feature.
 
 To produce the NuGet package locally:
 
@@ -612,7 +601,7 @@ dotnet pack src/TradeRouter/TradeRouter.csproj -c Release -m:1 -nr:false -o ./ar
 - **Marnet and antimeridian segments**, transformed from searoute-py 1.6.0: 9,708 nodes and 31,950 directed edges with distance and passage tags.
 - **World ports**, transformed from searoute-py 1.6.0: 3,962 records with code, name, country, terminal flag and permitted destination countries.
 - **UN/LOCODE**, the UNECE code list for trade and transport locations: 106,588 codes with name and function flags, of which 84,516 carry coordinates to one minute of arc. Used to resolve movement legs that name airports, terminals and inland places. Loaded only when a movement needs it.
-- **UN/LOCODE supplement**: a hand-maintained JSON file of coordinates for codes UNECE publishes without any, each with its source. Currently four entries: Gatwick, Shanghai Railway Station, Shanghai Hongqiao and Melrose. Applied only where UNECE has no coordinate.
+- **UN/LOCODE supplement**: a hand-maintained JSON file of coordinates for codes UNECE publishes without any, each with its source. Currently five entries: Gatwick, Shanghai Railway Station, Shanghai Hongqiao, Melrose and Guildford. Applied only where UNECE has no coordinate.
 - **Port-code aliases**: a reviewed JSON file mapping 61 official UN/LOCODE sea-port codes to the port-list record held under another code. Used only when the port list lacks the requested code.
 - **UN/LOCODE sea-port supplement**: a hand-maintained JSON file of codes that UNECE publishes without the sea-port function but that cited sources document as sea ports. Currently two entries: Alumar and Duncan Bay. It only adds the sea-port function and never removes one.
 

@@ -97,9 +97,9 @@ Print("9. CNSHG Shanghai to GBLON London, step by step",
     $"   finished route {finished.Geometry?.Positions.Count ?? 0} points, {finished.Properties.Length:N0} km, {finished.Properties.DurationHours:N1} h{Environment.NewLine}" +
     $"   result         GeoJSON Feature, {finished.ToJson().Length:N0} characters");
 
-// 10 to 14. Multi-leg movements. Sea legs use the maritime network; road legs use a supplied route,
-//    a configured provider, or the labelled built-in circuity estimate. Air legs use great-circle distance.
-//    Every code resolves from the embedded port list or UN/LOCODE list, so no coordinates are supplied.
+// 10 to 15. Multi-leg movements. Sea legs use the maritime network; road legs use a configured provider
+//    or the labelled built-in circuity estimate. Air legs use great-circle distance.
+//    Every code resolves from the embedded port list or UN/LOCODE list, so examples do not embed coordinates.
 //    Gatwick (GBLGW), Shanghai Railway Station (CNSHZ) and Melrose (AUMRS) have no coordinates in the UNECE
 //    list; the library's supplement file fills them from cited sources. AUMRS is Melrose, an inland South
 //    Australian town about 800 km from Melbourne, so its delivery leg is by road.
@@ -132,14 +132,10 @@ var airRequest = new MovementRequest
 {
     Legs = airPlan.Legs.ToList(),
     SeaOptions = new TradeRouterOptions { ReturnPassages = true },
-    CargoTonnes = 20.0
+    CargoTonnes = 20.0,
+    RoadRoutingMode = RoadRoutingMode.EstimateOnly
 };
-airRequest.RoadRouteOverrides[1] = new SuppliedRoadRoute
-{
-    DistanceKm = 64.0,
-    Source = "known-route"
-};
-PrintMovementRequest("12. Movement with an air leg and a supplied 64 km Gatwick-Heathrow road distance", airRequest);
+PrintMovementRequest("12. Movement with an air leg using built-in road estimates", airRequest);
 
 var roadPlan = MovementPlan
     .From(Waypoint.Place("GBLGW"))
@@ -156,9 +152,13 @@ const string osrmUrlVariable = "TRADEROUTER_OSRM_URL";
 string? osrmUrl = Environment.GetEnvironmentVariable(osrmUrlVariable);
 if (string.IsNullOrWhiteSpace(osrmUrl))
 {
+    string skippedOsrm = $"Skipped: set {osrmUrlVariable}=http://127.0.0.1:5000 after starting OSRM as shown in the README.";
     Print(
         "14. Gatwick to Heathrow using an OSRM container",
-        $"Skipped: set {osrmUrlVariable}=http://127.0.0.1:5000 after starting OSRM as shown in the README.");
+        skippedOsrm);
+    Print(
+        "15. Cape Town to Guildford via Johannesburg and Heathrow using an OSRM container",
+        skippedOsrm);
 }
 else
 {
@@ -166,17 +166,34 @@ else
         throw new ArgumentException($"{osrmUrlVariable} must be an absolute HTTP or HTTPS URI. Received: {osrmUrl}");
 
     using var osrmHttpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+    var osrmRoadRouteProvider = new OsrmRoadRouteProvider(
+        osrmHttpClient,
+        osrmBaseUri,
+        dataVersion: Environment.GetEnvironmentVariable("TRADEROUTER_OSRM_DATA_VERSION"));
     var osrmRoadRequest = new MovementRequest
     {
         Legs = roadPlan.Legs.ToList(),
         CargoTonnes = 20.0,
-        RoadRouteProvider = new OsrmRoadRouteProvider(
-            osrmHttpClient,
-            osrmBaseUri,
-            dataVersion: Environment.GetEnvironmentVariable("TRADEROUTER_OSRM_DATA_VERSION")),
+        RoadRouteProvider = osrmRoadRouteProvider,
         RoadRoutingMode = RoadRoutingMode.RequireNetwork
     };
     await PrintMovementRequestAsync("14. Gatwick to Heathrow using an OSRM container", osrmRoadRequest);
+
+    var capeTownToGuildfordPlan = MovementPlan
+        .From(Waypoint.Place("ZACPT"))
+        .PickupTo(Waypoint.Airport("ZAJNB"), TransportMode.Road)
+        .ThenTo(Waypoint.Airport("GBLHR"), TransportMode.Air)
+        .DeliverTo(Waypoint.Place("GBGDD"), TransportMode.Road);
+    var capeTownToGuildfordRequest = new MovementRequest
+    {
+        Legs = capeTownToGuildfordPlan.Legs.ToList(),
+        CargoTonnes = 20.0,
+        RoadRouteProvider = osrmRoadRouteProvider,
+        RoadRoutingMode = RoadRoutingMode.RequireNetwork
+    };
+    await PrintMovementRequestAsync(
+        "15. Cape Town to Guildford via Johannesburg and Heathrow using an OSRM container",
+        capeTownToGuildfordRequest);
 }
 
 static void PrintMovement(string title, MovementPlan plan, double tonnes = 20.0, double? teu = null)

@@ -20,6 +20,9 @@ jobs:
             8.0.x
             10.0.x
 
+      - name: Reject hard-coded sample road routes
+        run: ./scripts/check-no-hardcoded-sample-routes.sh
+
       - name: Restore
         run: dotnet restore TradeRouter.Net.slnx -m:1 -nr:false
 

@@ -97,8 +97,9 @@ public sealed class MovementRequest
     public IRoadDistanceEstimator RoadDistanceEstimator { get; set; } = CircuityRoadDistanceEstimator.Default;
 
     /// <summary>
-    /// Authoritative caller-supplied road routes keyed by one-based leg sequence. These take precedence over
-    /// both a configured provider and the fallback estimator.
+    /// Complete road results imported from an authoritative upstream routing system, keyed by one-based leg sequence.
+    /// These take precedence over both a configured provider and the fallback estimator. Do not use fixed literals here
+    /// to force an expected result; application and sample code should use the estimator or a configured provider.
     /// </summary>
     public Dictionary<int, SuppliedRoadRoute> RoadRouteOverrides { get; } = [];
 }

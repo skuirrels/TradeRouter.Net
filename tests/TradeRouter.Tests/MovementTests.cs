@@ -190,6 +190,15 @@ public class MovementTests
         var melrose = TradeRouterEngine.Default.UnLocodes.GetByCode("AUMRS")!;
         melrose.Coordinate!.Value.Latitude.Should().BeApproximately(-32.817, 0.01, "Melrose is in South Australia, not near Melbourne");
 
+        var guildford = TradeRouterEngine.Default.UnLocodes.GetByCode("GBGDD")!;
+        guildford.Coordinate.Should().Be(new Coordinate(-0.577344, 51.234683));
+        guildford.CoordinateSource.Should().StartWith("OpenStreetMap Wiki");
+
+        var resolvedGuildford = TradeRoutes.Locate("GBGDD");
+        resolvedGuildford.Name.Should().Be("Guildford");
+        resolvedGuildford.Coordinate.Should().Be(guildford.Coordinate.Value);
+        resolvedGuildford.Source.Should().Be("unlocode");
+
         TradeRouterEngine.Default.UnLocodes.GetByCode("SGSIN")!.CoordinateSource.Should().Be("UNECE");
     }
 

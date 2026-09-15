@@ -8,10 +8,10 @@ public enum RoadRoutingMode
     /// <summary>Use a configured provider when possible, otherwise return a labelled built-in estimate.</summary>
     PreferNetworkThenEstimate,
 
-    /// <summary>Require every road leg to be resolved by a supplied route or configured network provider.</summary>
+    /// <summary>Require every road leg to be resolved by a configured network provider or imported upstream result.</summary>
     RequireNetwork,
 
-    /// <summary>Do not call a configured provider; use supplied routes and the built-in estimate only.</summary>
+    /// <summary>Do not call a configured provider; use the built-in estimate or an imported upstream result.</summary>
     EstimateOnly
 }
 
@@ -133,7 +133,10 @@ public sealed class CircuityRoadDistanceEstimator : IRoadDistanceEstimator
     }
 }
 
-/// <summary>An authoritative road leg supplied directly by the caller.</summary>
+/// <summary>
+/// A complete road result imported from an authoritative upstream routing system. Application and sample code should
+/// use <see cref="IRoadRouteProvider"/> or <see cref="IRoadDistanceEstimator"/> rather than constructing fixed values.
+/// </summary>
 public sealed record SuppliedRoadRoute
 {
     /// <summary>Road distance in kilometres.</summary>

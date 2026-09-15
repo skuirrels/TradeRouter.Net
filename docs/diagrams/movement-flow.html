@@ -55,7 +55,7 @@
 
     <svg viewBox="0 0 1200 1184" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="movement-flow-title movement-flow-desc">
       <title id="movement-flow-title">TradeRouter.Net movement flow</title>
-      <desc id="movement-flow-desc">Flowchart showing a typed movement plan built into continuous legs, each leg's locations resolved, sea legs routed on the Marnet network, road distances selected from a supplied route, provider or fallback estimate, and rail or air legs measured by great-circle distance. Each produces a leg feature before the movement returns a GeoJSON FeatureCollection with totals.</desc>
+      <desc id="movement-flow-desc">Flowchart showing a typed movement plan built into continuous legs, each leg's locations resolved, sea legs routed on the Marnet network, road distances calculated by a configured provider or the internal estimator, and rail or air legs measured by great-circle distance. Each produces a leg feature before the movement returns a GeoJSON FeatureCollection with totals.</desc>
       <defs>
         <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#5b6472"/></marker>
         <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#0a34a1"/></marker>
@@ -171,10 +171,10 @@
       <text x="40" y="1044" fill="#181818" font-size="8" font-family="'Geist Mono', monospace" xml:space="preserve">  .ThenTo(Waypoint.Airport("AUMEL"), TransportMode.Air)</text>
       <text x="40" y="1060" fill="#181818" font-size="8" font-family="'Geist Mono', monospace" xml:space="preserve">  .DeliverTo(Waypoint.Place("AUMRS"), TransportMode.Road)</text>
       <text x="480" y="1012" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" xml:space="preserve">Leg  Kind      Mode  From   To      Distance  Transit h  CO2e kg  Choke points</text>
-      <text x="480" y="1028" fill="#181818" font-size="8" font-family="'Geist Mono', monospace" xml:space="preserve">1    Pickup    Road  GBLGW  GBLHR       64 km        1.1      118  supplied known route</text>
+      <text x="480" y="1028" fill="#181818" font-size="8" font-family="'Geist Mono', monospace" xml:space="preserve">1    Pickup    Road  GBLGW  GBLHR       52 km        0.9       95  circuity estimate</text>
       <text x="480" y="1044" fill="#181818" font-size="8" font-family="'Geist Mono', monospace" xml:space="preserve">2    Main      Air   GBLHR  AUMEL   16,927 km       21.2  213,280  none, straight great-circle line, no lane points</text>
       <text x="480" y="1060" fill="#181818" font-size="8" font-family="'Geist Mono', monospace" xml:space="preserve">3    Delivery  Road  AUMEL  AUMRS    1,078 km       18.0    1,983  circuity estimate</text>
-      <text x="480" y="1076" fill="#181818" font-size="8" font-family="'Geist Mono', monospace" font-weight="600" xml:space="preserve">Total                               18,069 km       40.2  215,381  distance provenance on each leg</text>
+      <text x="480" y="1076" fill="#181818" font-size="8" font-family="'Geist Mono', monospace" font-weight="600" xml:space="preserve">Total                               18,057 km       40.0  215,359  distance provenance on each leg</text>
 
       <!-- Legend strip -->
       <line x1="40" y1="1120" x2="1160" y2="1120" stroke="rgba(24,24,24,0.10)" stroke-width="0.8"/>

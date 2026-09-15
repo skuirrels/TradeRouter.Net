@@ -27,7 +27,7 @@ internal static class MovementTextFormatter
 
         if (includeExplanations)
         {
-            output.AppendLine("Distance basis = maritime_network/road_network are network routes; supplied is caller-provided; circuity_estimate is a planning estimate; great_circle is straight-line");
+            output.AppendLine(FormatDistanceBasisExplanation(movement));
             output.AppendLine("Timing         = planning lower bound from configured assumptions; excludes carrier schedules, customs and disruption");
             output.AppendLine("CO2e rate      = grams of CO2e emitted moving 1 tonne 1 km (configured factor for the mode)");
             output.AppendLine("CO2e per tonne = rate × leg distance: kg of CO2e for each tonne of cargo carried over the leg");
@@ -41,6 +41,18 @@ internal static class MovementTextFormatter
         passages is null or { Count: 0 }
             ? string.Empty
             : string.Join(", ", passages.Select(Passage.GetDisplayName));
+
+    private static string FormatDistanceBasisExplanation(MovementResult movement)
+    {
+        const string network = "Distance basis = maritime_network/road_network are network routes";
+        const string calculated = "; circuity_estimate is a planning estimate; great_circle is straight-line";
+        bool hasExternallyProvidedRoute = movement.Legs.Any(
+            leg => string.Equals(leg.Feature.Properties.DistanceBasis, "supplied", StringComparison.Ordinal));
+
+        return hasExternallyProvidedRoute
+            ? $"{network}; supplied is an externally provided route result{calculated}"
+            : $"{network}{calculated}";
+    }
 
     private static string FormatCargo(MovementResult movement)
     {

@@ -20,6 +20,12 @@ BenchmarkDotNet.Artifacts/
 TestResults/
 *.trx
 
+# Local OSRM extracts and generated routing data
+osrm-data/
+/planet-latest.osm.pbf
+/planet-latest.osm.pbf.source-url
+/planet-latest.osrm.*
+
 # Stray dotnet/NuGet first-use sentinels from sandboxed runs
 Library/
 .local/
