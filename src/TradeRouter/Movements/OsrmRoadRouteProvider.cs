@@ -18,6 +18,14 @@ public sealed class OsrmRoadRouteProvider : IRoadRouteProvider
     /// Creates an OSRM provider. The client is owned by the caller and should normally come from an
     /// IHttpClientFactory or another long-lived client factory.
     /// </summary>
+    /// <param name="httpClient">Caller-owned HTTP client used to call OSRM.</param>
+    /// <param name="baseUri">Base URI of the running OSRM service.</param>
+    /// <param name="profile">OSRM routing profile name, normally <c>driving</c>.</param>
+    /// <param name="dataVersion">
+    /// Optional caller-defined provenance label for the OSM extract loaded into the service. It is copied
+    /// to results but is not sent to OSRM and does not select or load a dataset.
+    /// </param>
+    /// <param name="maximumSnapDistanceMeters">Maximum distance from each endpoint to a routable road.</param>
     public OsrmRoadRouteProvider(
         HttpClient httpClient,
         Uri baseUri,

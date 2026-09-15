@@ -323,9 +323,12 @@ Road legs follow this precedence: a `RoadRouteOverrides` entry for the one-based
 Use the built-in estimate explicitly when OSRM is not configured or should not be called:
 
 ```csharp
+var estimatedPlan = MovementPlan
+    .From(Waypoint.Place("GBLGW"))
+    .PickupTo(Waypoint.Airport("GBLHR"), TransportMode.Road);
 var request = new MovementRequest
 {
-    Legs = plan.Legs.ToList(),
+    Legs = estimatedPlan.Legs.ToList(),
     RoadRoutingMode = RoadRoutingMode.EstimateOnly,
     RoadDistanceEstimator = new CircuityRoadDistanceEstimator() // default factor: 1.3
 };
@@ -356,45 +359,66 @@ For network distance, run OSRM separately and configure the included HTTP adapte
 
 ```csharp
 using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+var osrmPlan = MovementPlan
+    .From(Waypoint.Place("GBLGW"))
+    .PickupTo(Waypoint.Airport("GBLHR"), TransportMode.Road);
 var request = new MovementRequest
 {
-    Legs = plan.Legs.ToList(),
+    Legs = osrmPlan.Legs.ToList(),
     RoadRouteProvider = new OsrmRoadRouteProvider(
         httpClient,
         new Uri("http://127.0.0.1:5000"),
-        profile: "driving",
-        dataVersion: "your-osm-snapshot"),
+        profile: "driving"),
     RoadRoutingMode = RoadRoutingMode.PreferNetworkThenEstimate
 };
 
 var movement = await TradeRouterEngine.Default.CalculateMovementAsync(request);
 ```
 
+No `dataVersion` value is required to make routing work. The optional constructor argument is only a caller-defined provenance label copied to `routing_data_version` in the result; it neither selects nor loads an OSRM dataset. If you track immutable snapshots, a value such as `dataVersion: "great-britain-260914"` identifies the extract used to build the running service. Omit it when you do not know that information.
+
 The adapter is geography-neutral. Its coverage is exactly the OSM extract loaded into your OSRM service: that may be a region, a country, several merged extracts or the planet. OSRM otherwise permits unlimited coordinate snapping, so the adapter bounds each endpoint to a road within 10 km by default; set `maximumSnapDistanceMeters` in the constructor when your endpoint data needs a different tolerance. This prevents a coordinate outside a regional extract from silently snapping to a distant edge of that extract. See the official [OSRM HTTP API options](https://github.com/Project-OSRM/osrm-backend/blob/master/docs/http.md). The current verified multi-architecture image name used below is `ghcr.io/project-osrm/osrm-backend:26.8.0-debian`; use the [OSRM backend documentation](https://github.com/Project-OSRM/osrm-backend) to select and pin the version you deploy.
 
-This generic offline setup deliberately does not choose England, or any other geography, for you. Set `OSRM_PBF_URL` to the extract whose coverage you need and give `OSRM_DATASET` the downloaded file's base name without `.osm.pbf`. Run it from a writable directory and check the extract plus generated files fit the available disk space.
+Here is a complete offline smoke test for the Gatwick-to-Heathrow example. Great Britain is selected only to give this example a real, manageable download; it is not a TradeRouter coverage restriction. The pinned Geofabrik extract is about 2 GB, and preprocessing needs additional disk space and can take some time.
 
 ```bash
-export OSRM_DATA_DIR="$PWD/osrm-data"
-export OSRM_DATASET="chosen-extract-latest"
-export OSRM_PBF_URL="https://your-provider.example/path/chosen-extract-latest.osm.pbf"
-export OSRM_IMAGE="ghcr.io/project-osrm/osrm-backend:26.8.0-debian"
+mkdir -p osrm-data
+cd osrm-data
 
-mkdir -p "$OSRM_DATA_DIR"
-curl -L "$OSRM_PBF_URL" -o "$OSRM_DATA_DIR/$OSRM_DATASET.osm.pbf"
+curl -L \
+  https://download.geofabrik.de/europe/great-britain-260914.osm.pbf \
+  -o great-britain-260914.osm.pbf
 
-docker run --rm -t -v "$OSRM_DATA_DIR:/data" "$OSRM_IMAGE" \
-  osrm-extract -p /opt/car.lua "/data/$OSRM_DATASET.osm.pbf"
-docker run --rm -t -v "$OSRM_DATA_DIR:/data" "$OSRM_IMAGE" \
-  osrm-partition "/data/$OSRM_DATASET.osrm"
-docker run --rm -t -v "$OSRM_DATA_DIR:/data" "$OSRM_IMAGE" \
-  osrm-customize "/data/$OSRM_DATASET.osrm"
+docker run --rm -t -v "$PWD:/data" \
+  ghcr.io/project-osrm/osrm-backend:26.8.0-debian \
+  osrm-extract -p /opt/car.lua /data/great-britain-260914.osm.pbf
+docker run --rm -t -v "$PWD:/data" \
+  ghcr.io/project-osrm/osrm-backend:26.8.0-debian \
+  osrm-partition /data/great-britain-260914.osrm
+docker run --rm -t -v "$PWD:/data" \
+  ghcr.io/project-osrm/osrm-backend:26.8.0-debian \
+  osrm-customize /data/great-britain-260914.osrm
 docker run --rm -d --name traderouter-osrm \
   -p 127.0.0.1:5000:5000 \
-  -v "$OSRM_DATA_DIR:/data" \
-  "$OSRM_IMAGE" \
-  osrm-routed --algorithm mld "/data/$OSRM_DATASET.osrm"
+  -v "$PWD:/data" \
+  ghcr.io/project-osrm/osrm-backend:26.8.0-debian \
+  osrm-routed --algorithm mld /data/great-britain-260914.osrm
+
+curl --retry 10 --retry-delay 1 --retry-connrefused --fail \
+  "http://127.0.0.1:5000/route/v1/driving/-0.19028,51.14806;-0.45,51.46667?overview=false"
 ```
+
+The final `curl` must return JSON with `"code":"Ok"`. To cover another geography, replace the PBF URL and the matching `great-britain-260914` base name in all four OSRM commands. Use a planet extract only when you genuinely need worldwide road coverage and have the substantial processing resources it requires.
+
+With that container running, open a second terminal at the TradeRouter.Net repository root and run the executable sample's OSRM example:
+
+```bash
+TRADEROUTER_OSRM_URL=http://127.0.0.1:5000 \
+TRADEROUTER_OSRM_DATA_VERSION=great-britain-260914 \
+dotnet run --project src/TradeRouter.Sample
+```
+
+Example 13 always shows the built-in `EstimateOnly` result. Example 14 uses `OsrmRoadRouteProvider` and `RequireNetwork`, so it must return an OSRM route rather than silently fall back. When `TRADEROUTER_OSRM_URL` is not set, example 14 is clearly reported as skipped and the rest of the sample still runs. `TRADEROUTER_OSRM_DATA_VERSION` is optional output provenance and may be omitted.
 
 `PreferNetworkThenEstimate` falls back only when the provider is unavailable or an endpoint is outside its loaded coverage, and records the reason in `distance_warning`. A provider-confirmed `NoRoute` is an error rather than silently inventing a distance. `RequireNetwork` also treats unavailable or out-of-coverage results as errors. `EstimateOnly` never calls the provider. Because provider calls are I/O, use `CalculateMovementAsync`; synchronous calculation is still available for supplied routes and estimates.
 
@@ -575,7 +599,7 @@ dotnet test tests/TradeRouter.Tests -c Release -m:1 -nr:false
 dotnet run --project src/TradeRouter.Sample
 ```
 
-The sample prints twelve worked examples covering coordinates, port codes, restrictions, terminal resolution, area weighting, A*, blocked routes, GeoJSON output, the Shanghai to London walkthrough and three multi-leg movements printed as tables, one with an air leg. Add `--geojson` to print a full feature.
+The sample contains fourteen numbered examples covering coordinates, port codes, restrictions, terminal resolution, area weighting, A*, blocked routes, GeoJSON output, the Shanghai to London walkthrough and multi-leg movements. Examples 13 and 14 compare the built-in road estimate with OSRM for the same Gatwick-to-Heathrow leg. Example 14 runs when `TRADEROUTER_OSRM_URL` is set as shown in [Road routing](#road-routing); otherwise it reports that it was skipped. Add `--geojson` to print a full feature.
 
 To produce the NuGet package locally:
 

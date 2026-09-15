@@ -97,7 +97,7 @@ Print("9. CNSHG Shanghai to GBLON London, step by step",
     $"   finished route {finished.Geometry?.Positions.Count ?? 0} points, {finished.Properties.Length:N0} km, {finished.Properties.DurationHours:N1} h{Environment.NewLine}" +
     $"   result         GeoJSON Feature, {finished.ToJson().Length:N0} characters");
 
-// 10 to 12. Multi-leg movements. Sea legs use the maritime network; road legs use a supplied route,
+// 10 to 14. Multi-leg movements. Sea legs use the maritime network; road legs use a supplied route,
 //    a configured provider, or the labelled built-in circuity estimate. Air legs use great-circle distance.
 //    Every code resolves from the embedded port list or UN/LOCODE list, so no coordinates are supplied.
 //    Gatwick (GBLGW), Shanghai Railway Station (CNSHZ) and Melrose (AUMRS) have no coordinates in the UNECE
@@ -141,6 +141,44 @@ airRequest.RoadRouteOverrides[1] = new SuppliedRoadRoute
 };
 PrintMovementRequest("12. Movement with an air leg and a supplied 64 km Gatwick-Heathrow road distance", airRequest);
 
+var roadPlan = MovementPlan
+    .From(Waypoint.Place("GBLGW"))
+    .PickupTo(Waypoint.Airport("GBLHR"), TransportMode.Road);
+var estimatedRoadRequest = new MovementRequest
+{
+    Legs = roadPlan.Legs.ToList(),
+    CargoTonnes = 20.0,
+    RoadRoutingMode = RoadRoutingMode.EstimateOnly
+};
+PrintMovementRequest("13. Gatwick to Heathrow using the built-in road estimate", estimatedRoadRequest);
+
+const string osrmUrlVariable = "TRADEROUTER_OSRM_URL";
+string? osrmUrl = Environment.GetEnvironmentVariable(osrmUrlVariable);
+if (string.IsNullOrWhiteSpace(osrmUrl))
+{
+    Print(
+        "14. Gatwick to Heathrow using an OSRM container",
+        $"Skipped: set {osrmUrlVariable}=http://127.0.0.1:5000 after starting OSRM as shown in the README.");
+}
+else
+{
+    if (!Uri.TryCreate(osrmUrl, UriKind.Absolute, out var osrmBaseUri))
+        throw new ArgumentException($"{osrmUrlVariable} must be an absolute HTTP or HTTPS URI. Received: {osrmUrl}");
+
+    using var osrmHttpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+    var osrmRoadRequest = new MovementRequest
+    {
+        Legs = roadPlan.Legs.ToList(),
+        CargoTonnes = 20.0,
+        RoadRouteProvider = new OsrmRoadRouteProvider(
+            osrmHttpClient,
+            osrmBaseUri,
+            dataVersion: Environment.GetEnvironmentVariable("TRADEROUTER_OSRM_DATA_VERSION")),
+        RoadRoutingMode = RoadRoutingMode.RequireNetwork
+    };
+    await PrintMovementRequestAsync("14. Gatwick to Heathrow using an OSRM container", osrmRoadRequest);
+}
+
 static void PrintMovement(string title, MovementPlan plan, double tonnes = 20.0, double? teu = null)
 {
     // CO2e per leg uses GLEC well-to-wheel defaults per mode. With a TEU count, sea legs are charged per
@@ -157,8 +195,16 @@ static void PrintMovement(string title, MovementPlan plan, double tonnes = 20.0,
 
 static void PrintMovementRequest(string title, MovementRequest request)
 {
-    var movement = TradeRoutes.CalculateMovement(request);
+    PrintMovementResult(title, TradeRoutes.CalculateMovement(request));
+}
 
+static async Task PrintMovementRequestAsync(string title, MovementRequest request)
+{
+    PrintMovementResult(title, await TradeRoutes.CalculateMovementAsync(request));
+}
+
+static void PrintMovementResult(string title, MovementResult movement)
+{
     Console.WriteLine();
     Console.WriteLine(title);
     Console.WriteLine(movement.ToText());

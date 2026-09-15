@@ -58,7 +58,7 @@ public sealed record RoadRouteResult
     /// <summary>Routing profile used by the provider, for example "driving".</summary>
     public string? Profile { get; init; }
 
-    /// <summary>Configured identifier for the provider's road dataset.</summary>
+    /// <summary>Optional caller-defined provenance label for the provider's road dataset.</summary>
     public string? DataVersion { get; init; }
 
     /// <summary>Human-readable reason for a non-success outcome.</summary>
