@@ -16,7 +16,7 @@ public sealed class TradeRouterProperties
     [JsonPropertyName("units")]
     public string Units { get; set; } = "km";
 
-    /// <summary>Travelling duration in hours, provider-modelled when available or otherwise derived from configured speed.</summary>
+    /// <summary>Travelling duration in hours, derived according to the request's duration policy.</summary>
     [JsonPropertyName("duration_hours")]
     public double DurationHours { get; set; }
 

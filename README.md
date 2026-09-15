@@ -50,12 +50,12 @@ Both cargo measurements are shown together only to demonstrate the two emissions
 ```text
 Leg Kind      Mode  From   To      Distance       Distance basis   Modelled transit time       CO2e rate  CO2e per tonne  CO2e total   Basis  Choke points
                                                                                    hours      g per t-km  kg per t cargo          kg
-1   Pickup    Road  GBLGW  GBFXT        181 km   circuity_estimate                     3.0            92.0            16.6         200  tonnes
+1   Pickup    Road  GBLGW  GBFXT        183 km   circuity_estimate                     3.0            92.0            16.8         202  tonnes
 2   Main      Sea   GBFXT  SGSIN     15,402 km    maritime_network                   895.2             7.6           117.1       2,341     teu  Gibraltar, Suez, Bab-el-Mandeb, Malacca
 3   Main      Sea   SGSIN  AUMEL      7,300 km    maritime_network                   391.6             7.6            55.5       1,110     teu  Sunda
-4   Delivery  Road  AUMEL  AUMRS      1,078 km   circuity_estimate                    18.0            92.0            99.2       1,190  tonnes
-Total                                23,960 km                                     1,307.8                           288.3       4,840          for 12 t of cargo in 2 TEU
-Modelled minimum = 787.1 h travel + 376.7 h sea operations + 96 h port handling + 48 h connections = 1,307.8 h (54.5 days)
+4   Delivery  Road  AUMEL  AUMRS      1,011 km   circuity_estimate                    16.8            92.0            93.0       1,116  tonnes
+Total                                23,896 km                                     1,306.7                           282.4       4,769          for 12 t of cargo in 2 TEU
+Modelled minimum = 786.0 h travel + 376.7 h sea operations + 96 h port handling + 48 h connections = 1,306.7 h (54.4 days)
 Distance basis = maritime_network/road_network are network routes; circuity_estimate is a planning estimate; great_circle is straight-line
 Timing         = planning lower bound from configured assumptions; excludes carrier schedules, customs and disruption
 CO2e rate      = grams of CO2e emitted moving 1 tonne 1 km (configured factor for the mode)
@@ -149,7 +149,7 @@ Example output for Jebel Ali (AEJEA) to St John's, Antigua (AGSJO) with Suez clo
 |---|---|
 | `length` | Total route length in the requested unit. |
 | `units` | Unit identifier, for example `km`, `naut`, `mi`. |
-| `duration_hours` | Travelling duration: provider-modelled for a road-network result when available, otherwise length divided by the configured mode speed. |
+| `duration_hours` | Travelling duration. Road legs default to distance divided by the configured road speed; callers may explicitly opt into a provider or imported-route duration. |
 | `distance_basis` | Provenance class for the distance: `maritime_network`, `road_network`, `supplied`, `circuity_estimate` or `great_circle`. |
 | `straight_line_length` | Great-circle lower bound for a road leg, in the requested unit. |
 | `distance_source` | Provider, estimator or caller label that produced the distance. |
@@ -318,7 +318,7 @@ Each resolved location reports its `Source`. The embedded UN/LOCODE data has no 
 
 ### Road routing
 
-Application and sample road legs must use a configured `IRoadRouteProvider` or the built-in `IRoadDistanceEstimator`. The default estimator multiplies the great-circle lower bound by 1.3. It is deterministic and more realistic than treating roads as straight, but it remains a coarse planning assumption: it does not know the actual road network, ferries, borders, mountains or local restrictions. Its result is therefore labelled `circuity_estimate`, includes the lower bound in `straight_line_length`, and carries a `distance_warning`.
+Application and sample road legs must use a configured `IRoadRouteProvider` or the built-in `IRoadDistanceEstimator`. The default estimator uses a calibrated distance-decay formula, `1.6173976 × straight-line-km^0.9579701`. This makes the road-to-straight-line ratio higher on short trips, where local access and network layout are proportionally more important, and lets that ratio decline gradually with distance. It is deterministic and more realistic than one multiplier for every journey, but it remains a coarse planning assumption: it does not know the actual road network, ferries, borders, mountains or local restrictions. Its result is therefore labelled `circuity_estimate`, includes the lower bound in `straight_line_length`, and carries a `distance_warning`. The research basis, calibration procedure and held-out results are recorded in [DATA_PROVENANCE.md](DATA_PROVENANCE.md#road-distance-estimator-calibration).
 
 `RoadRouteOverrides` is reserved for importing a complete route result from an authoritative upstream system. Do not put a literal distance in application or sample code to correct or force an output; use the estimator or a provider such as OSRM.
 
@@ -333,12 +333,26 @@ var estimatedPlan = MovementPlan
 var request = new MovementRequest
 {
     Legs = estimatedPlan.Legs.ToList(),
-    RoadRoutingMode = RoadRoutingMode.EstimateOnly,
-    RoadDistanceEstimator = new CircuityRoadDistanceEstimator() // default factor: 1.3
+    RoadRoutingMode = RoadRoutingMode.EstimateOnly
 };
 
 var movement = TradeRouterEngine.Default.CalculateMovement(request);
-// Road legs report distance_basis "circuity_estimate" and distance_source "circuity-1.3".
+// Road legs report distance_basis "circuity_estimate" and identify the distance-decay model.
+```
+
+The default model is configurable without supplying route-specific values:
+
+```csharp
+request.RoadDistanceEstimator = new DistanceDecayRoadDistanceEstimator(
+    coefficient: configuration.RoadDistanceCoefficient,
+    exponent: configuration.RoadDistanceExponent);
+```
+
+`CircuityRoadDistanceEstimator` remains available when a caller deliberately wants a single configured multiplier:
+
+```csharp
+request.RoadDistanceEstimator = new CircuityRoadDistanceEstimator(
+    factor: configuration.RoadCircuityFactor);
 ```
 
 For network distance, run OSRM separately and configure the included HTTP adapter. The library does not start, stop or download data for the OSRM service:
@@ -359,6 +373,14 @@ var request = new MovementRequest
 };
 
 var movement = await TradeRouterEngine.Default.CalculateMovementAsync(request);
+```
+
+OSRM supplies the road-network distance and geometry, but road time still defaults to that distance divided by
+`MovementRequest.SpeedsKmh[TransportMode.Road]` (60 km/h by default). To use OSRM's modelled duration instead,
+opt in explicitly:
+
+```csharp
+request.RoadDurationMode = RoadDurationMode.RouteDurationWhenAvailable;
 ```
 
 No `dataVersion` value is required to make routing work. The optional constructor argument is only a caller-defined provenance label copied to `routing_data_version` in the result; it neither selects nor loads an OSRM dataset. The sample runner fills it from the resolved extract filenames—for example, `england-260914+south-africa-260914`. Omit it when you do not know that information.
@@ -407,12 +429,12 @@ Example 13 always shows the built-in `EstimateOnly` result. Examples 14 and 15 u
 
 ### Time
 
-`duration_hours` on every route and leg is travelling time. An OSRM road result uses OSRM's modelled duration when it is present; other legs and estimated road distances use distance divided by the configured average speed.
+`duration_hours` on every route and leg is travelling time. Road legs use routed or estimated distance divided by the configured road speed by default, including routes whose distance and geometry came from OSRM. Set `RoadDurationMode` to `RouteDurationWhenAvailable` to prefer a provider or authoritative imported-route duration when one is present. Other non-sea legs use distance divided by their configured average speed.
 
 | Mode | Default speed | Where to change it |
 |---|---|---|
 | Sea | 16 knots, about 30 km/h | `TradeRouterOptions.SpeedKnots` |
-| Road | OSRM duration when returned; otherwise 60 km/h | `MovementRequest.SpeedsKmh[TransportMode.Road]` changes estimated calculations |
+| Road | 60 km/h | `MovementRequest.SpeedsKmh[TransportMode.Road]`; set `RoadDurationMode.RouteDurationWhenAvailable` to prefer a provider/imported duration |
 | Rail | 80 km/h | `MovementRequest.SpeedsKmh[TransportMode.Rail]` |
 | Air | 800 km/h | `MovementRequest.SpeedsKmh[TransportMode.Air]` |
 
@@ -498,7 +520,7 @@ Everything here is deliberate and documented, but each is a simplification you s
 - **Single routes with several area matches** return the first feature from `CalculateRoute`; use `CalculateRoutes` to see them all.
 - **Single routes with no path** return null geometry and zero length rather than throwing; movement legs throw.
 - **Untagged lane links.** Three internal tags in the lane data, `segment`, `segment2` and `pacific_ocean`, stitch the antimeridian and are never reported or restrictable.
-- **Road estimates and non-road geometry.** Without a supplied value or provider, road distance is a 1.3× great-circle circuity estimate, not a road-network route. When no road geometry is available, the GeoJSON still joins the resolved endpoints with a straight display line and reports `geometry_basis: great_circle`; this does not change the separately reported estimated or routed distance. Rail and air use great-circle distance.
+- **Road estimates and non-road geometry.** Without a supplied value or provider, road distance comes from the calibrated distance-decay circuity model, not a road-network route. It is an average planning relationship and cannot reproduce barriers or the exact route between a particular pair. When no road geometry is available, the GeoJSON still joins the resolved endpoints with a straight display line and reports `geometry_basis: great_circle`; this does not change the separately reported estimated or routed distance. Rail and air use great-circle distance.
 - **Time and emissions are estimates.** Movement time is labelled modelled minimum and exposes every allowance, but it still has no carrier schedule, customs, cargo cut-off, booking availability or disruption data.
 - **Per-thread search buffers** hold about 300 KB for the lifetime of each thread that routes.
 

@@ -29,6 +29,40 @@ The searoute-py project credits [Eurostat SeaRoute](https://github.com/eurostat/
 
 Important limitation: the imported UN/LOCODE resource did not retain an edition or source-file checksum, and repository history does not identify one. It must therefore not be described as the current official edition. The [UNECE publications page](https://unlocode.unece.org/publications/) is the authority for the current production and pre-release datasets. A future refresh should replace this resource from a named publication and record its source checksum here.
 
+## Road distance estimator calibration
+
+The default built-in road estimator uses a distance-decay model rather than one circuity multiplier for every journey:
+
+```text
+estimated road km = max(straight-line km, 1.6173976178145946 × straight-line km ^ 0.9579701056959417)
+```
+
+The shape follows published road-network research rather than an assumed fixed number of access kilometres. Giacomin and Levinson, [Road network circuity in metropolitan areas](https://doi.org/10.1068/b130131p), found that short trips are more circuitous than long trips and modelled circuity with a distance-decay relationship. Chen and Chen, [Quantifying the relationships between network distance and straight-line distance](https://doi.org/10.1080/19475683.2021.1966503), independently found the same short-trip effect across 25 Chinese cities. The fitted exponent below makes the circuity ratio proportional to `distance^-0.0420298943`, so local access and network topology have a larger proportional effect on shorter legs without adding a route-specific correction.
+
+Calibration was run on 15 September 2026 against the standard OSRM car profile in `ghcr.io/project-osrm/osrm-backend:26.8.0-debian`. Candidate endpoints came from the embedded UN/LOCODE data within the two sample coverage boxes. Pairs were sampled deterministically across straight-line distance bands; routes with either endpoint snapped more than 2 km were rejected. Gatwick–Heathrow was explicitly excluded. The accepted set contained 1,120 routes: 480 in the England sample and 640 in the South Africa sample. A deterministic hash split left 834 fitting routes and 286 held-out routes.
+
+The OSM inputs were the dated Geofabrik snapshots resolved by the sample runner:
+
+| Extract | Coverage box | SHA-256 of clipped PBF |
+| --- | --- | --- |
+| `england-260914` | `-1.0,50.8,1.8,52.2` | `249d5675edd7b6edae9dc86c972f9e0bf89faf41457bd23f89b1cfc5a85331b2` |
+| `south-africa-260914` | `17.0,-35.0,29.5,-25.0` | `396e5b94c0e88ae8b1deea048dbfec38ce1a7df10a36550e74cae6305bf39fe3` |
+
+Held-out results compare the former 1.3 multiplier with the selected distance-decay model:
+
+| Held-out set | Model | MAE km | RMSE km | MAPE | Mean bias km |
+| --- | --- | ---: | ---: | ---: | ---: |
+| Combined, 286 routes | 1.3 multiplier | 22.50 | 51.45 | 9.19% | +11.29 |
+| Combined, 286 routes | distance decay | 15.67 | 33.83 | 9.23% | +0.88 |
+| England, 125 routes | 1.3 multiplier | 6.84 | 13.40 | 9.00% | -4.44 |
+| England, 125 routes | distance decay | 6.10 | 12.36 | 9.34% | -2.46 |
+| South Africa, 161 routes | 1.3 multiplier | 34.65 | 67.55 | 9.34% | +23.50 |
+| South Africa, 161 routes | distance decay | 23.11 | 43.75 | 9.14% | +3.48 |
+
+An access-allowance candidate of `C × distance + A × distance/(distance + S)` was also fitted. It produced a lower combined RMSE of 33.14 km but a worse MAE of 17.36 km and MAPE of 10.88%; it also performed worse than the old multiplier in the England holdout. It was therefore rejected. The selected model improved MAE and bias in both regions without encoding any location pair, country or sample route.
+
+This remains a fallback, not a global road network. The calibration covers two regions and OSRM itself can choose a different distance depending on whether its profile optimises time, distance or road preference. Consumers requiring route-specific distance should configure `IRoadRouteProvider`; callers may replace the fallback through `MovementRequest.RoadDistanceEstimator`.
+
 ## Licences and attribution
 
 See `THIRD-PARTY-NOTICES.md`. Data licences are separate from the Apache-2.0 licence covering TradeRouter.Net's own code.

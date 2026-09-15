@@ -457,6 +457,7 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
                 to,
                 units,
                 request.SpeedsKmh,
+                request.RoadDurationMode,
                 supplied.DistanceKm,
                 supplied.DurationHours,
                 supplied.Geometry,
@@ -491,6 +492,7 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
                         to,
                         units,
                         request.SpeedsKmh,
+                        request.RoadDurationMode,
                         result.DistanceKm!.Value,
                         result.DurationHours,
                         result.Geometry,
@@ -559,6 +561,7 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
             to,
             units,
             request.SpeedsKmh,
+            request.RoadDurationMode,
             estimate.DistanceKm,
             durationHours: null,
             geometry: null,
@@ -575,6 +578,7 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
         ResolvedLocation to,
         DistanceUnit units,
         IReadOnlyDictionary<TransportMode, double> speedsKmh,
+        RoadDurationMode roadDurationMode,
         double distanceKm,
         double? durationHours,
         IReadOnlyList<Coordinate>? geometry,
@@ -594,10 +598,11 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
         var coordinates = BuildContinuousRoadGeometry(from.Coordinate, to.Coordinate, geometry);
         double length = distanceKm * 1000.0 * units.GetConversionFactorFromMeters();
         double straightLineLength = straightLineKm * 1000.0 * units.GetConversionFactorFromMeters();
+        bool useRouteDuration = roadDurationMode == RoadDurationMode.RouteDurationWhenAvailable && durationHours.HasValue;
         double resolvedDuration;
-        if (durationHours.HasValue)
+        if (useRouteDuration)
         {
-            resolvedDuration = durationHours.Value;
+            resolvedDuration = durationHours!.Value;
         }
         else
         {
@@ -619,7 +624,7 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
                 DistanceSource = distanceSource,
                 RoutingProfile = profile,
                 RoutingDataVersion = dataVersion,
-                DurationBasis = durationHours.HasValue
+                DurationBasis = useRouteDuration
                     ? distanceBasis == "supplied" ? "supplied" : "provider"
                     : "assumed_speed",
                 GeometryBasis = geometry is { Count: >= 2 }
@@ -814,6 +819,8 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
             throw new ArgumentException("Movement road-distance estimator cannot be null.", nameof(request));
         if (!Enum.IsDefined(request.RoadRoutingMode))
             throw new ArgumentException("Movement road-routing mode is unknown.", nameof(request));
+        if (!Enum.IsDefined(request.RoadDurationMode))
+            throw new ArgumentException("Movement road-duration mode is unknown.", nameof(request));
         request.Emissions.Validate();
         ValidatePositiveOptional(request.CargoTonnes, nameof(request.CargoTonnes));
         ValidatePositiveOptional(request.CargoTeu, nameof(request.CargoTeu));

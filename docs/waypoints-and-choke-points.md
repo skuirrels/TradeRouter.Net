@@ -4,12 +4,12 @@ This document describes every kind of waypoint that can appear in a route produc
 
 ## 1. Transport modes covered
 
-TradeRouter.Net routes deep-sea shipping on the Eurostat Marnet network. Multi-leg movements may also contain road, rail and air legs. Road distance comes from an optional road-network provider or a labelled built-in circuity estimate; rail and air use great-circle distance.
+TradeRouter.Net routes deep-sea shipping on the Eurostat Marnet network. Multi-leg movements may also contain road, rail and air legs. Road distance comes from an optional road-network provider or a labelled built-in distance-decay circuity estimate; rail and air use great-circle distance.
 
 | Mode | Routed | Network | Leg geometry | Duration basis | Choke points |
 |---|---|---|---|---|---|
 | Sea | Yes | Marnet, 9,708 nodes, 31,950 directed edges | Network path | `SpeedKnots`, default 16, plus 24 h port dwell per leg end in movements | 13 tagged passages, listed in section 3 |
-| Road | When an `IRoadRouteProvider` is configured | Configured provider, for example OSRM | Network path when returned; otherwise a straight display line | Provider duration when returned; otherwise `SpeedsKmh[Road]`, default 60 | None |
+| Road | When an `IRoadRouteProvider` is configured | Configured provider, for example OSRM | Network path when returned; otherwise a straight display line | Routed or estimated distance divided by `SpeedsKmh[Road]`, default 60; provider/imported duration by explicit opt-in | None |
 | Rail | No | None | Straight line, 2 points | `SpeedsKmh[Rail]`, default 80 | None |
 | Air | No | None | Straight line, 2 points | `SpeedsKmh[Air]`, default 800 | None |
 | Inland waterway | No | None | Not supported as a mode | n/a | None |

@@ -3,6 +3,7 @@ using System.Text;
 using FluentAssertions;
 using TradeRouter.Common;
 using TradeRouter.Graph;
+using TradeRouter.Locations;
 using TradeRouter.Movements;
 using TradeRouter.Ports;
 using Xunit;
@@ -12,20 +13,64 @@ namespace TradeRouter.Tests;
 public class RoadRoutingTests
 {
     [Fact]
-    public void Movement_RoadFallbackUsesLabelledCircuityEstimate()
+    public void Movement_RoadFallbackUsesLabelledDistanceDecayEstimate()
     {
         var result = TradeRoutes.CalculateMovement("Pickup GBLGW to Airport GBLHR Road");
 
         var road = result.Legs.Single();
         road.Feature.Properties.DistanceBasis.Should().Be("circuity_estimate");
-        road.Feature.Properties.DistanceSource.Should().Be("circuity-1.3");
+        road.Feature.Properties.DistanceSource.Should().Be("distance-decay-1.6174x^0.95797");
         road.Feature.Properties.GeometryBasis.Should().Be("great_circle");
         road.Feature.Properties.DistanceWarning.Should().Contain("no road-network route");
         road.Feature.Properties.StraightLineLength.Should().BeInRange(39.0, 41.0);
         road.Length.Should().BeApproximately(
-            road.Feature.Properties.StraightLineLength!.Value * CircuityRoadDistanceEstimator.DefaultFactor,
+            DistanceDecayRoadDistanceEstimator.DefaultCoefficient * Math.Pow(
+                road.Feature.Properties.StraightLineLength!.Value,
+                DistanceDecayRoadDistanceEstimator.DefaultExponent),
             1e-6);
         road.DurationHours.Should().BeApproximately(road.Length / 60.0, 1e-6);
+    }
+
+    [Fact]
+    public void DistanceDecayEstimate_AppliesMoreCircuityToShorterJourneys()
+    {
+        var estimator = DistanceDecayRoadDistanceEstimator.Default;
+        var from = new ResolvedLocation("FROM", "From", new Coordinate(0, 0), null, "test", LocationFunctions.RoadTerminal);
+        var to = new ResolvedLocation("TO", "To", new Coordinate(1, 1), null, "test", LocationFunctions.RoadTerminal);
+
+        double shortRatio = estimator.Estimate(new RoadDistanceEstimateRequest(1, from, to, 10)).DistanceKm / 10;
+        double mediumRatio = estimator.Estimate(new RoadDistanceEstimateRequest(1, from, to, 100)).DistanceKm / 100;
+        double longRatio = estimator.Estimate(new RoadDistanceEstimateRequest(1, from, to, 1_000)).DistanceKm / 1_000;
+
+        shortRatio.Should().BeGreaterThan(mediumRatio);
+        mediumRatio.Should().BeGreaterThan(longRatio);
+        longRatio.Should().BeGreaterThanOrEqualTo(1.0);
+    }
+
+    [Fact]
+    public void DistanceDecayEstimate_CanBeOverriddenWithoutChangingTheDefault()
+    {
+        var estimator = new DistanceDecayRoadDistanceEstimator(coefficient: 1.4, exponent: 0.95);
+        var from = new ResolvedLocation("FROM", "From", new Coordinate(0, 0), null, "test", LocationFunctions.RoadTerminal);
+        var to = new ResolvedLocation("TO", "To", new Coordinate(1, 1), null, "test", LocationFunctions.RoadTerminal);
+
+        var estimate = estimator.Estimate(new RoadDistanceEstimateRequest(1, from, to, 100));
+
+        estimate.DistanceKm.Should().BeApproximately(1.4 * Math.Pow(100, 0.95), 1e-9);
+        estimate.Model.Should().Be("distance-decay-1.4x^0.95");
+        DistanceDecayRoadDistanceEstimator.Default.Coefficient.Should().Be(DistanceDecayRoadDistanceEstimator.DefaultCoefficient);
+    }
+
+    [Theory]
+    [InlineData(0.9, 0.95)]
+    [InlineData(double.NaN, 0.95)]
+    [InlineData(1.4, 0.0)]
+    [InlineData(1.4, 1.1)]
+    public void DistanceDecayEstimate_RejectsInvalidParameters(double coefficient, double exponent)
+    {
+        var act = () => new DistanceDecayRoadDistanceEstimator(coefficient, exponent);
+
+        act.Should().Throw<ArgumentOutOfRangeException>();
     }
 
     [Fact]
@@ -54,7 +99,7 @@ public class RoadRoutingTests
     }
 
     [Fact]
-    public async Task MovementAsync_UsesConfiguredRoadNetworkProvider()
+    public async Task MovementAsync_UsesProviderDistanceAndConfiguredRoadSpeedByDefault()
     {
         var provider = new StubRoadProvider(new RoadRouteResult
         {
@@ -77,18 +122,18 @@ public class RoadRoutingTests
 
         provider.Requests.Should().ContainSingle();
         road.Length.Should().Be(64.0);
-        road.DurationHours.Should().Be(0.9);
+        road.DurationHours.Should().BeApproximately(64.0 / 60.0, 1e-9);
         road.Feature.Geometry!.Coordinates.Should().HaveCount(3);
         road.Feature.Properties.DistanceBasis.Should().Be("road_network");
         road.Feature.Properties.DistanceSource.Should().Be("osrm");
         road.Feature.Properties.RoutingProfile.Should().Be("driving");
         road.Feature.Properties.RoutingDataVersion.Should().Be("planet-2026-09");
-        road.Feature.Properties.DurationBasis.Should().Be("provider");
+        road.Feature.Properties.DurationBasis.Should().Be("assumed_speed");
         road.Feature.Properties.GeometryBasis.Should().Be("road_network");
     }
 
     [Fact]
-    public async Task MovementAsync_ProviderDurationDoesNotRequireFallbackRoadSpeed()
+    public async Task MovementAsync_CanOptIntoProviderDurationWithoutConfiguredRoadSpeed()
     {
         var provider = new StubRoadProvider(new RoadRouteResult
         {
@@ -98,12 +143,64 @@ public class RoadRoutingTests
             Source = "stub"
         });
         var request = CreateProviderRequest(provider, RoadRoutingMode.RequireNetwork);
+        request.RoadDurationMode = RoadDurationMode.RouteDurationWhenAvailable;
         request.SpeedsKmh.Remove(TransportMode.Road);
 
         var road = (await TradeRouterEngine.Default.CalculateMovementAsync(request)).Legs.Single();
 
         road.DurationHours.Should().Be(0.9);
         road.Feature.Properties.DurationBasis.Should().Be("provider");
+    }
+
+    [Fact]
+    public async Task MovementAsync_ConfiguredRoadSpeedAppliesToProviderDistance()
+    {
+        var provider = new StubRoadProvider(new RoadRouteResult
+        {
+            Status = RoadRouteStatus.Success,
+            DistanceKm = 64.0,
+            DurationHours = 0.9,
+            Source = "stub"
+        });
+        var request = CreateProviderRequest(provider, RoadRoutingMode.RequireNetwork);
+        request.SpeedsKmh[TransportMode.Road] = 80.0;
+
+        var road = (await TradeRouterEngine.Default.CalculateMovementAsync(request)).Legs.Single();
+
+        road.DurationHours.Should().BeApproximately(64.0 / 80.0, 1e-9);
+        road.Feature.Properties.DurationBasis.Should().Be("assumed_speed");
+    }
+
+    [Fact]
+    public async Task MovementAsync_ProviderDurationOptInFallsBackToConfiguredSpeedWhenDurationIsMissing()
+    {
+        var provider = new StubRoadProvider(new RoadRouteResult
+        {
+            Status = RoadRouteStatus.Success,
+            DistanceKm = 64.0,
+            Source = "stub"
+        });
+        var request = CreateProviderRequest(provider, RoadRoutingMode.RequireNetwork);
+        request.RoadDurationMode = RoadDurationMode.RouteDurationWhenAvailable;
+
+        var road = (await TradeRouterEngine.Default.CalculateMovementAsync(request)).Legs.Single();
+
+        road.DurationHours.Should().BeApproximately(64.0 / 60.0, 1e-9);
+        road.Feature.Properties.DurationBasis.Should().Be("assumed_speed");
+    }
+
+    [Fact]
+    public void Movement_RejectsUnknownRoadDurationMode()
+    {
+        var request = new MovementRequest
+        {
+            Legs = MovementParser.Parse("Pickup GBLGW to Airport GBLHR Road"),
+            RoadDurationMode = (RoadDurationMode)999
+        };
+
+        var act = () => TradeRouterEngine.Default.CalculateMovement(request);
+
+        act.Should().Throw<ArgumentException>().WithMessage("*road-duration mode is unknown*");
     }
 
     [Theory]

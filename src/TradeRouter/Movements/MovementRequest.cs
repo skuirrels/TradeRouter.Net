@@ -91,10 +91,17 @@ public sealed class MovementRequest
     public RoadRoutingMode RoadRoutingMode { get; set; } = RoadRoutingMode.PreferNetworkThenEstimate;
 
     /// <summary>
-    /// Deterministic fallback used when a road-network route is not configured or lies outside its coverage.
-    /// Defaults to a coarse 1.3 road-circuity multiplier.
+    /// Controls road travelling-time calculation. The default uses routed or estimated distance divided by
+    /// <see cref="SpeedsKmh"/> for road. Set this to <see cref="Movements.RoadDurationMode.RouteDurationWhenAvailable"/>
+    /// to prefer a duration returned by a route provider or authoritative imported route.
     /// </summary>
-    public IRoadDistanceEstimator RoadDistanceEstimator { get; set; } = CircuityRoadDistanceEstimator.Default;
+    public RoadDurationMode RoadDurationMode { get; set; } = Movements.RoadDurationMode.ConfiguredSpeed;
+
+    /// <summary>
+    /// Deterministic fallback used when a road-network route is not configured or lies outside its coverage.
+    /// Defaults to a calibrated distance-decay circuity model. Set a different implementation to override it.
+    /// </summary>
+    public IRoadDistanceEstimator RoadDistanceEstimator { get; set; } = DistanceDecayRoadDistanceEstimator.Default;
 
     /// <summary>
     /// Complete road results imported from an authoritative upstream routing system, keyed by one-based leg sequence.

@@ -15,6 +15,19 @@ public enum RoadRoutingMode
     EstimateOnly
 }
 
+/// <summary>Controls how travelling time is calculated for road legs.</summary>
+public enum RoadDurationMode
+{
+    /// <summary>Calculate duration from routed or estimated distance and the configured road speed.</summary>
+    ConfiguredSpeed,
+
+    /// <summary>
+    /// Use a duration returned by a road provider or authoritative imported route when available;
+    /// otherwise calculate it from distance and the configured road speed.
+    /// </summary>
+    RouteDurationWhenAvailable
+}
+
 /// <summary>Outcome of asking an external provider to route one road leg.</summary>
 public enum RoadRouteStatus
 {
@@ -94,6 +107,64 @@ public interface IRoadDistanceEstimator
 {
     /// <summary>Estimates a road distance from resolved endpoints and their great-circle separation.</summary>
     RoadDistanceEstimate Estimate(RoadDistanceEstimateRequest request);
+}
+
+/// <summary>
+/// Estimates road distance with a distance-decay circuity model. The road-to-straight-line ratio is higher
+/// for short journeys and gradually declines with distance, reflecting the proportionally larger effect of
+/// local access and road-network topology near each endpoint.
+/// </summary>
+public sealed class DistanceDecayRoadDistanceEstimator : IRoadDistanceEstimator
+{
+    /// <summary>Coefficient fitted to the documented OSRM calibration set, with distance expressed in kilometres.</summary>
+    public const double DefaultCoefficient = 1.6173976178145946;
+
+    /// <summary>Exponent fitted to the documented OSRM calibration set.</summary>
+    public const double DefaultExponent = 0.9579701056959417;
+
+    /// <summary>Shared default estimator.</summary>
+    public static DistanceDecayRoadDistanceEstimator Default { get; } = new();
+
+    /// <summary>Multiplier in the power function, where input and output are kilometres.</summary>
+    public double Coefficient { get; }
+
+    /// <summary>Exponent in the power function. Values below one make circuity decline with distance.</summary>
+    public double Exponent { get; }
+
+    /// <summary>
+    /// Creates an estimator for <c>coefficient × straightLineDistance^exponent</c>. The coefficient must be
+    /// finite and at least one; the exponent must be finite, greater than zero and no greater than one.
+    /// </summary>
+    public DistanceDecayRoadDistanceEstimator(
+        double coefficient = DefaultCoefficient,
+        double exponent = DefaultExponent)
+    {
+        if (!double.IsFinite(coefficient) || coefficient < 1.0)
+            throw new ArgumentOutOfRangeException(nameof(coefficient), coefficient, "The coefficient must be finite and at least 1.");
+        if (!double.IsFinite(exponent) || exponent <= 0.0 || exponent > 1.0)
+            throw new ArgumentOutOfRangeException(nameof(exponent), exponent, "The exponent must be finite, greater than 0 and no greater than 1.");
+
+        Coefficient = coefficient;
+        Exponent = exponent;
+    }
+
+    /// <inheritdoc />
+    public RoadDistanceEstimate Estimate(RoadDistanceEstimateRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (!double.IsFinite(request.StraightLineDistanceKm) || request.StraightLineDistanceKm < 0.0)
+            throw new ArgumentOutOfRangeException(nameof(request), "Straight-line distance must be finite and non-negative.");
+
+        double straightLineDistanceKm = request.StraightLineDistanceKm;
+        double modelledDistanceKm = straightLineDistanceKm == 0.0
+            ? 0.0
+            : Coefficient * Math.Pow(straightLineDistanceKm, Exponent);
+
+        return new RoadDistanceEstimate(
+            Math.Max(straightLineDistanceKm, modelledDistanceKm),
+            FormattableString.Invariant($"distance-decay-{Coefficient:0.#####}x^{Exponent:0.#####}"),
+            "Estimated with a distance-decay circuity model because no road-network route was available.");
+    }
 }
 
 /// <summary>
