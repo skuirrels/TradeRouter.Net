@@ -174,10 +174,10 @@ public class MovementTests
     [Fact]
     public void Movement_CodeKnownToUnLocodeButUncoordinated_ThrowsWithItsName()
     {
-        // AUDND is Dandenong: UNECE lists it without coordinates and it is not in the port list.
-        var act = () => TradeRoutes.CalculateMovement("Delivery from port AUMEL to place AUDND Road");
+        // Khalidia has no coordinate in UNECE or a verified supplement, and is not in the port list.
+        var act = () => TradeRoutes.CalculateMovement("Delivery from port AEJEA to place AEKHA Road");
 
-        act.Should().Throw<ArgumentException>().WithMessage("*AUDND*Dandenong*no coordinates*");
+        act.Should().Throw<ArgumentException>().WithMessage("*AEKHA*Khalidia*no coordinates*");
     }
 
     [Fact]
@@ -200,6 +200,21 @@ public class MovementTests
         resolvedGuildford.Source.Should().Be("unlocode");
 
         TradeRouterEngine.Default.UnLocodes.GetByCode("SGSIN")!.CoordinateSource.Should().Be("UNECE");
+    }
+
+    [Fact]
+    public void Movement_GeoNamesSupplement_ResolvesLightwaterByUnLocode()
+    {
+        var database = TradeRouterEngine.Default.UnLocodes;
+        var lightwater = database.GetByCode("GBLGE")!;
+        lightwater.Name.Should().Be("Lightwater");
+        lightwater.Coordinate.Should().Be(new Coordinate(-0.67147, 51.34846));
+        lightwater.CoordinateSource.Should().Be("GeoNames (geonameId 7116406)");
+
+        var resolved = TradeRoutes.Locate("GBLGE");
+        resolved.Source.Should().Be("unlocode");
+        resolved.Coordinate.Should().Be(lightwater.Coordinate.Value);
+        database.CountWithCoordinates.Should().Be(102287);
     }
 
     [Fact]

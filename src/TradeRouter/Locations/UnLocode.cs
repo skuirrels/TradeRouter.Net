@@ -29,11 +29,11 @@ public enum LocationFunctions
 }
 
 /// <summary>
-/// One entry of the UNECE UN/LOCODE list. About a fifth of entries carry no coordinates.
+/// One entry of the UNECE UN/LOCODE list, possibly enriched with an attributed coordinate.
 /// </summary>
 /// <param name="Code">Five-character UN/LOCODE.</param>
 /// <param name="Name">Location name without diacritics.</param>
-/// <param name="Coordinate">Position to one minute of arc, or null when UNECE publishes none.</param>
+/// <param name="Coordinate">UNECE position to one minute of arc, an attributed supplement position, or null.</param>
 /// <param name="Functions">Recorded functions, with the sea-port function added for codes listed in the sea-port supplement file.</param>
 /// <param name="CoordinateSource">"UNECE" when the position comes from the code list, otherwise the researched source named in the supplement file; empty when there is no position.</param>
 public sealed record UnLocode(string Code, string Name, Coordinate? Coordinate, LocationFunctions Functions, string CoordinateSource = "")
