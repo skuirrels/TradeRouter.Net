@@ -94,7 +94,8 @@ public static class TradeRoutes
         bool includePorts = false,
         PortParameters? portParams = null,
         bool returnPassages = false,
-        string algorithm = "dijkstra")
+        string algorithm = "dijkstra",
+        bool allowNorthwest = false)
     {
         var options = new TradeRouterOptions
         {
@@ -104,7 +105,8 @@ public static class TradeRoutes
             IncludePorts = includePorts,
             PortParameters = portParams,
             ReturnPassages = returnPassages,
-            Algorithm = algorithm
+            Algorithm = algorithm,
+            AllowNorthwest = allowNorthwest
         };
 
         if (restrictions != null)

@@ -32,13 +32,17 @@ public sealed class TradeRouterOptions
     public bool AppendOriginDestination { get; set; }
 
     /// <summary>
-    /// Passages to avoid (e.g. Suez, Panama, Gibraltar).
-    /// Default is [Passage.Northwest].
+    /// Passages to avoid (e.g. Suez, Panama, Gibraltar). Default is empty.
+    /// The Northwest Passage is closed separately unless <see cref="AllowNorthwest"/> is true.
     /// </summary>
-    public HashSet<string> Restrictions { get; set; } = new(StringComparer.OrdinalIgnoreCase)
-    {
-        Passage.Northwest
-    };
+    public HashSet<string> Restrictions { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Whether routes may use the seasonal, ice-dependent Arctic lanes tagged <see cref="Passage.Northwest"/>.
+    /// Default is false, so replacing <see cref="Restrictions"/> never reopens the Arctic.
+    /// Listing <see cref="Passage.Northwest"/> in <see cref="Restrictions"/> keeps it closed even when this is true.
+    /// </summary>
+    public bool AllowNorthwest { get; set; }
 
     /// <summary>Whether to route through nearest ports close to origin and destination. Default is false.</summary>
     public bool IncludePorts { get; set; }
@@ -63,11 +67,26 @@ public sealed class TradeRouterOptions
         Restrictions = Restrictions is null
             ? throw new ArgumentException("Restrictions cannot be null.", nameof(Restrictions))
             : new HashSet<string>(Restrictions, StringComparer.OrdinalIgnoreCase),
+        AllowNorthwest = AllowNorthwest,
         IncludePorts = IncludePorts,
         PortParameters = PortParameters?.Clone(),
         ReturnPassages = ReturnPassages,
         Algorithm = Algorithm
     };
+
+    /// <summary>
+    /// Returns every passage closed to the search: <see cref="Restrictions"/>, plus
+    /// <see cref="Passage.Northwest"/> unless <see cref="AllowNorthwest"/> is true.
+    /// </summary>
+    public IReadOnlySet<string> GetClosedPassages()
+    {
+        if (Restrictions is null)
+            throw new ArgumentException("Restrictions cannot be null.", nameof(Restrictions));
+        var closed = new HashSet<string>(Restrictions, StringComparer.OrdinalIgnoreCase);
+        if (!AllowNorthwest)
+            closed.Add(Passage.Northwest);
+        return closed;
+    }
 
     /// <summary>Validates values that affect routing, timing, and passage selection.</summary>
     public void Validate()
