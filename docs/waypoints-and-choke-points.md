@@ -111,7 +111,7 @@ A choke point is not a node. It is a tag on the edges that pass through a canal 
 
 - **Restriction.** Any passage named in `TradeRouterOptions.Restrictions` has its tagged edges removed from the search. The path then goes round, or fails if there is no alternative.
 - **Reporting.** With `ReturnPassages = true`, the output property `traversed_passages` lists the tags of every tagged edge the route used, deduplicated.
-- **Default.** `northwest` is restricted unless the caller replaces the restriction set. Every other passage is open by default.
+- **Default.** `northwest` is closed unless `TradeRouterOptions.AllowNorthwest` is true, and replacing `Restrictions` does not reopen it. Every other passage is open by default. `GetClosedPassages()` returns the full set the search skips.
 
 ### 3.2 Catalogue
 
@@ -130,8 +130,8 @@ Locations are the bounding box of the tagged edges in the dataset. Detours were 
 | `sunda` | `Passage.Sunda` | Java Sea and Indian Ocean | 1 | 15 km | 105.8° to 105.9° E, 6.0° to 5.9° S | Shanghai to Colombo, Malacca also closed | 7,061 km | 9,352 km via an untagged strait further east |
 | `chili` | `Passage.Chili` | Atlantic and Pacific round South America | 5 | 857 km | 80.0° to 68.0° W, 60.0° to 52.4° S | Buenos Aires to Valparaíso | 5,611 km | 15,080 km via Panama |
 | `south_africa` | `Passage.SouthAfrica` | Atlantic and Indian Ocean round Africa | 7 | 4,650 km | 18.0° to 30.0° E, 50.0° to 35.0° S | Singapore to Rotterdam, Suez also closed | 15,525 km | 22,787 km via Sunda and the far south |
-| `bering` | `Passage.Bering` | Pacific and Arctic Ocean | 7 | 847 km | 169.5° W to 190.9° E, 62.1° to 66.0° N | Rotterdam to Yokohama, Northwest opened | 14,055 km | 20,961 km via Suez |
-| `northwest` | `Passage.Northwest` | Atlantic and Pacific through the Arctic | 12 | 1,933 km | 171.7° W to 190.9° E, 66.0° to 74.3° N | Rotterdam to Yokohama | Restricted by default | Opening it gives 14,055 km |
+| `bering` | `Passage.Bering` | Pacific and Arctic Ocean | 7 | 847 km | 169.5° W to 190.9° E, 62.1° to 66.0° N | Rotterdam to Yokohama, `AllowNorthwest` | 14,055 km | 20,961 km via Suez |
+| `northwest` | `Passage.Northwest` | Atlantic and Pacific through the Arctic | 12 | 1,933 km | 171.7° W to 190.9° E, 66.0° to 74.3° N | Rotterdam to Yokohama | Closed unless `AllowNorthwest` | Opening it gives 14,055 km |
 
 ### 3.3 Notes on each choke point
 
@@ -157,7 +157,7 @@ Locations are the bounding box of the tagged edges in the dataset. Detours were 
 
 **Bering Strait (`bering`).** About 82 km wide between Russia and Alaska, linking the Pacific to the Arctic Ocean. In the dataset it only matters in combination with `northwest`, because every Arctic route passes through both tags.
 
-**Northwest Passage and Arctic lanes (`northwest`).** The tag covers the Arctic lanes north of 66° N between Alaska and the Canadian archipelago. These routes are seasonal and ice-dependent, so the library restricts them by default. Removing the restriction cuts Rotterdam to Yokohama from 20,961 km to 14,055 km, a saving of about a third, which is the reason the option exists.
+**Northwest Passage and Arctic lanes (`northwest`).** The tag covers the Arctic lanes north of 66° N between Alaska and the Canadian archipelago. These routes are seasonal and ice-dependent, so the library closes them unless `AllowNorthwest` is true. Opening them cuts Rotterdam to Yokohama from 20,961 km to 14,055 km, a saving of about a third, which is the reason the option exists.
 
 ### 3.4 Combinations worth knowing
 
@@ -166,7 +166,8 @@ Locations are the bounding box of the tagged edges in the dataset. Detours were 
 - **Persian Gulf sealed.** `ormuz` alone: no route to or from any Gulf port.
 - **Red Sea bypassed.** `suez` or `babalmandab`: Europe to Asia traffic goes round the Cape.
 - **Indonesia bypassed.** `malacca` and `sunda`: traffic goes through an untagged strait further east, which cannot be restricted.
-- **Arctic opened.** Remove `northwest` from the restriction set: Europe to north-east Asia traffic goes over the top of Russia.
+- **Arctic opened.** Set `AllowNorthwest = true`: Europe to north-east Asia traffic goes over the top of Russia.
+- **Suez closed, Arctic still closed.** `restrictions: [Passage.Suez]` alone keeps `northwest` shut, so Rotterdam to Yokohama goes west through Panama, 23,454 km port to port, rather than 14,051 km over the Arctic.
 
 ## 4. Reference
 
@@ -176,7 +177,7 @@ using TradeRouter;
 
 var route = TradeRoutes.Calculate(
     origin, destination,
-    restrictions: [Passage.Northwest, Passage.Suez, Passage.Babalmandab],
+    restrictions: [Passage.Suez, Passage.Babalmandab], // Northwest stays closed
     returnPassages: true,
     includePorts: true,
     appendOrigDest: true);

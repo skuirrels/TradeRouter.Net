@@ -134,7 +134,7 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
         bool appendOrigDest = options.AppendOriginDestination;
         bool includePorts = options.IncludePorts;
         bool returnPassages = options.ReturnPassages;
-        var restrictions = options.Restrictions;
+        var restrictions = options.GetClosedPassages();
         string algorithm = options.Algorithm;
 
         List<(Port? OriginPort, Port? DestPort)> portMatrix;

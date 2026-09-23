@@ -98,4 +98,67 @@ public class PassageRestrictionTests
         route.Properties.Length.Should().Be(0.0);
         route.Properties.DurationHours.Should().Be(0.0);
     }
+
+    [Fact]
+    public void ClosingSuezOnly_RotterdamToYokohama_DoesNotOpenNorthwest()
+    {
+        var viaOptions = TradeRoutes.Calculate("NLRTM", "JPYOK", new TradeRouterOptions
+        {
+            Restrictions = [Passage.Suez],
+            ReturnPassages = true
+        });
+        var viaHelper = TradeRoutes.Calculate(
+            At("NLRTM"),
+            At("JPYOK"),
+            restrictions: [Passage.Suez],
+            returnPassages: true);
+
+        foreach (var route in new[] { viaOptions, viaHelper })
+        {
+            route.Geometry.Should().NotBeNull();
+            route.Properties.TraversedPassages.Should().NotContain([Passage.Northwest, Passage.Bering, Passage.Suez]);
+            route.Properties.TraversedPassages.Should().Contain(Passage.Panama);
+        }
+    }
+
+    [Fact]
+    public void AllowNorthwest_RotterdamToYokohama_UsesArcticLanes()
+    {
+        var route = TradeRoutes.Calculate(
+            At("NLRTM"),
+            At("JPYOK"),
+            returnPassages: true,
+            allowNorthwest: true);
+
+        route.Properties.TraversedPassages.Should().Contain(Passage.Northwest);
+    }
+
+    [Fact]
+    public void AllowNorthwest_WhenNorthwestIsAlsoRestricted_KeepsItClosed()
+    {
+        var route = TradeRoutes.Calculate("NLRTM", "JPYOK", new TradeRouterOptions
+        {
+            Restrictions = [Passage.Northwest],
+            AllowNorthwest = true,
+            ReturnPassages = true
+        });
+
+        route.Properties.TraversedPassages.Should().NotContain(Passage.Northwest);
+    }
+
+    [Fact]
+    public void GetClosedPassages_AddsNorthwestUnlessAllowed()
+    {
+        var options = new TradeRouterOptions { Restrictions = [Passage.Suez] };
+
+        options.Restrictions.Should().BeEquivalentTo([Passage.Suez]);
+        options.GetClosedPassages().Should().BeEquivalentTo([Passage.Suez, Passage.Northwest]);
+
+        options.AllowNorthwest = true;
+        var clone = options.Clone();
+        clone.AllowNorthwest.Should().BeTrue();
+        clone.GetClosedPassages().Should().BeEquivalentTo([Passage.Suez]);
+    }
+
+    private static Coordinate At(string code) => TradeRoutes.Locate(code).Coordinate;
 }

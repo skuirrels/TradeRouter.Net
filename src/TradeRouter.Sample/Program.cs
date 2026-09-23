@@ -34,6 +34,13 @@ var viaCape = TradeRoutes.Calculate(At("AEJEA"), At("AGSJO"), restrictions: [Pas
 Print("2. AEJEA Jebel Ali to AGSJO St John's avoiding Suez",
     $"{viaCape.Properties.Length:N0} km via {PassageNames(viaCape.Properties.TraversedPassages)}");
 
+// 2b. The Northwest Passage stays closed when you replace the restrictions; AllowNorthwest opens it.
+var suezClosed = TradeRoutes.Calculate(At("NLRTM"), At("JPYOK"), restrictions: [Passage.Suez], returnPassages: true);
+var arctic = TradeRoutes.Calculate(At("NLRTM"), At("JPYOK"), returnPassages: true, allowNorthwest: true);
+Print("2b. NLRTM Rotterdam to JPYOK Yokohama, Suez closed, then with AllowNorthwest",
+    $"{suezClosed.Properties.Length:N0} km via {PassageNames(suezClosed.Properties.TraversedPassages)}; " +
+    $"{arctic.Properties.Length:N0} km via {PassageNames(arctic.Properties.TraversedPassages)}");
+
 // 3. Port codes (UN/LOCODE) straight into the port-to-port overload.
 var portToPort = TradeRoutes.Calculate("FRLEH", "CNTSN");
 Print("3. FRLEH to CNTSN by port code",
