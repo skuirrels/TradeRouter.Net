@@ -38,29 +38,29 @@ var plan = MovementPlan
 var movement = TradeRoutes.CalculateMovement(
     plan,
     seaOptions: new TradeRouterOptions { ReturnPassages = true },
-    cargoTonnes: 12.0, // Optional: actual weight used for inland emissions
-    cargoTeu: 2.0);    // Optional: one 40-foot container, used for sea emissions
+    cargoTonnes: 12.0, // Optional: gross weight, used on inland legs when above 10 t per TEU
+    cargoTeu: 2.0);    // Optional: one 40-foot container, charged per TEU at sea and at least 10 t per TEU inland
 
 Console.WriteLine(movement.ToText());
 var geoJson = movement.ToJson(writeIndented: true);
 ```
 
-Both cargo measurements are shown together only to demonstrate the two emissions bases; real callers can provide either measurement, both when reliably known, or neither. When both are supplied, sea legs use TEU in preference to tonnes, while road, rail and air legs use the stated tonnes. `ToText()` produces the full end-to-end report directly from the calculated movement; `ToJson()` returns the same movement as GeoJSON for mapping or downstream processing. The time is labelled **modelled minimum** because it is built from documented assumptions rather than a live carrier schedule.
+Both cargo measurements are shown together only to demonstrate the two emissions bases; real callers can provide either measurement, both when reliably known, or neither. When both are supplied, sea legs use TEU in preference to tonnes, road and rail legs use the greater of the stated tonnes and 10 t per TEU, and air legs use the stated tonnes. `ToText()` produces the full end-to-end report directly from the calculated movement; `ToJson()` returns the same movement as GeoJSON for mapping or downstream processing. The time is labelled **modelled minimum** because it is built from documented assumptions rather than a live carrier schedule.
 
 ```text
-Leg Kind      Mode  From   To      Distance       Distance basis   Modelled transit time       CO2e rate  CO2e per tonne  CO2e total   Basis  Choke points
+Leg Kind      Mode  From   To      Distance       Distance basis   Modelled transit time       CO2e rate  CO2e per tonne  CO2e total               Basis  Choke points
                                                                                    hours      g per t-km  kg per t cargo          kg
-1   Pickup    Road  GBLGW  GBFXT        183 km   circuity_estimate                     3.0            92.0            16.8         202  tonnes
-2   Main      Sea   GBFXT  SGSIN     15,402 km    maritime_network                   895.2             7.6           117.1       2,341     teu  Gibraltar, Suez, Bab-el-Mandeb, Malacca
-3   Main      Sea   SGSIN  AUMEL      7,300 km    maritime_network                   391.6             7.6            55.5       1,110     teu  Sunda
-4   Delivery  Road  AUMEL  AUMRS      1,011 km   circuity_estimate                    16.8            92.0            93.0       1,116  tonnes
-Total                                23,896 km                                     1,306.7                           282.4       4,769          for 12 t of cargo in 2 TEU
+1   Pickup    Road  GBLGW  GBFXT        183 km   circuity_estimate                     3.0            92.0            16.8         337  teu_average_weight
+2   Main      Sea   GBFXT  SGSIN     15,402 km    maritime_network                   895.2             7.6           117.1       2,341                 teu  Gibraltar, Suez, Bab-el-Mandeb, Malacca
+3   Main      Sea   SGSIN  AUMEL      7,300 km    maritime_network                   391.6             7.6            55.5       1,110                 teu  Sunda
+4   Delivery  Road  AUMEL  AUMRS      1,011 km   circuity_estimate                    16.8            92.0            93.0       1,860  teu_average_weight
+Total                                23,896 km                                     1,306.7                           282.4       5,647                      for 12 t of cargo in 2 TEU
 Modelled minimum = 786.0 h travel + 376.7 h sea operations + 96 h port handling + 48 h connections = 1,306.7 h (54.4 days)
 Distance basis = maritime_network/road_network are network routes; circuity_estimate is a planning estimate; great_circle is straight-line
 Timing         = planning lower bound from configured assumptions; excludes carrier schedules, customs and disruption
 CO2e rate      = grams of CO2e emitted moving 1 tonne 1 km (configured factor for the mode)
 CO2e per tonne = rate × leg distance: kg of CO2e for each tonne of cargo carried over the leg
-CO2e total     = kg of CO2e for this shipment: cargo weight on non-sea legs, 76 g per TEU-km on sea legs
+CO2e total     = kg of CO2e for this shipment: 76 g per TEU-km on sea legs, the greater of cargo weight and 10 t per TEU on road and rail legs, cargo weight on air legs
 ```
 
 ---
@@ -505,7 +505,7 @@ Console.WriteLine($"{movement.TotalCo2eKgPerTonne:N1} kg CO2e per tonne, {moveme
 
 Each leg feature gains `co2e_g_per_tonne_km`, `co2e_kg_per_tonne` and, with a cargo weight or TEU count, `co2e_kg` and `co2e_basis`; the collection gains `total_co2e_kg_per_tonne`, `cargo_tonnes`, `cargo_teu` and `total_co2e_kg`.
 
-Pass `cargoTeu` as well for containerised sea freight. Sea legs are then charged per container at 76 g CO2e per TEU-km, because a light box still occupies a whole slot; a 40-foot container counts as 2 TEU and a 40-foot high cube as 2.25. Road, rail and air legs keep using the gross weight, and if only a TEU count is given they assume the GLEC average of 10 t per TEU. Weights are gross physical weight, not chargeable weight, as GLEC and ISO 14083 require.
+Pass `cargoTeu` as well for containerised freight. Sea legs are then charged per container at 76 g CO2e per TEU-km, because a light box still occupies a whole slot; a 40-foot container counts as 2 TEU and a 40-foot high cube as 2.25. Road and rail legs are charged on the greater of the gross weight and the GLEC average of 10 t per TEU: a light container still needs a whole truck or wagon slot, and the per-tonne defaults assume an average load, so charging only the cargo inside a nearly empty box would understate the leg. A container heavier than the average is charged on its stated weight. Air legs use the gross weight, and if only a TEU count is given every non-sea leg assumes 10 t per TEU. Weights are gross physical weight, not chargeable weight, as GLEC and ISO 14083 require.
 
 | Mode | Default, g CO2e per tonne-km, well-to-wheel | GLEC source |
 |---|---|---|
@@ -534,6 +534,7 @@ Everything here is deliberate and documented, but each is a simplification you s
 - **Untagged lane links.** Three internal tags in the lane data, `segment`, `segment2` and `pacific_ocean`, stitch the antimeridian and are never reported or restrictable.
 - **Road estimates and non-road geometry.** Without a supplied value or provider, road distance comes from the calibrated distance-decay circuity model, not a road-network route. It is an average planning relationship and cannot reproduce barriers or the exact route between a particular pair. When no road geometry is available, the GeoJSON still joins the resolved endpoints with a straight display line and reports `geometry_basis: great_circle`; this does not change the separately reported estimated or routed distance. Rail and air use great-circle distance.
 - **Time and emissions are estimates.** Movement time is labelled modelled minimum and exposes every allowance, but it still has no carrier schedule, customs, cargo cut-off, booking availability or disruption data.
+- **Containers on road and rail are charged per container.** With a TEU count, road and rail legs use at least the GLEC average of 10 t per TEU. This overstates a container of light cargo somewhat, because a truck's fuel does fall a little with its load, but it is far closer than charging only the cargo inside: 100 kg in a 20-foot box would otherwise carry 1% of the truck's emissions. Heavier containers use their stated weight.
 - **Per-thread search buffers** hold about 300 KB for the lifetime of each thread that routes.
 
 ## Options reference

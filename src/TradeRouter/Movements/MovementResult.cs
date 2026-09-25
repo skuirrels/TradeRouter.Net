@@ -49,7 +49,10 @@ public sealed class LegResult
     /// <summary>CO2e for this leg in kilograms, when the movement states a cargo weight or TEU count.</summary>
     public double? Co2eKg => Feature.Properties.Co2eKg;
 
-    /// <summary>Basis of <see cref="Co2eKg"/>: "tonnes", "teu" or "teu_average_weight".</summary>
+    /// <summary>
+    /// Basis of <see cref="Co2eKg"/>: "tonnes", "teu", or "teu_average_weight" when the leg was charged at the GLEC
+    /// average of 10 t per TEU (no weight given, or a road or rail leg whose stated weight is below that average).
+    /// </summary>
     public string? Co2eBasis => Feature.Properties.Co2eBasis;
 
     internal LegResult(int sequence, MovementLeg leg, ResolvedLocation from, ResolvedLocation to, GeoJsonFeature feature)

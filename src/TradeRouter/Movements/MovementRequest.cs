@@ -44,8 +44,9 @@ public sealed class MovementRequest
 
     /// <summary>
     /// Container count in TEU (a 40-foot box is 2, a 40-foot high cube 2.25). When set, sea legs use the
-    /// per-TEU rate instead of the per-tonne rate. Road, rail and air legs still use tonnes; if
-    /// <see cref="CargoTonnes"/> is not given they assume the GLEC average of 10 t per TEU.
+    /// per-TEU rate instead of the per-tonne rate, and road and rail legs are charged on the greater of
+    /// <see cref="CargoTonnes"/> and the GLEC average of 10 t per TEU, since a light container still needs a whole
+    /// truck or wagon slot. Air legs use <see cref="CargoTonnes"/>, or the TEU average when no weight is given.
     /// </summary>
     public double? CargoTeu { get; set; }
 

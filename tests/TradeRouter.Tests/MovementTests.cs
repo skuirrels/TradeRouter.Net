@@ -563,8 +563,8 @@ public class MovementTests
         sea.Co2eKg.Should().BeApproximately(76.0 * 2.0 * sea.Length / 1000.0, 1e-9);
 
         var road = result.Legs[0];
-        road.Co2eBasis.Should().Be("tonnes", "non-sea legs use the stated weight");
-        road.Co2eKg.Should().BeApproximately(road.Co2eKgPerTonne * 12.0, 1e-9);
+        road.Co2eBasis.Should().Be("teu_average_weight", "12 t in 2 TEU is below the 20 t a pair of average containers carries");
+        road.Co2eKg.Should().BeApproximately(road.Co2eKgPerTonne * 20.0, 1e-9);
 
         result.CargoTeu.Should().Be(2.0);
         result.TotalCo2eKg.Should().BeApproximately(result.Legs.Sum(l => l.Co2eKg!.Value), 1e-9);
@@ -574,6 +574,69 @@ public class MovementTests
         seaProps.GetProperty("co2e_basis").GetString().Should().Be("teu");
         seaProps.GetProperty("co2e_g_per_teu_km").GetDouble().Should().Be(76.0);
         doc.RootElement.GetProperty("properties").GetProperty("cargo_teu").GetDouble().Should().Be(2.0);
+    }
+
+    [Fact]
+    public void Emissions_LightFclContainers_ChargeRoadLegsPerContainer()
+    {
+        // 100 kg in 2 TEU: each container still needs a whole truck, so the road legs are charged at 10 t per TEU.
+        var result = TradeRoutes.CalculateMovement(MelbourneMovement, cargoTonnes: 0.1, cargoTeu: 2.0);
+
+        foreach (var road in result.Legs.Where(leg => leg.Leg.Mode == TransportMode.Road))
+        {
+            road.Co2eBasis.Should().Be("teu_average_weight");
+            road.Co2eKg.Should().BeApproximately(road.Co2eKgPerTonne * 20.0, 1e-9);
+            road.Co2eKg.Should().BeApproximately(92.0 * 20.0 * road.Length / 1000.0, 1e-9, "GLEC road 92 g/t-km over 20 t, length in km");
+        }
+        result.Legs.Where(leg => leg.Leg.Mode == TransportMode.Sea).Should().OnlyContain(leg => leg.Co2eBasis == "teu");
+        result.TotalCo2eKg.Should().BeApproximately(result.Legs.Sum(leg => leg.Co2eKg!.Value), 1e-9);
+    }
+
+    [Theory]
+    [InlineData(30.0, "tonnes", 30.0)] // heavier than two average containers: the stated weight
+    [InlineData(20.0, "tonnes", 20.0)] // exactly the average: the stated weight
+    [InlineData(19.9, "teu_average_weight", 20.0)]
+    public void Emissions_FclRoadLegs_UseTheGreaterOfStatedWeightAndTeuAverage(double tonnes, string basis, double chargedTonnes)
+    {
+        var result = TradeRoutes.CalculateMovement(MelbourneMovement, cargoTonnes: tonnes, cargoTeu: 2.0);
+
+        var road = result.Legs[0];
+        road.Co2eBasis.Should().Be(basis);
+        road.Co2eKg.Should().BeApproximately(road.Co2eKgPerTonne * chargedTonnes, 1e-9);
+    }
+
+    [Fact]
+    public void Emissions_FclRailLegs_ArePerContainerButAirLegsKeepTheStatedWeight()
+    {
+        var railRequest = new MovementRequest
+        {
+            Legs =
+            [
+                new MovementLeg(
+                    Location.FromCoordinate(ExtraPlaces["GBLON"], "London"),
+                    Location.FromCoordinate(new Coordinate(1.3108, 51.9630), "Felixstowe"),
+                    TransportMode.Rail,
+                    LegKind.Pickup)
+            ],
+            CargoTonnes = 0.5,
+            CargoTeu = 1.0
+        };
+        var rail = TradeRouterEngine.Default.CalculateMovement(railRequest).Legs[0];
+        rail.Co2eBasis.Should().Be("teu_average_weight");
+        rail.Co2eKg.Should().BeApproximately(rail.Co2eKgPerTonne * 10.0, 1e-9);
+
+        var air = TradeRoutes.CalculateMovement("Airport GBLHR to Airport AUMEL Air", cargoTonnes: 0.5, cargoTeu: 1.0).Legs[0];
+        air.Co2eBasis.Should().Be("tonnes", "air cargo is not carried in TEU slots");
+        air.Co2eKg.Should().BeApproximately(air.Co2eKgPerTonne * 0.5, 1e-9);
+    }
+
+    [Fact]
+    public void Emissions_WeightOnly_IsUnchangedOnEveryLeg()
+    {
+        var result = TradeRoutes.CalculateMovement(MelbourneMovement, cargoTonnes: 0.1);
+
+        result.Legs.Should().OnlyContain(leg => leg.Co2eBasis == "tonnes");
+        result.Legs.Should().OnlyContain(leg => Math.Abs(leg.Co2eKg!.Value - leg.Co2eKgPerTonne * 0.1) < 1e-9);
     }
 
     [Fact]

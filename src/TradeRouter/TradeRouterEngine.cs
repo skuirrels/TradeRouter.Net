@@ -374,7 +374,15 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
             return;
         }
 
-        if (request.CargoTonnes.HasValue)
+        // Road and rail legs of a containerised movement are charged per container too: a light box still needs a
+        // whole truck or wagon slot, and the per-tonne default factors assume an average load (GLEC Framework,
+        // road load factor guidance). The stated weight is used only when it exceeds the average for the TEU count.
+        // Air is not containerised in TEU terms and keeps the stated weight.
+        double? containerTonnes = request.CargoTeu.HasValue && mode is TransportMode.Road or TransportMode.Rail
+            ? request.CargoTeu.Value * factors.AverageTonnesPerTeu
+            : null;
+
+        if (request.CargoTonnes.HasValue && !(containerTonnes > request.CargoTonnes.Value))
         {
             feature.Properties.Co2eKg = kgPerTonne * request.CargoTonnes.Value;
             feature.Properties.Co2eBasis = "tonnes";

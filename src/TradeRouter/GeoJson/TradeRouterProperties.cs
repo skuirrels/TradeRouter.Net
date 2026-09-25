@@ -159,7 +159,10 @@ public sealed class TradeRouterProperties
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public double? Co2eKg { get; set; }
 
-    /// <summary>How <see cref="Co2eKg"/> was derived: "tonnes", "teu", or "teu_average_weight" when tonnes were inferred from TEU.</summary>
+    /// <summary>
+    /// How <see cref="Co2eKg"/> was derived: "tonnes", "teu", or "teu_average_weight" when the leg was charged at the
+    /// GLEC average of 10 t per TEU (no weight given, or a road or rail leg whose stated weight is below that average).
+    /// </summary>
     [JsonPropertyName("co2e_basis")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Co2eBasis { get; set; }
