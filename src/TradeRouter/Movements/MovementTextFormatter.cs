@@ -6,22 +6,23 @@ namespace TradeRouter.Movements;
 
 internal static class MovementTextFormatter
 {
+    // The Basis column fits the longest basis, "teu_average_weight", with a space before it.
     internal static string Format(MovementResult movement, bool includeExplanations)
     {
         var output = new StringBuilder();
         AppendInvariant(output,
-            $"{"Leg",-4}{"Kind",-10}{"Mode",-6}{"From",-7}{"To",-7}{"Distance",9} {"Distance basis",20}{"Modelled transit time",24}{"CO2e rate",16}{"CO2e per tonne",16}{"CO2e total",12}{"Basis",8}  Choke points");
+            $"{"Leg",-4}{"Kind",-10}{"Mode",-6}{"From",-7}{"To",-7}{"Distance",9} {"Distance basis",20}{"Modelled transit time",24}{"CO2e rate",16}{"CO2e per tonne",16}{"CO2e total",12}{"Basis",20}  Choke points");
         AppendInvariant(output,
             $"{"",-34}{"",9} {"",20}{"hours",24}{"g per t-km",16}{"kg per t cargo",16}{"kg",12}");
 
         foreach (var leg in movement.Legs)
         {
             AppendInvariant(output,
-                $"{leg.Sequence,-4}{leg.Leg.Kind,-10}{leg.Leg.Mode,-6}{leg.From.Label,-7}{leg.To.Label,-7}{leg.Length,9:N0} {movement.Units}{leg.Feature.Properties.DistanceBasis,20}{leg.TransitHours,24:N1}{leg.Co2eGramsPerTonneKm,16:N1}{leg.Co2eKgPerTonne,16:N1}{FormatNullable(leg.Co2eKg),12}{leg.Co2eBasis,8}  {FormatPassages(leg.Feature.Properties.TraversedPassages)}");
+                $"{leg.Sequence,-4}{leg.Leg.Kind,-10}{leg.Leg.Mode,-6}{leg.From.Label,-7}{leg.To.Label,-7}{leg.Length,9:N0} {movement.Units}{leg.Feature.Properties.DistanceBasis,20}{leg.TransitHours,24:N1}{leg.Co2eGramsPerTonneKm,16:N1}{leg.Co2eKgPerTonne,16:N1}{FormatNullable(leg.Co2eKg),12}{leg.Co2eBasis,20}  {FormatPassages(leg.Feature.Properties.TraversedPassages)}");
         }
 
         AppendInvariant(output,
-            $"{"Total",-34}{movement.TotalLength,9:N0} {movement.Units}{"",20}{movement.TotalTransitHours,24:N1}{"",16}{movement.TotalCo2eKgPerTonne,16:N1}{FormatNullable(movement.TotalCo2eKg),12}{"",8}  {FormatCargo(movement)}");
+            $"{"Total",-34}{movement.TotalLength,9:N0} {movement.Units}{"",20}{movement.TotalTransitHours,24:N1}{"",16}{movement.TotalCo2eKgPerTonne,16:N1}{FormatNullable(movement.TotalCo2eKg),12}{"",20}  {FormatCargo(movement)}");
         AppendInvariant(output,
             $"Modelled minimum = {movement.TotalDurationHours:N1} h travel + {movement.TotalOperationalAllowanceHours:N1} h sea operations + {movement.TotalPortHours:N0} h port handling + {movement.TotalConnectionHours:N0} h connections = {movement.TotalTransitHours:N1} h ({movement.TotalTransitHours / 24.0:N1} days)");
 
@@ -82,7 +83,7 @@ internal static class MovementTextFormatter
         string rate = seaRate.HasValue
             ? seaRate.Value.ToString("N0", CultureInfo.InvariantCulture)
             : "the configured";
-        return $"CO2e total     = kg of CO2e for this shipment: cargo weight on non-sea legs, {rate} g per TEU-km on sea legs";
+        return $"CO2e total     = kg of CO2e for this shipment: {rate} g per TEU-km on sea legs, the greater of cargo weight and 10 t per TEU on road and rail legs, cargo weight on air legs";
     }
 
     private static void AppendInvariant(StringBuilder output, FormattableString line) =>
