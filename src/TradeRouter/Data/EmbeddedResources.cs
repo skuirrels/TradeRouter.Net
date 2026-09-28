@@ -84,8 +84,9 @@ public static class EmbeddedResources
                 functions |= LocationFunctions.SeaPort;
             string coordinateSource = coordinate.HasValue ? "UNECE" : "";
 
-            // The supplement only fills codes UNECE publishes without coordinates; it never overrides UNECE.
-            if (!coordinate.HasValue && supplement.TryGetValue(code, out var extra))
+            // The supplement fills codes UNECE publishes without coordinates; a reviewed row also replaces a UNECE
+            // coordinate its source shows to be wrong. Generated GeoNames rows exist only for missing codes.
+            if (supplement.TryGetValue(code, out var extra))
             {
                 coordinate = extra.Coordinate;
                 coordinateSource = extra.Source;
