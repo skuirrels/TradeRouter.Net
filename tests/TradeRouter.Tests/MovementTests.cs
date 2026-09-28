@@ -218,6 +218,20 @@ public class MovementTests
     }
 
     [Fact]
+    public void Movement_Supplement_ReplacesWrongUneceLongitude()
+    {
+        // UNECE lists Hedehusene, Denmark at 5539N 12120E, in north-east China.
+        var hedehusene = TradeRouterEngine.Default.UnLocodes.GetByCode("DKHHS")!;
+        hedehusene.Coordinate.Should().Be(new Coordinate(12.19827, 55.64951));
+        hedehusene.CoordinateSource.Should().StartWith("GeoNames, Hedehusene, geonameId 2620587");
+        TradeRoutes.Locate("DKHHS").Coordinate.Should().Be(hedehusene.Coordinate.Value);
+        // A flipped sign (Luque, Paraguay, published in the northern hemisphere) and swapped latitude and longitude.
+        TradeRouterEngine.Default.UnLocodes.GetByCode("PYLUQ")!.Coordinate!.Value.Latitude.Should().BeApproximately(-25.27, 0.01);
+        TradeRouterEngine.Default.UnLocodes.GetByCode("DEGKO")!.Coordinate!.Value.Latitude.Should().BeApproximately(52.17, 0.01);
+        TradeRouterEngine.Default.UnLocodes.CountWithCoordinates.Should().Be(102287);
+    }
+
+    [Fact]
     public void Movement_RejectsPortLabelWhenUnLocodeSaysAirport()
     {
         // The port list calls CNTSN Tianjin, while embedded UN/LOCODE records only an airport function.
