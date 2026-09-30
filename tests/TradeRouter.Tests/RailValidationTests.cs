@@ -1,4 +1,4 @@
-using FluentAssertions;
+using AwesomeAssertions;
 using TradeRouter.Locations;
 using TradeRouter.Movements;
 using Xunit;

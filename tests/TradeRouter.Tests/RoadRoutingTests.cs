@@ -1,6 +1,6 @@
 using System.Net;
 using System.Text;
-using FluentAssertions;
+using AwesomeAssertions;
 using TradeRouter.Common;
 using TradeRouter.Graph;
 using TradeRouter.Locations;
@@ -252,7 +252,7 @@ public class RoadRoutingTests
     }
 
     [Fact]
-    public void MovementSync_SuppliedRouteTakesPrecedenceWithoutCallingConfiguredProvider()
+    public void MovementSync_SuppliedRoadRouteTakesPrecedenceWithoutCallingConfiguredProvider()
     {
         var provider = new StubRoadProvider(new RoadRouteResult
         {

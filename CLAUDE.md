@@ -13,4 +13,4 @@
 
 ## Dependencies
 
-- No packages with a commercial licence. FluentAssertions stays on the 7.x line.
+- No packages with a commercial licence. Assertions use AwesomeAssertions, the Apache-2.0 fork of FluentAssertions 7. Do not add FluentAssertions 8 or later.

@@ -360,7 +360,7 @@ Codes resolve in this order:
 
 1. A coordinate supplied by the caller in `MovementRequest.Coordinates`.
 2. The embedded port list, when the UN/LOCODE list agrees on the place name. Port list positions are tuned to the lane network.
-3. The embedded UN/LOCODE list, when UNECE publishes coordinates for the code. This covers airports, rail terminals and inland places, and it wins over the port list when the two disagree: the port list holds `CNSHG` as Sanshan, an inland Yangtze port, while UN/LOCODE holds it as Shanghai Pt.
+3. The embedded UN/LOCODE list, when UNECE or the coordinate supplement provides coordinates for the code. This covers airports, rail terminals and inland places, and it wins over the port list when the two disagree: the port list holds `CNSHG` as Sanshan, an inland Yangtze port, while UN/LOCODE holds it as Shanghai Pt.
 4. The port list anyway, for codes UN/LOCODE lacks coordinates for.
 5. An `ILocationResolver`, if one is set.
 
@@ -554,13 +554,13 @@ The service allowance covers what a shortest-path line cannot show: the intermed
 
 The fitted fractions come from observed port-to-port sailings, berth departure to berth arrival, for legs departing in 2025 and 2026 in a proprietary dataset: eleven direct lanes and 8,600 sailings. Each fraction is the observed median divided by this library's travelling time at 16 knots, minus one. On those lanes the mean error fell from 11.5 days with the former flat 0.20 to 1.3 days. The three `-cape` corridors apply the same observations to this library's Cape route, for legs where Suez is closed; Panama is used only when a caller leaves it open, and takes the North Europe Cape fraction. Corridors without observations keep 0.20. The source and method are recorded in [DATA_PROVENANCE.md](DATA_PROVENANCE.md). The connection allowance represents a normal transshipment hand-off; set it to zero for a through service.
 
-The worked UK–Singapore–Melbourne movement is therefore 782.3 hours of physical travel + 376.7 hours of sea operations (0.63 on the Felixstowe–Singapore leg, 0.20 on the unfitted Singapore–Melbourne leg) + 96 hours of port handling + 48 hours for the Singapore connection = **54.3 days modelled minimum**, against the 43 to 63 days that carriers and forwarders publish for the lane below.
+The worked UK–Singapore–Melbourne movement is therefore 786.0 hours of physical travel + 376.7 hours of sea operations (0.63 on the Felixstowe–Singapore leg, 0.20 on the unfitted Singapore–Melbourne leg) + 96 hours of port handling + 48 hours for the Singapore connection = **54.4 days modelled minimum**, against the 43 to 63 days that carriers and forwarders publish for the lane below.
 
 For the reverse Australia–UK direction, a fast indicative combination is Melbourne–Singapore at 13 days ([Maersk](https://www.maersk.com/news/articles/2026/07/06/melbourne-star-seasonal-inducement-of-southern-star-oceania-network)) plus Singapore–Felixstowe at 30 days ([Yang Ming](https://www.yangming.com/en/service/service_overview/route_map?service=FE3)): 43 days before connection waiting or road delivery. A freight-forwarder benchmark gives 42–52 days for Australia–UK and 50 days for Melbourne–Felixstowe FCL ([Shipa Freight](https://www.shipafreight.com/tradelane/australia-to-uk/)). Current complete services can be materially slower; CMA CGM's weekly NEWMO rotation places London Gateway to Melbourne at 62 days and Melbourne back to London at 63 days ([CMA CGM](https://www.cma-cgm.com/ebusiness/schedules/line-services/flyer/NEWMO?route=1)).
 
 | `MovementRequest` timing option | Default | Meaning |
 |---|---:|---|
-| `SeaOperationalAllowance` | `null` | Fraction of sea travel time added for service operations. Null takes the corridor table above; a value applies that fraction to every sea leg. |
+| `SeaOperationalAllowance` | `null` | Fraction of sea travel time added for service operations. Null takes the corridor table above; a value applies that fraction to every sea leg, and legs then report `operational_allowance_corridor` as `override`. |
 | `PortDwellHours` | `24` | Cargo-handling time at each end of each sea leg. |
 | `TransshipmentConnectionHours` | `48` | Connection time before a sea leg that follows another sea leg. |
 
@@ -579,7 +579,7 @@ foreach (var leg in movement.Legs)
 Console.WriteLine($"{movement.TotalCo2eKgPerTonne:N1} kg CO2e per tonne, {movement.TotalCo2eKg:N0} kg for {movement.CargoTonnes} t");
 ```
 
-Each leg feature gains `co2e_g_per_tonne_km`, `co2e_kg_per_tonne` and, with a cargo weight or TEU count, `co2e_kg` and `co2e_basis`; the collection gains `total_co2e_kg_per_tonne`, `cargo_tonnes`, `cargo_teu` and `total_co2e_kg`.
+Each leg feature gains `co2e_g_per_tonne_km`, `co2e_kg_per_tonne` and, with a cargo weight or TEU count, `co2e_kg` and `co2e_basis`; sea legs charged per container also carry `co2e_g_per_teu_km`. The collection gains `total_co2e_kg_per_tonne`, `cargo_tonnes`, `cargo_teu` and `total_co2e_kg`.
 
 Pass `cargoTeu` as well for containerised freight. Sea legs are then charged per container at 76 g CO2e per TEU-km, because a light box still occupies a whole slot; a 40-foot container counts as 2 TEU and a 40-foot high cube as 2.25. Road and rail legs are charged on the greater of the gross weight and the GLEC average of 10 t per TEU: a light container still needs a whole truck or wagon slot, and the per-tonne defaults assume an average load, so charging only the cargo inside a nearly empty box would understate the leg. A container heavier than the average is charged on its stated weight. Air legs use the gross weight, and if only a TEU count is given every non-sea leg assumes 10 t per TEU. Weights are gross physical weight, not chargeable weight, as GLEC and ISO 14083 require.
 
@@ -600,7 +600,7 @@ Source: Smart Freight Centre, [GLEC Framework, July 2022 edition](https://smart-
 Everything here is deliberate and documented, but each is a simplification you should know about.
 
 - **Port list versus UN/LOCODE tie-break.** When both lists know a code, the port list position is used only if the two names match or one is a prefix of the other after stripping accents and punctuation. If they disagree, UN/LOCODE's position is used and no port record is attached. Check `Source` on the resolved location when it matters.
-- **Supplemented coordinates.** Five hand-reviewed codes and 17,766 codes with unambiguous GeoNames links have coordinates from cited sources rather than UNECE. Another 4,301 codes still have no verified coordinates; use caller coordinates or a resolver for those.
+- **Supplemented coordinates.** 17,918 codes have coordinates from cited sources rather than UNECE: 17,771 that UNECE publishes without one (five hand-reviewed, 17,766 through unambiguous GeoNames links) and 147 whose UNECE coordinate falls far outside their country. Another 4,301 codes still have no verified coordinates; use caller coordinates or a resolver for those.
 - **Sea-port function checks.** A port waypoint or sea leg is rejected when UN/LOCODE records no sea-port function, even if the port list holds the code, because that list also contains inland terminals such as Calgary. Two codes UNECE under-records, Alumar (`BRALU`) and Duncan Bay (`CADCN`), are confirmed as sea ports by [unlocode-seaport-supplement.json](src/TradeRouter/Data/unlocode-seaport-supplement.json) with cited sources. Other affected ports need a `Waypoint.Place` or a new supplement entry.
 - **Rail function checks.** A station waypoint or rail leg is rejected unless UN/LOCODE records a rail-terminal or multimodal function. UNECE under-records many rail hubs, including Chongqing (`CNCKG`), Małaszewicze (`PLMAL`), Los Angeles (`USLAX`) and Chicago (`USCHI`); declare the function in `MovementRequest.AdditionalLocationFunctions` for those.
 - **Port-code aliases.** 264 port-list codes are not UN/LOCODEs. Only 61 are mapped from an official code, where the names and positions within 25 km show the same port; the rest route only by their port-list code or by coordinates. Nearest-port matching is not used, because it pairs different places such as Perth and Claremont.
@@ -613,7 +613,7 @@ Everything here is deliberate and documented, but each is a simplification you s
 - **Time and emissions are estimates.** Movement time is labelled modelled minimum and exposes every allowance, but it still has no carrier schedule, customs, cargo cut-off, booking availability or disruption data.
 - **Rail routing is shortest track, not a carrier's route.** North American rail legs follow the shortest main-line track whoever owns it, so a route can switch railroads where a real train would stay with one carrier, and can use commuter-owned track near a city-centre end. The network has no timetable or speed limits, so duration is distance divided by the configured rail speed. Rail legs elsewhere use great-circle distance unless `RailRouteOverrides` supplies a route.
 - **Containers on road and rail are charged per container.** With a TEU count, road and rail legs use at least the GLEC average of 10 t per TEU. This overstates a container of light cargo somewhat, because a truck's fuel does fall a little with its load, but it is far closer than charging only the cargo inside: 100 kg in a 20-foot box would otherwise carry 1% of the truck's emissions. Heavier containers use their stated weight.
-- **Per-thread search buffers** hold about 300 KB for the lifetime of each thread that routes.
+- **Per-thread search buffers** hold about 350 KB for the lifetime of each thread that routes.
 
 ## Options reference
 
@@ -657,14 +657,18 @@ TradeRouter.Net.slnx
 Directory.Build.props
 LICENSE                     Apache-2.0
 CLAUDE.md                   contributor rules for AI-assisted changes
+AGENTS.md                   engineering principles for contributors
+DATA_PROVENANCE.md          dataset sources, hashes, transformations and calibration
+THIRD-PARTY-NOTICES.md      data licences and attribution
+.github/workflows/ci.yml    build, test and pack on pushes to main and on pull requests
 src/
   TradeRouter/              the library, packed as TradeRouter.Net
     Common/                 Coordinate, Haversine, DistanceUnit, antimeridian normaliser, point-in-polygon
-    Data/                   marnet.json.gz, ports.json.gz, unlocode.json.gz and their loader
+    Data/                   marnet.json.gz, ports.json.gz, unlocode.json.gz, rail-narn.json.gz, the UN/LOCODE coordinate and sea-port supplements, port-code aliases and their loader
     GeoJson/                Feature, FeatureCollection, LineString/MultiLineString and serializer
     Graph/                  MaritimeGraph, BidirectionalDijkstra, AStar, per-thread search buffers
     Locations/              UN/LOCODE entry, functions and lookup
-    Movements/              multi-leg movements: legs, parser, request, result, location resolution
+    Movements/              multi-leg movements: plan, legs, parser, request, result, location resolution, road estimators, OSRM provider, emission factors, sea service allowance
     Passages/               passage identifiers
     Ports/                  Port, PortDatabase, PortParameters, AreaFeature, PortProps
     Spatial/                spherical 3D KD-tree
@@ -680,6 +684,10 @@ benchmarks/
 docs/
   waypoints-and-choke-points.md   every waypoint type and all 13 passages with measured detours
   diagrams/                 editable HTML diagrams with SVG and selected PNG exports
+  unlocode-unresolved.csv   UN/LOCODEs still without a verified coordinate, with the reason
+scripts/
+  check-no-hardcoded-sample-routes.sh   CI guard against hard-coded road routes in the sample
+tools/                      Python generators for the embedded datasets
 ```
 
 ## Building, testing and trying it out
@@ -715,7 +723,7 @@ dotnet pack src/TradeRouter/TradeRouter.csproj -c Release -m:1 -nr:false -o ./ar
 - **Marnet and antimeridian segments**, transformed from searoute-py 1.6.0: 9,708 nodes and 31,950 directed edges with distance and passage tags.
 - **World ports**, transformed from searoute-py 1.6.0: 3,962 records with code, name, country, terminal flag and permitted destination countries.
 - **UN/LOCODE**, the UNECE code list for trade and transport locations: 106,588 codes with name and function flags, of which 84,516 carry coordinates to one minute of arc. Used to resolve movement legs that name airports, terminals and inland places. Loaded only when a movement needs it.
-- **UN/LOCODE coordinate supplement**: one JSON file with five hand-reviewed entries (Gatwick, Shanghai Railway Station, Shanghai Hongqiao, Melrose and Guildford) and 17,766 positions from the 16 September 2026 GeoNames snapshot. Each entry records its source. The GeoNames entries have an explicit `unlc` code, matching country and name or recorded alternate name, and one unambiguous coordinate. Lightwater (`GBLGE`) is included. Applied only where UNECE has no coordinate.
+- **UN/LOCODE coordinate supplement**: one JSON file of 17,918 rows, each recording its source. 17,771 fill codes UNECE publishes without a coordinate: five hand-reviewed entries (Gatwick, Shanghai Railway Station, Shanghai Hongqiao, Melrose and Guildford) and 17,766 positions from the 16 September 2026 GeoNames snapshot, each with an explicit `unlc` code, matching country and name or recorded alternate name, and one unambiguous coordinate. Lightwater (`GBLGE`) is included. The other 147 replace UNECE coordinates that fall far outside their country: 145 from GeoNames, the Akpo offshore field (`NGAKP`) from Wikipedia, and Amurang (`IDTZD`) with its longitude sign corrected. [DATA_PROVENANCE.md](DATA_PROVENANCE.md) documents the selection.
 - **North American rail network**, the main line of the BTS NTAD North American Rail Network Lines: 87,789 nodes and 91,000 track edges covering 272,068 km in the United States, Canada and Mexico, each edge with its published track length and owning railroad. Used to route rail legs. Loaded only when a movement has a rail leg.
 - **Port-code aliases**: a reviewed JSON file mapping 61 official UN/LOCODE sea-port codes to the port-list record held under another code. Used only when the port list lacks the requested code.
 - **UN/LOCODE sea-port supplement**: a hand-maintained JSON file of codes that UNECE publishes without the sea-port function but that cited sources document as sea ports. Currently two entries: Alumar and Duncan Bay. It only adds the sea-port function and never removes one.

@@ -1,4 +1,4 @@
-using FluentAssertions;
+using AwesomeAssertions;
 using TradeRouter.Common;
 using TradeRouter.Passages;
 using Xunit;

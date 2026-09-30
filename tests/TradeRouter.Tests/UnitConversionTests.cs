@@ -1,4 +1,4 @@
-using FluentAssertions;
+using AwesomeAssertions;
 using TradeRouter.Common;
 using Xunit;
 
@@ -96,5 +96,77 @@ public class UnitConversionTests
         var act = () => Haversine.DistanceKm(new Coordinate(0, 91), new Coordinate(0, 0));
 
         act.Should().Throw<ArgumentException>().WithMessage("*Latitude*");
+    }
+
+    public static TheoryData<DistanceUnit> AllUnits => new(Enum.GetValues<DistanceUnit>());
+
+    [Theory]
+    [MemberData(nameof(AllUnits))]
+    public void UnitString_RoundTripsThroughParse(DistanceUnit unit)
+    {
+        DistanceUnitExtensions.Parse(unit.ToUnitString()).Should().Be(unit);
+    }
+
+    [Theory]
+    [MemberData(nameof(AllUnits))]
+    public void SpeedCoefficient_MatchesOneNauticalMileInTheSameUnit(DistanceUnit unit)
+    {
+        double oneNauticalMile = 1852.0 * unit.GetConversionFactorFromMeters();
+
+        unit.GetSpeedCoefficient().Should().BeApproximately(oneNauticalMile, oneNauticalMile * 1e-5);
+    }
+
+    [Theory]
+    [InlineData(" Kilometers ", DistanceUnit.Km)]
+    [InlineData("METER", DistanceUnit.Meters)]
+    [InlineData("miles", DistanceUnit.Miles)]
+    [InlineData("foot", DistanceUnit.Feet)]
+    [InlineData("inches", DistanceUnit.Inches)]
+    [InlineData("degree", DistanceUnit.Degrees)]
+    [InlineData("cm", DistanceUnit.Centimeters)]
+    [InlineData("radians", DistanceUnit.Radians)]
+    [InlineData("NauticalMiles", DistanceUnit.NauticalMiles)]
+    [InlineData("nautical", DistanceUnit.NauticalMiles)]
+    [InlineData("yard", DistanceUnit.Yards)]
+    [InlineData(null, DistanceUnit.Km)]
+    [InlineData("", DistanceUnit.Km)]
+    [InlineData("   ", DistanceUnit.Km)]
+    public void Parse_AcceptsAliasesAndDefaultsBlankToKilometres(string? unitStr, DistanceUnit expected)
+    {
+        DistanceUnitExtensions.Parse(unitStr).Should().Be(expected);
+    }
+
+    [Fact]
+    public void Parse_RejectsUnknownUnitAndListsValidOnes()
+    {
+        var act = () => DistanceUnitExtensions.Parse("furlong");
+
+        act.Should().Throw<ArgumentException>().WithMessage("Unsupported distance unit: 'furlong'. Valid units:*");
+    }
+
+    [Fact]
+    public void OptionsUnitString_ReadsAndWritesUnits()
+    {
+        var options = new TradeRouterOptions { UnitString = "yd" };
+
+        options.Units.Should().Be(DistanceUnit.Yards);
+        options.UnitString.Should().Be("yd");
+        FluentActions.Invoking(() => options.UnitString = "furlong").Should().Throw<ArgumentException>();
+    }
+
+    [Theory]
+    [MemberData(nameof(AllUnits))]
+    public void RouteLengthAndDuration_AreConsistentAcrossUnits(DistanceUnit unit)
+    {
+        var origin = new Coordinate(5.333333, 43.333333);
+        var destination = new Coordinate(18.366667, -33.916667);
+        var inKm = TradeRoutes.Calculate(origin, destination, new TradeRouterOptions());
+
+        var inUnit = TradeRoutes.Calculate(origin, destination, new TradeRouterOptions { Units = unit });
+
+        double expectedLength = inKm.Properties.Length * 1000.0 * unit.GetConversionFactorFromMeters();
+        inUnit.Properties.Units.Should().Be(unit.ToUnitString());
+        inUnit.Properties.Length.Should().BeApproximately(expectedLength, expectedLength * 1e-9);
+        inUnit.Properties.DurationHours.Should().BeApproximately(inKm.Properties.DurationHours, inKm.Properties.DurationHours * 1e-5);
     }
 }
