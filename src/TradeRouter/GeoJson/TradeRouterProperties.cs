@@ -25,7 +25,7 @@ public sealed class TradeRouterProperties
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? DistanceBasis { get; set; }
 
-    /// <summary>Great-circle lower bound in the requested units when a road distance was supplied, routed or estimated, or a rail leg was routed on the rail network.</summary>
+    /// <summary>Great-circle lower bound in the requested units when a road distance was supplied, routed or estimated, or a rail leg was supplied or routed on the rail network.</summary>
     [JsonPropertyName("straight_line_length")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public double? StraightLineLength { get; set; }

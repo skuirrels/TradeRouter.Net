@@ -1,4 +1,5 @@
 using TradeRouter.Common;
+using TradeRouter.Locations;
 
 namespace TradeRouter.Movements;
 
@@ -23,6 +24,14 @@ public sealed class MovementRequest
     /// embedded port database.
     /// </summary>
     public ILocationResolver? Resolver { get; set; }
+
+    /// <summary>
+    /// Functions to add to a location's recorded UN/LOCODE functions, keyed case-insensitively by code. The UNECE
+    /// list under-records many terminals, for example Chongqing (<c>CNCKG</c>) appears only as an airport, so a rail
+    /// leg to it is rejected. Declaring <see cref="LocationFunctions.RailTerminal"/> here lets the waypoint and mode
+    /// checks accept it. The functions are added only for validation; they do not change how the code resolves.
+    /// </summary>
+    public Dictionary<string, LocationFunctions> AdditionalLocationFunctions { get; } = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// Options applied to every sea leg. Units and vessel speed here also govern the totals.
@@ -122,5 +131,14 @@ public sealed class MovementRequest
     /// These take precedence over both a configured provider and the fallback estimator. Do not use fixed literals here
     /// to force an expected result; application and sample code should use the estimator or a configured provider.
     /// </summary>
-    public Dictionary<int, SuppliedRoadRoute> RoadRouteOverrides { get; } = [];
+    public Dictionary<int, SuppliedRoute> RoadRouteOverrides { get; } = [];
+
+    /// <summary>
+    /// Complete rail results imported from an authoritative upstream routing system, keyed by one-based leg sequence.
+    /// An entry takes precedence over the embedded rail network and great-circle distance, so use it where the
+    /// network has no coverage or a rail planner knows the actual route.
+    /// A supplied duration is used as given; otherwise duration is the supplied distance divided by
+    /// <see cref="SpeedsKmh"/> for rail.
+    /// </summary>
+    public Dictionary<int, SuppliedRoute> RailRouteOverrides { get; } = [];
 }

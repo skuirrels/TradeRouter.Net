@@ -74,14 +74,14 @@ public class RoadRoutingTests
     }
 
     [Fact]
-    public void Movement_SuppliedRoadRouteOverridesEstimateAndDrivesEmissions()
+    public void Movement_SuppliedRouteOverridesEstimateAndDrivesEmissions()
     {
         var request = new MovementRequest
         {
             Legs = MovementParser.Parse("Pickup GBLGW to Airport GBLHR Road"),
             CargoTonnes = 20.0
         };
-        request.RoadRouteOverrides[1] = new SuppliedRoadRoute
+        request.RoadRouteOverrides[1] = new SuppliedRoute
         {
             DistanceKm = 64.0,
             Source = "known-route"
@@ -261,7 +261,7 @@ public class RoadRoutingTests
             Source = "stub"
         });
         var request = CreateProviderRequest(provider, RoadRoutingMode.PreferNetworkThenEstimate);
-        request.RoadRouteOverrides[1] = new SuppliedRoadRoute { DistanceKm = 64.0, Source = "known-route" };
+        request.RoadRouteOverrides[1] = new SuppliedRoute { DistanceKm = 64.0, Source = "known-route" };
 
         var road = TradeRouterEngine.Default.CalculateMovement(request).Legs.Single();
 

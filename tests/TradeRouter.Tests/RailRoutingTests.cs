@@ -94,6 +94,82 @@ public class RailRoutingTests
     }
 
     [Fact]
+    public void Rail_SuppliedRouteOverridesGreatCircleAndDrivesEmissions()
+    {
+        var request = new MovementRequest
+        {
+            Legs = MovementParser.Parse("DEHAM to CZPRG Rail"),
+            CargoTonnes = 20.0
+        };
+        request.RailRouteOverrides[1] = new SuppliedRoute { DistanceKm = 640.0, Source = "rail-planner" };
+
+        var rail = TradeRouterEngine.Default.CalculateMovement(request).Legs.Single();
+
+        rail.Length.Should().Be(640.0);
+        rail.DurationHours.Should().BeApproximately(640.0 / 80.0, 1e-9);
+        rail.Co2eKgPerTonne.Should().BeApproximately(17.92, 1e-9);
+        rail.Co2eKg.Should().BeApproximately(358.4, 1e-9);
+        rail.Feature.Properties.DistanceBasis.Should().Be("supplied");
+        rail.Feature.Properties.DistanceSource.Should().Be("rail-planner");
+        rail.Feature.Properties.DistanceWarning.Should().BeNull();
+        rail.Feature.Properties.DurationBasis.Should().Be("assumed_speed");
+        rail.Feature.Properties.GeometryBasis.Should().Be("great_circle");
+        rail.Feature.Properties.StraightLineLength.Should().BeInRange(480.0, 500.0);
+    }
+
+    [Fact]
+    public void Rail_SuppliedDurationAndGeometryAreUsedAsGiven()
+    {
+        var berlin = new Coordinate(13.4, 52.5);
+        var request = new MovementRequest { Legs = MovementParser.Parse("DEHAM to CZPRG Rail") };
+        request.RailRouteOverrides[1] = new SuppliedRoute
+        {
+            DistanceKm = 660.0,
+            DurationHours = 14.0,
+            Geometry = [new Coordinate(10.0, 53.55), berlin],
+            Source = "rail-planner"
+        };
+
+        var rail = TradeRouterEngine.Default.CalculateMovement(request).Legs.Single();
+
+        rail.DurationHours.Should().Be(14.0);
+        rail.Feature.Properties.DurationBasis.Should().Be("supplied");
+        rail.Feature.Properties.GeometryBasis.Should().Be("supplied");
+        var positions = rail.Feature.Geometry!.Positions;
+        positions.Should().HaveCount(4);
+        positions[0][0].Should().BeApproximately(rail.From.Coordinate.Longitude, 1e-9);
+        positions[2][0].Should().BeApproximately(berlin.Longitude, 1e-9);
+        positions[2][1].Should().BeApproximately(berlin.Latitude, 1e-9);
+        positions[^1][1].Should().BeApproximately(rail.To.Coordinate.Latitude, 1e-9);
+    }
+
+    [Fact]
+    public void Rail_SuppliedRouteTakesPrecedenceOverTheNetwork()
+    {
+        var request = RailLeg(LosAngeles, "Los Angeles", Chicago, "Chicago");
+        request.RailRouteOverrides[1] = new SuppliedRoute { DistanceKm = 3_600.0, Source = "rail-planner" };
+
+        var leg = TradeRouterEngine.Default.CalculateMovement(request).Legs.Single();
+
+        leg.Length.Should().Be(3_600.0);
+        leg.Feature.Properties.DistanceBasis.Should().Be("supplied");
+        leg.Feature.Properties.Railroads.Should().BeNull();
+    }
+
+    [Fact]
+    public void Rail_OverrideAppliesOnlyToItsSequence()
+    {
+        var request = new MovementRequest { Legs = MovementParser.Parse("DEHAM to CZPRG Rail\nCZPRG to DEDUI Rail") };
+        request.RailRouteOverrides[2] = new SuppliedRoute { DistanceKm = 700.0, Source = "rail-planner" };
+
+        var legs = TradeRouterEngine.Default.CalculateMovement(request).Legs;
+
+        legs[0].Feature.Properties.DistanceBasis.Should().Be("great_circle");
+        legs[1].Feature.Properties.DistanceBasis.Should().Be("supplied");
+        legs[1].Length.Should().Be(700.0);
+    }
+
+    [Fact]
     public void RailGraph_HoldsTheConnectedMainLine()
     {
         var graph = TradeRouterEngine.Default.RailGraph;

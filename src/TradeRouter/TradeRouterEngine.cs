@@ -281,8 +281,8 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
             int sequence = i + 1;
             var from = ResolveLocation(leg.From, request, resolvedByCode);
             var to = ResolveLocation(leg.To, request, resolvedByCode);
-            ValidateWaypoint(sequence, "from", leg.FromKind, leg.Mode, from);
-            ValidateWaypoint(sequence, "to", leg.ToKind, leg.Mode, to);
+            ValidateWaypoint(sequence, "from", leg.FromKind, leg.Mode, from, request.AdditionalLocationFunctions);
+            ValidateWaypoint(sequence, "to", leg.ToKind, leg.Mode, to, request.AdditionalLocationFunctions);
 
             if (i > 0)
             {
@@ -317,7 +317,9 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
             }
             else if (leg.Mode == TransportMode.Rail)
             {
-                feature = CalculateRailLeg(from, to, units, request);
+                feature = request.RailRouteOverrides.TryGetValue(sequence, out var railRoute)
+                    ? CreateSuppliedRailLeg(from, to, units, request.SpeedsKmh, railRoute)
+                    : CalculateRailLeg(from, to, units, request);
             }
             else
             {
@@ -543,6 +545,47 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
         };
     }
 
+    private static GeoJsonFeature CreateSuppliedRailLeg(
+        ResolvedLocation from,
+        ResolvedLocation to,
+        DistanceUnit units,
+        IReadOnlyDictionary<TransportMode, double> speedsKmh,
+        SuppliedRoute route)
+    {
+        double durationHours;
+        if (route.DurationHours is { } suppliedHours)
+        {
+            durationHours = suppliedHours;
+        }
+        else
+        {
+            if (!speedsKmh.TryGetValue(TransportMode.Rail, out double speedKmh) || speedKmh <= 0.0)
+                throw new ArgumentException("No positive speed configured for mode Rail. Set MovementRequest.SpeedsKmh[TransportMode.Rail].");
+            durationHours = route.DistanceKm / speedKmh;
+        }
+
+        double metresToUnits = units.GetConversionFactorFromMeters();
+        var coordinates = BuildContinuousGeometry(from.Coordinate, to.Coordinate, route.Geometry);
+
+        return new GeoJsonFeature
+        {
+            Geometry = GeoJsonGeometry.FromCoordinates(RouteNormalizer.NormalizeRoute(coordinates)),
+            Properties = new TradeRouterProperties
+            {
+                Length = route.DistanceKm * 1000.0 * metresToUnits,
+                Units = units.ToUnitString(),
+                DurationHours = durationHours,
+                DistanceBasis = "supplied",
+                StraightLineLength = Haversine.DistanceKm(from.Coordinate, to.Coordinate) * 1000.0 * metresToUnits,
+                DistanceSource = route.Source,
+                DurationBasis = route.DurationHours.HasValue ? "supplied" : "assumed_speed",
+                GeometryBasis = route.Geometry is { Count: >= 2 } ? "supplied" : "great_circle",
+                PortOrigin = from.Port,
+                PortDest = to.Port
+            }
+        };
+    }
+
     private static async ValueTask<GeoJsonFeature> CalculateRoadLegAsync(
         int sequence,
         ResolvedLocation from,
@@ -699,7 +742,7 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
             throw new ArgumentOutOfRangeException(nameof(durationHours), durationHours, "Road duration must be finite and non-negative.");
         if (string.IsNullOrWhiteSpace(distanceSource))
             throw new ArgumentException("Road distance source cannot be blank.", nameof(distanceSource));
-        var coordinates = BuildContinuousRoadGeometry(from.Coordinate, to.Coordinate, geometry);
+        var coordinates = BuildContinuousGeometry(from.Coordinate, to.Coordinate, geometry);
         double length = distanceKm * 1000.0 * units.GetConversionFactorFromMeters();
         double straightLineLength = straightLineKm * 1000.0 * units.GetConversionFactorFromMeters();
         bool useRouteDuration = roadDurationMode == RoadDurationMode.RouteDurationWhenAvailable && durationHours.HasValue;
@@ -741,7 +784,7 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
         };
     }
 
-    private static IReadOnlyList<Coordinate> BuildContinuousRoadGeometry(
+    private static IReadOnlyList<Coordinate> BuildContinuousGeometry(
         Coordinate from,
         Coordinate to,
         IReadOnlyList<Coordinate>? routedGeometry)
@@ -970,24 +1013,42 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
             coordinate.Validate();
         }
 
-        foreach (var (sequence, route) in request.RoadRouteOverrides)
+        foreach (var (code, functions) in request.AdditionalLocationFunctions)
+        {
+            if (string.IsNullOrWhiteSpace(code))
+                throw new ArgumentException("Additional location function keys cannot be blank.", nameof(request));
+            if ((functions & ~AllLocationFunctions) != 0)
+                throw new ArgumentException($"Additional location functions for {code} contain unknown flags.", nameof(request));
+        }
+
+        ValidateRouteOverrides(request, request.RoadRouteOverrides, TransportMode.Road);
+        ValidateRouteOverrides(request, request.RailRouteOverrides, TransportMode.Rail);
+    }
+
+    private static void ValidateRouteOverrides(
+        MovementRequest request,
+        IReadOnlyDictionary<int, SuppliedRoute> overrides,
+        TransportMode mode)
+    {
+        string prefix = $"{mode} route override sequence";
+        foreach (var (sequence, route) in overrides)
         {
             if (sequence < 1 || sequence > request.Legs.Count)
-                throw new ArgumentException($"Road route override sequence {sequence} is outside the movement's leg range.", nameof(request));
-            if (request.Legs[sequence - 1].Mode != TransportMode.Road)
-                throw new ArgumentException($"Road route override sequence {sequence} does not refer to a road leg.", nameof(request));
+                throw new ArgumentException($"{prefix} {sequence} is outside the movement's leg range.", nameof(request));
+            if (request.Legs[sequence - 1].Mode != mode)
+                throw new ArgumentException($"{prefix} {sequence} does not refer to a {mode.ToWireString()} leg.", nameof(request));
             if (route is null)
-                throw new ArgumentException($"Road route override sequence {sequence} is null.", nameof(request));
+                throw new ArgumentException($"{prefix} {sequence} is null.", nameof(request));
             if (!double.IsFinite(route.DistanceKm) || route.DistanceKm < 0.0)
-                throw new ArgumentOutOfRangeException(nameof(request), route.DistanceKm, $"Road route override sequence {sequence} has an invalid distance.");
+                throw new ArgumentOutOfRangeException(nameof(request), route.DistanceKm, $"{prefix} {sequence} has an invalid distance.");
             if (route.DurationHours.HasValue && (!double.IsFinite(route.DurationHours.Value) || route.DurationHours.Value < 0.0))
-                throw new ArgumentOutOfRangeException(nameof(request), route.DurationHours, $"Road route override sequence {sequence} has an invalid duration.");
+                throw new ArgumentOutOfRangeException(nameof(request), route.DurationHours, $"{prefix} {sequence} has an invalid duration.");
             if (route.DistanceKm > 0.0 && route.DurationHours is <= 0.0)
-                throw new ArgumentOutOfRangeException(nameof(request), route.DurationHours, $"Road route override sequence {sequence} has a non-positive duration for a non-zero distance.");
+                throw new ArgumentOutOfRangeException(nameof(request), route.DurationHours, $"{prefix} {sequence} has a non-positive duration for a non-zero distance.");
             if (string.IsNullOrWhiteSpace(route.Source))
-                throw new ArgumentException($"Road route override sequence {sequence} has a blank source.", nameof(request));
+                throw new ArgumentException($"{prefix} {sequence} has a blank source.", nameof(request));
             if (route.Geometry is { Count: > 0 and < 2 })
-                throw new ArgumentException($"Road route override sequence {sequence} geometry needs at least two positions.", nameof(request));
+                throw new ArgumentException($"{prefix} {sequence} geometry needs at least two positions.", nameof(request));
             if (route.Geometry != null)
             {
                 foreach (var coordinate in route.Geometry)
@@ -1007,12 +1068,15 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
         string endpoint,
         WaypointKind waypointKind,
         TransportMode mode,
-        ResolvedLocation location)
+        ResolvedLocation location,
+        IReadOnlyDictionary<string, LocationFunctions> additionalFunctions)
     {
         if (!location.Functions.HasValue)
             return;
 
         LocationFunctions functions = location.Functions.Value;
+        if (location.Code != null && additionalFunctions.TryGetValue(location.Code, out var declared))
+            functions |= declared;
         LocationFunctions requiredByKind = waypointKind switch
         {
             WaypointKind.Unspecified or WaypointKind.Place => LocationFunctions.None,
@@ -1028,14 +1092,15 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
         {
             throw new ArgumentException(
                 $"Leg {sequence} {endpoint} location {location.Label} is declared as {waypointKind}, " +
-                $"but UN/LOCODE records {DescribeFunctions(functions)}.");
+                $"but UN/LOCODE records {DescribeFunctions(functions)}. {AdditionalFunctionsHint}");
         }
 
         LocationFunctions requiredByMode = mode switch
         {
             TransportMode.Sea => LocationFunctions.SeaPort,
             TransportMode.Air => LocationFunctions.Airport,
-            TransportMode.Rail => LocationFunctions.RailTerminal,
+            // Multimodal facilities and inland container depots are commonly rail-served.
+            TransportMode.Rail => LocationFunctions.RailTerminal | LocationFunctions.Multimodal,
             TransportMode.Road => LocationFunctions.None,
             _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, "Unknown transport mode.")
         };
@@ -1043,7 +1108,14 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
         {
             throw new ArgumentException(
                 $"Leg {sequence} uses {mode}, but its {endpoint} location {location.Label} is recorded as " +
-                $"{DescribeFunctions(functions)} rather than a compatible {mode.ToString().ToLowerInvariant()} terminal.");
+                $"{DescribeFunctions(functions)} rather than a compatible {mode.ToString().ToLowerInvariant()} terminal. " +
+                AdditionalFunctionsHint);
         }
     }
+
+    private const string AdditionalFunctionsHint =
+        "If the UN/LOCODE record is incomplete, declare the function in MovementRequest.AdditionalLocationFunctions.";
+
+    private static readonly LocationFunctions AllLocationFunctions =
+        Enum.GetValues<LocationFunctions>().Aggregate(LocationFunctions.None, (all, flag) => all | flag);
 }
