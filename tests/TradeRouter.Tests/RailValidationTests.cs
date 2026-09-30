@@ -28,29 +28,30 @@ public class RailValidationTests
     }
 
     [Fact]
-    public void Rail_AdditionalLocationFunctionsAcceptUnderRecordedRailTerminal()
+    public void Rail_AdditionalLocationFunctionsAcceptDeclaredRailTerminal()
     {
+        // Maslianico is recorded only as a road terminal; the caller's own sources are assumed to show a rail siding.
         var plan = MovementPlan
-            .From(Waypoint.Station("CNCKG"))
+            .From(Waypoint.Station("ITMLN"))
             .ThenTo(Waypoint.Station("DEDUI"), TransportMode.Rail);
         var request = new MovementRequest { Legs = [.. plan.Legs] };
 
         FluentActions.Invoking(() => TradeRouterEngine.Default.CalculateMovement(request))
             .Should().Throw<ArgumentException>()
-            .WithMessage("*CNCKG is declared as Station, but UN/LOCODE records airport.*AdditionalLocationFunctions.");
+            .WithMessage("*ITMLN is declared as Station, but UN/LOCODE records road terminal.*AdditionalLocationFunctions.");
 
-        request.AdditionalLocationFunctions["cnckg"] = LocationFunctions.RailTerminal;
+        request.AdditionalLocationFunctions["itmln"] = LocationFunctions.RailTerminal;
         var leg = TradeRouterEngine.Default.CalculateMovement(request).Legs.Single();
 
-        leg.Feature.Properties.From.Should().Be("CNCKG");
-        leg.Length.Should().BeGreaterThan(6_000.0);
+        leg.Feature.Properties.From.Should().Be("ITMLN");
+        leg.Length.Should().BeGreaterThan(500.0);
     }
 
     [Fact]
     public void Rail_AdditionalLocationFunctionsDoNotAffectOtherCodes()
     {
         var request = new MovementRequest { Legs = MovementParser.Parse("GBFXT to DEDUI Rail") };
-        request.AdditionalLocationFunctions["CNCKG"] = LocationFunctions.RailTerminal;
+        request.AdditionalLocationFunctions["ITMLN"] = LocationFunctions.RailTerminal;
 
         FluentActions.Invoking(() => TradeRouterEngine.Default.CalculateMovement(request))
             .Should().Throw<ArgumentException>().WithMessage("Leg 1 uses Rail, but its from location GBFXT*");
@@ -62,7 +63,7 @@ public class RailValidationTests
     [InlineData("rail override negative distance", "Rail route override sequence 2 has an invalid distance.*")]
     [InlineData("road override on rail leg", "Road route override sequence 2 does not refer to a road leg.*")]
     [InlineData("blank additional function key", "Additional location function keys cannot be blank.*")]
-    [InlineData("unknown additional function flag", "Additional location functions for CNCKG contain unknown flags.*")]
+    [InlineData("unknown additional function flag", "Additional location functions for ITMLN contain unknown flags.*")]
     public void Rail_RejectsInvalidRequest(string invalidRequest, string expectedMessage)
     {
         var request = new MovementRequest { Legs = MovementParser.Parse("Pickup GBLGW to GBFXT Road\nDEHAM to DEDUI Rail") };
@@ -73,7 +74,7 @@ public class RailValidationTests
             "rail override negative distance" => r => r.RailRouteOverrides[2] = new SuppliedRoute { DistanceKm = -1 },
             "road override on rail leg" => r => r.RoadRouteOverrides[2] = new SuppliedRoute { DistanceKm = 10 },
             "blank additional function key" => r => r.AdditionalLocationFunctions[" "] = LocationFunctions.RailTerminal,
-            "unknown additional function flag" => r => r.AdditionalLocationFunctions["CNCKG"] = (LocationFunctions)256,
+            "unknown additional function flag" => r => r.AdditionalLocationFunctions["ITMLN"] = (LocationFunctions)256,
             _ => throw new ArgumentOutOfRangeException(nameof(invalidRequest))
         };
         mutate(request);

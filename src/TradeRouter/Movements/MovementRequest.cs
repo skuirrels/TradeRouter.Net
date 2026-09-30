@@ -27,9 +27,10 @@ public sealed class MovementRequest
 
     /// <summary>
     /// Functions to add to a location's recorded UN/LOCODE functions, keyed case-insensitively by code. The UNECE
-    /// list under-records many terminals, for example Chongqing (<c>CNCKG</c>) appears only as an airport, so a rail
-    /// leg to it is rejected. Declaring <see cref="LocationFunctions.RailTerminal"/> here lets the waypoint and mode
-    /// checks accept it. The functions are added only for validation; they do not change how the code resolves.
+    /// list under-records many terminals, and the embedded sea-port and rail supplements cover only reviewed codes,
+    /// so a leg to another rail-served place can still be rejected. Declaring
+    /// <see cref="LocationFunctions.RailTerminal"/> here lets the waypoint and mode checks accept it. The functions
+    /// are added only for validation; they do not change how the code resolves.
     /// </summary>
     public Dictionary<string, LocationFunctions> AdditionalLocationFunctions { get; } = new(StringComparer.OrdinalIgnoreCase);
 

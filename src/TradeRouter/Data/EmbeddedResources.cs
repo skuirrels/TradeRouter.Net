@@ -104,7 +104,8 @@ public static class EmbeddedResources
         using var doc = JsonDocument.Parse(gzipStream);
 
         var supplement = LoadUnLocodeSupplement();
-        var confirmedSeaPorts = LoadSeaPortSupplement();
+        var confirmedSeaPorts = LoadFunctionSupplement("unlocode-seaport-supplement.json");
+        var confirmedRailTerminals = LoadFunctionSupplement("unlocode-rail-supplement.json");
         var entries = new List<UnLocode>(110_000);
         foreach (var item in doc.RootElement.EnumerateArray())
         {
@@ -117,6 +118,9 @@ public static class EmbeddedResources
             // Codes UNECE lists without the sea-port function but that are documented deep-sea terminals.
             if (confirmedSeaPorts.Contains(code))
                 functions |= LocationFunctions.SeaPort;
+            // Codes UNECE lists without the rail function but that are documented freight rail terminals.
+            if (confirmedRailTerminals.Contains(code))
+                functions |= LocationFunctions.RailTerminal;
             string coordinateSource = coordinate.HasValue ? "UNECE" : "";
 
             // The supplement fills codes UNECE publishes without coordinates; a reviewed row also replaces a UNECE
@@ -156,13 +160,14 @@ public static class EmbeddedResources
     }
 
     /// <summary>
-    /// Loads unlocode-seaport-supplement.json: codes that UNECE publishes without the sea-port function but
-    /// that cited sources document as sea ports, so movements may declare them as ports and route sea legs.
+    /// Loads a function supplement: unlocode-seaport-supplement.json lists codes that UNECE publishes without the
+    /// sea-port function but that cited sources document as sea ports; unlocode-rail-supplement.json does the same
+    /// for freight rail terminals. Each entry only adds its function and never removes one.
     /// </summary>
-    private static HashSet<string> LoadSeaPortSupplement()
+    private static HashSet<string> LoadFunctionSupplement(string fileName)
     {
         var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        using var stream = CurrentAssembly.GetManifestResourceStream("TradeRouter.Data.unlocode-seaport-supplement.json");
+        using var stream = CurrentAssembly.GetManifestResourceStream($"TradeRouter.Data.{fileName}");
         if (stream == null)
             return result;
 

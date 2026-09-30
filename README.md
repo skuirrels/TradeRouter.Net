@@ -507,10 +507,10 @@ request.RailRouteOverrides[1] = railPlannerResult; // a SuppliedRoute built from
 
 The leg then reports `distance_basis: supplied`, the route's `Source` as `distance_source`, and the great-circle lower bound in `straight_line_length`. A supplied `DurationHours` is used as given and reported as `duration_basis: supplied`; without one, duration is the supplied distance divided by the rail speed. Supplied geometry is joined to the resolved endpoints and reported as `geometry_basis: supplied`. Like `RoadRouteOverrides`, this is for importing authoritative results, not for literal distances in application code.
 
-Rail endpoints are checked against UN/LOCODE functions: a rail leg needs a rail terminal (function 2) or a multimodal facility (function 6) at each end. The UNECE list under-records rail: Chongqing, origin of the first China–Europe rail service, is recorded only as an airport. When you know a location is rail-served, declare it:
+Rail endpoints are checked against UN/LOCODE functions: a rail leg needs a rail terminal (function 2) or a multimodal facility (function 6) at each end. The UNECE list under-records rail, most of all in North America, where Los Angeles, Chicago, Houston, Vancouver and Toronto carry no rail function. The embedded [rail supplement](src/TradeRouter/Data/unlocode-rail-supplement.json) adds the rail-terminal function to 20 such codes, each with a cited freight terminal, so `USLAX to USCHI Rail` routes on the rail network by code. For any other location you know is rail-served, declare it on the request:
 
 ```csharp
-request.AdditionalLocationFunctions["CNCKG"] = LocationFunctions.RailTerminal;
+request.AdditionalLocationFunctions[code] = LocationFunctions.RailTerminal;
 ```
 
 The declared functions are added to the recorded ones for waypoint and mode checks only; they do not change how the code resolves. Rejection messages name this option.
@@ -602,7 +602,7 @@ Everything here is deliberate and documented, but each is a simplification you s
 - **Port list versus UN/LOCODE tie-break.** When both lists know a code, the port list position is used only if the two names match or one is a prefix of the other after stripping accents and punctuation. If they disagree, UN/LOCODE's position is used and no port record is attached. Check `Source` on the resolved location when it matters.
 - **Supplemented coordinates.** 17,918 codes have coordinates from cited sources rather than UNECE: 17,771 that UNECE publishes without one (five hand-reviewed, 17,766 through unambiguous GeoNames links) and 147 whose UNECE coordinate falls far outside their country. Another 4,301 codes still have no verified coordinates; use caller coordinates or a resolver for those.
 - **Sea-port function checks.** A port waypoint or sea leg is rejected when UN/LOCODE records no sea-port function, even if the port list holds the code, because that list also contains inland terminals such as Calgary. Two codes UNECE under-records, Alumar (`BRALU`) and Duncan Bay (`CADCN`), are confirmed as sea ports by [unlocode-seaport-supplement.json](src/TradeRouter/Data/unlocode-seaport-supplement.json) with cited sources. Other affected ports need a `Waypoint.Place` or a new supplement entry.
-- **Rail function checks.** A station waypoint or rail leg is rejected unless UN/LOCODE records a rail-terminal or multimodal function. UNECE under-records many rail hubs, including Chongqing (`CNCKG`), Małaszewicze (`PLMAL`), Los Angeles (`USLAX`) and Chicago (`USCHI`); declare the function in `MovementRequest.AdditionalLocationFunctions` for those.
+- **Rail function checks.** A station waypoint or rail leg is rejected unless UN/LOCODE records a rail-terminal or multimodal function. UNECE under-records rail, especially for North American cities. The [rail supplement](src/TradeRouter/Data/unlocode-rail-supplement.json) adds the function to 20 codes with cited freight terminals, several of which sit in a neighbouring municipality of the coded city, such as Vaughan for Toronto. Other rail-served places need `MovementRequest.AdditionalLocationFunctions` or a new supplement entry.
 - **Port-code aliases.** 264 port-list codes are not UN/LOCODEs. Only 61 are mapped from an official code, where the names and positions within 25 km show the same port; the rest route only by their port-list code or by coordinates. Nearest-port matching is not used, because it pairs different places such as Perth and Claremont.
 - **Duplicate port codes.** The tagged upstream list contains 38 codes with multiple records. Code-only lookup never silently chooses one; provide a nearby coordinate or inspect the candidates.
 - **UN/LOCODE edition.** The embedded import did not preserve its UNECE publication edition. Its hash and record counts are documented, but it is not claimed to be the latest release.
@@ -664,7 +664,7 @@ THIRD-PARTY-NOTICES.md      data licences and attribution
 src/
   TradeRouter/              the library, packed as TradeRouter.Net
     Common/                 Coordinate, Haversine, DistanceUnit, antimeridian normaliser, point-in-polygon
-    Data/                   marnet.json.gz, ports.json.gz, unlocode.json.gz, rail-narn.json.gz, the UN/LOCODE coordinate and sea-port supplements, port-code aliases and their loader
+    Data/                   marnet.json.gz, ports.json.gz, unlocode.json.gz, rail-narn.json.gz, the UN/LOCODE coordinate, sea-port and rail supplements, port-code aliases and their loader
     GeoJson/                Feature, FeatureCollection, LineString/MultiLineString and serializer
     Graph/                  MaritimeGraph, BidirectionalDijkstra, AStar, per-thread search buffers
     Locations/              UN/LOCODE entry, functions and lookup
@@ -727,6 +727,7 @@ dotnet pack src/TradeRouter/TradeRouter.csproj -c Release -m:1 -nr:false -o ./ar
 - **North American rail network**, the main line of the BTS NTAD North American Rail Network Lines: 87,789 nodes and 91,000 track edges covering 272,068 km in the United States, Canada and Mexico, each edge with its published track length and owning railroad. Used to route rail legs. Loaded only when a movement has a rail leg.
 - **Port-code aliases**: a reviewed JSON file mapping 61 official UN/LOCODE sea-port codes to the port-list record held under another code. Used only when the port list lacks the requested code.
 - **UN/LOCODE sea-port supplement**: a hand-maintained JSON file of codes that UNECE publishes without the sea-port function but that cited sources document as sea ports. Currently two entries: Alumar and Duncan Bay. It only adds the sea-port function and never removes one.
+- **UN/LOCODE rail supplement**: a hand-maintained JSON file of 20 codes that UNECE publishes without a rail or multimodal function but where a cited source documents a freight rail terminal: 12 in the United States, five in Canada, two in Mexico and Łódź in Poland. It only adds the rail-terminal function and never removes one.
 
 The datasets are embedded, with compressed JSON for the large resources, and loaded lazily on first use. Exact input and output hashes, transformations and the known UN/LOCODE edition gap are in [DATA_PROVENANCE.md](DATA_PROVENANCE.md); licensing and attribution are in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 
