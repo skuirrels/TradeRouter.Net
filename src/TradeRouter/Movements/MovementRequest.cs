@@ -88,6 +88,19 @@ public sealed class MovementRequest
     /// </summary>
     public IRoadRouteProvider? RoadRouteProvider { get; set; }
 
+    /// <summary>
+    /// Controls rail legs. By default a leg whose ends both lie near the embedded North American rail network is
+    /// routed on it; any other rail leg keeps great-circle distance and carries a warning.
+    /// </summary>
+    public RailRoutingMode RailRoutingMode { get; set; } = RailRoutingMode.PreferNetworkThenGreatCircle;
+
+    /// <summary>
+    /// Furthest a rail leg's end may lie from the nearest point of the rail network, in kilometres, for the leg to
+    /// be routed on it. The default is 25 km, enough for a UN/LOCODE city position to reach a line through its
+    /// city. The gap at each end is added to the leg as straight-line distance.
+    /// </summary>
+    public double RailNetworkSnapKm { get; set; } = 25.0;
+
     /// <summary>Controls provider use and fallback behavior for road legs.</summary>
     public RoadRoutingMode RoadRoutingMode { get; set; } = RoadRoutingMode.PreferNetworkThenEstimate;
 

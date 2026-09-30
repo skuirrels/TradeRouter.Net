@@ -57,6 +57,41 @@ public static class EmbeddedResources
     }
 
     /// <summary>
+    /// Loads and builds the North American rail graph from the embedded rail-narn.json.gz dataset: the main line
+    /// of the BTS North American Rail Network. Each edge's label is the reporting mark of the railroad that owns
+    /// the track, and its weight is the published track length in kilometres.
+    /// </summary>
+    public static MaritimeGraph LoadRailGraph()
+    {
+        var graph = new MaritimeGraph();
+
+        using var rawStream = CurrentAssembly.GetManifestResourceStream("TradeRouter.Data.rail-narn.json.gz")
+            ?? throw new InvalidOperationException("Embedded resource 'TradeRouter.Data.rail-narn.json.gz' not found.");
+
+        using var gzipStream = new GZipStream(rawStream, CompressionMode.Decompress);
+        using var doc = JsonDocument.Parse(gzipStream);
+
+        var root = doc.RootElement;
+        var owners = root.GetProperty("owners").EnumerateArray().Select(owner => owner.GetString()).ToArray();
+        foreach (var nodeItem in root.GetProperty("nodes").EnumerateArray())
+            graph.AddNode(new Coordinate(nodeItem[0].GetDouble(), nodeItem[1].GetDouble()));
+
+        // Track runs both ways, so each stored edge is added in both directions.
+        foreach (var edgeItem in root.GetProperty("edges").EnumerateArray())
+        {
+            int u = edgeItem[0].GetInt32();
+            int v = edgeItem[1].GetInt32();
+            double weight = edgeItem[2].GetDouble();
+            string? owner = owners[edgeItem[3].GetInt32()] is { Length: > 0 } mark ? mark : null;
+            graph.AddDirectedEdge(u, v, weight, owner);
+            graph.AddDirectedEdge(v, u, weight, owner);
+        }
+
+        graph.BuildIndex();
+        return graph;
+    }
+
+    /// <summary>
     /// Loads the UN/LOCODE list from the embedded unlocode.json.gz dataset: arrays of
     /// [code, name, longitude or null, latitude or null, function flags].
     /// </summary>

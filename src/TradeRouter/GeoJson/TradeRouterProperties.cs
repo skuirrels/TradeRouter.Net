@@ -20,12 +20,12 @@ public sealed class TradeRouterProperties
     [JsonPropertyName("duration_hours")]
     public double DurationHours { get; set; }
 
-    /// <summary>How the distance was obtained, for example "road_network", "supplied", "circuity_estimate" or "great_circle".</summary>
+    /// <summary>How the distance was obtained, for example "road_network", "rail_network", "supplied", "circuity_estimate" or "great_circle".</summary>
     [JsonPropertyName("distance_basis")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? DistanceBasis { get; set; }
 
-    /// <summary>Great-circle lower bound in the requested units when a road distance was supplied, routed or estimated.</summary>
+    /// <summary>Great-circle lower bound in the requested units when a road distance was supplied, routed or estimated, or a rail leg was routed on the rail network.</summary>
     [JsonPropertyName("straight_line_length")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public double? StraightLineLength { get; set; }
@@ -50,12 +50,12 @@ public sealed class TradeRouterProperties
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? DurationBasis { get; set; }
 
-    /// <summary>How the emitted geometry was obtained, such as "road_network" or "great_circle".</summary>
+    /// <summary>How the emitted geometry was obtained, such as "road_network", "rail_network" or "great_circle".</summary>
     [JsonPropertyName("geometry_basis")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? GeometryBasis { get; set; }
 
-    /// <summary>Warning attached to an estimated road distance or provider fallback.</summary>
+    /// <summary>Warning attached to an estimated road distance, a provider fallback or a rail leg left at great-circle distance.</summary>
     [JsonPropertyName("distance_warning")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? DistanceWarning { get; set; }
@@ -74,6 +74,14 @@ public sealed class TradeRouterProperties
     [JsonPropertyName("traversed_passages")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<string>? TraversedPassages { get; set; }
+
+    /// <summary>
+    /// Reporting marks of the railroads owning the track of a rail leg routed on the rail network, in route order,
+    /// such as "BNSF" or "UP". Trackage rights let other railroads run over it too.
+    /// </summary>
+    [JsonPropertyName("railroads")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? Railroads { get; set; }
 
     /// <summary>1-based leg number when the feature is part of a multi-leg movement.</summary>
     [JsonPropertyName("leg")]

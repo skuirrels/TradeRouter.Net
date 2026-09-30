@@ -107,7 +107,7 @@ These apply to single routes and to multi-leg movements, which are described [be
 - **Lane**: a straight link between two neighbouring lane points. Sea legs travel only along lanes.
 - **Snapping**: moving a waypoint's position to its nearest lane point so a sea leg can start or end on the map, then joining the two with a straight line so the leg still begins and ends at the waypoint.
 - **Choke point**: a lane that runs through a canal or strait, tagged with its name. Thirteen exist. Closing one makes the router route round it.
-- **Non-sea leg**: road legs use a configured road-network provider when available and otherwise a labelled circuity estimate. Rail and air legs use great-circle distance. None uses maritime lane points or choke points.
+- **Non-sea leg**: road legs use a configured road-network provider when available and otherwise a labelled circuity estimate. Rail legs in the United States, Canada and Mexico are routed on the embedded North American rail network; other rail legs and air legs use great-circle distance. None uses maritime lane points or choke points.
 
 Implementation notes:
 
@@ -150,8 +150,9 @@ Example output for Jebel Ali (AEJEA) to St John's, Antigua (AGSJO) with Suez clo
 | `length` | Total route length in the requested unit. |
 | `units` | Unit identifier, for example `km`, `naut`, `mi`. |
 | `duration_hours` | Travelling duration. Road legs default to distance divided by the configured road speed; callers may explicitly opt into a provider or imported-route duration. |
-| `distance_basis` | Provenance class for the distance: `maritime_network`, `road_network`, `supplied`, `circuity_estimate` or `great_circle`. |
-| `straight_line_length` | Great-circle lower bound for a road leg, in the requested unit. |
+| `distance_basis` | Provenance class for the distance: `maritime_network`, `road_network`, `rail_network`, `supplied`, `circuity_estimate` or `great_circle`. |
+| `straight_line_length` | Great-circle lower bound for a road leg or a rail leg routed on the rail network, in the requested unit. |
+| `railroads` | Reporting marks of the railroads owning the track of a rail leg routed on the rail network, in route order. |
 | `distance_source` | Provider, estimator or caller label that produced the distance. |
 | `routing_profile`, `routing_data_version` | Road-provider profile and caller-configured dataset version when known. |
 | `duration_basis`, `geometry_basis` | How travelling time and emitted geometry were obtained. |
@@ -288,10 +289,10 @@ var routes = TradeRouterEngine.Default.CalculateRoutes(TradeRoutes.Locate("BEBRU
 
 ### Multi-leg movements
 
-A `MovementPlan` builds a continuous route from typed waypoints and transport modes. Each destination automatically becomes the next leg's origin, so intermediate UN/LOCODEs are stated once. Declared waypoint types and sea, rail and air modes are checked against known UN/LOCODE functions. Pickup and delivery ordering is enforced while the plan is built. Sea legs are routed on the maritime lane network. Road legs use an optional road-network provider or a labelled built-in estimate. Rail and air legs use great-circle distance. None of the non-sea modes touches maritime lane points or choke points. Default assumed speeds are 60, 80 and 800 km/h for road, rail and air.
+A `MovementPlan` builds a continuous route from typed waypoints and transport modes. Each destination automatically becomes the next leg's origin, so intermediate UN/LOCODEs are stated once. Declared waypoint types and sea, rail and air modes are checked against known UN/LOCODE functions. Pickup and delivery ordering is enforced while the plan is built. Sea legs are routed on the maritime lane network. Road legs use an optional road-network provider or a labelled built-in estimate. Rail legs are routed on the embedded North American rail network when both ends are near it; other rail legs and air legs use great-circle distance. None of the non-sea modes touches maritime lane points or choke points. Default assumed speeds are 60, 80 and 800 km/h for road, rail and air.
 
 <p align="center">
-  <img src="docs/diagrams/movement-flow.svg" alt="TradeRouter.Net movement flow: a typed MovementPlan builds continuous legs, resolves each leg's locations, routes sea legs on Marnet, resolves road distance from a road provider or fallback estimate, and measures rail and air legs by great-circle distance" width="70%">
+  <img src="docs/diagrams/movement-flow.svg" alt="TradeRouter.Net movement flow: a typed MovementPlan builds continuous legs, resolves each leg's locations, routes sea legs on Marnet, resolves road distance from a road provider or fallback estimate, routes North American rail legs on the NARN rail network, and measures other rail legs and air legs by great-circle distance" width="70%">
 </p>
 
 Source: [docs/diagrams/movement-flow.svg](docs/diagrams/movement-flow.svg) (vector) and [movement-flow.html](docs/diagrams/movement-flow.html).
@@ -439,6 +440,28 @@ Example 13 always shows the built-in `EstimateOnly` result. Examples 14 and 15 u
 
 `PreferNetworkThenEstimate` falls back only when the provider is unavailable or an endpoint is outside its loaded coverage, and records the reason in `distance_warning`. A provider-confirmed `NoRoute` is an error rather than silently inventing a distance. `RequireNetwork` also treats unavailable or out-of-coverage results as errors. `EstimateOnly` never calls the provider. Because provider calls are I/O, use `CalculateMovementAsync`; synchronous calculation is available for estimates.
 
+### Rail routing
+
+Rail legs in the United States, Canada and Mexico are routed on the embedded main line of the BTS [North American Rail Network](https://doi.org/10.21949/1528950), the federal network of every railroad line, with its owner and published track length. No service or container is needed. Each end snaps to the nearest point of the network, the gap is added as straight-line distance, and the leg reports `distance_basis: rail_network`, the track length, the line's shape and the owning railroads in `railroads`.
+
+```csharp
+var request = new MovementRequest
+{
+    Legs =
+    [
+        new MovementLeg(
+            Location.FromCoordinate(new Coordinate(-118.2437, 34.0522), "Los Angeles"),
+            Location.FromCoordinate(new Coordinate(-87.6298, 41.8781), "Chicago"),
+            TransportMode.Rail,
+            LegKind.Main)
+    ]
+};
+var leg = TradeRouterEngine.Default.CalculateMovement(request).Legs[0];
+// leg.Feature.Properties.DistanceBasis == "rail_network"; Railroads lists the owners, such as BNSF
+```
+
+A rail leg keeps great-circle distance, with the reason in `distance_warning`, when an end is more than `RailNetworkSnapKm` from the network (25 km by default, so every rail leg outside North America) or when no connected main line joins the two ends. Set `RailRoutingMode` to `GreatCircleOnly` to skip the network. Duration stays distance divided by the configured rail speed; the network carries no timetable, speed limits or train paths.
+
 ### Time
 
 `duration_hours` on every route and leg is travelling time. Road legs use routed or estimated distance divided by the configured road speed by default, including routes whose distance and geometry came from OSRM. Set `RoadDurationMode` to `RouteDurationWhenAvailable` to prefer a provider or authoritative imported-route duration when one is present. Other non-sea legs use distance divided by their configured average speed.
@@ -532,8 +555,9 @@ Everything here is deliberate and documented, but each is a simplification you s
 - **Single routes with several area matches** return the first feature from `CalculateRoute`; use `CalculateRoutes` to see them all.
 - **Single routes with no path** return null geometry and zero length rather than throwing; movement legs throw.
 - **Untagged lane links.** Three internal tags in the lane data, `segment`, `segment2` and `pacific_ocean`, stitch the antimeridian and are never reported or restrictable.
-- **Road estimates and non-road geometry.** Without a supplied value or provider, road distance comes from the calibrated distance-decay circuity model, not a road-network route. It is an average planning relationship and cannot reproduce barriers or the exact route between a particular pair. When no road geometry is available, the GeoJSON still joins the resolved endpoints with a straight display line and reports `geometry_basis: great_circle`; this does not change the separately reported estimated or routed distance. Rail and air use great-circle distance.
+- **Road estimates and non-road geometry.** Without a supplied value or provider, road distance comes from the calibrated distance-decay circuity model, not a road-network route. It is an average planning relationship and cannot reproduce barriers or the exact route between a particular pair. When no road geometry is available, the GeoJSON still joins the resolved endpoints with a straight display line and reports `geometry_basis: great_circle`; this does not change the separately reported estimated or routed distance. Rail legs outside North America and air legs use great-circle distance.
 - **Time and emissions are estimates.** Movement time is labelled modelled minimum and exposes every allowance, but it still has no carrier schedule, customs, cargo cut-off, booking availability or disruption data.
+- **Rail routing is shortest track, not a carrier's route.** North American rail legs follow the shortest main-line track whoever owns it, so a route can switch railroads where a real train would stay with one carrier, and can use commuter-owned track near a city-centre end. The network has no timetable or speed limits, so duration is distance divided by the configured rail speed. Rail legs elsewhere use great-circle distance.
 - **Containers on road and rail are charged per container.** With a TEU count, road and rail legs use at least the GLEC average of 10 t per TEU. This overstates a container of light cargo somewhat, because a truck's fuel does fall a little with its load, but it is far closer than charging only the cargo inside: 100 kg in a 20-foot box would otherwise carry 1% of the truck's emissions. Heavier containers use their stated weight.
 - **Per-thread search buffers** hold about 300 KB for the lifetime of each thread that routes.
 
@@ -638,6 +662,7 @@ dotnet pack src/TradeRouter/TradeRouter.csproj -c Release -m:1 -nr:false -o ./ar
 - **World ports**, transformed from searoute-py 1.6.0: 3,962 records with code, name, country, terminal flag and permitted destination countries.
 - **UN/LOCODE**, the UNECE code list for trade and transport locations: 106,588 codes with name and function flags, of which 84,516 carry coordinates to one minute of arc. Used to resolve movement legs that name airports, terminals and inland places. Loaded only when a movement needs it.
 - **UN/LOCODE coordinate supplement**: one JSON file with five hand-reviewed entries (Gatwick, Shanghai Railway Station, Shanghai Hongqiao, Melrose and Guildford) and 17,766 positions from the 16 September 2026 GeoNames snapshot. Each entry records its source. The GeoNames entries have an explicit `unlc` code, matching country and name or recorded alternate name, and one unambiguous coordinate. Lightwater (`GBLGE`) is included. Applied only where UNECE has no coordinate.
+- **North American rail network**, the main line of the BTS NTAD North American Rail Network Lines: 87,789 nodes and 91,000 track edges covering 272,068 km in the United States, Canada and Mexico, each edge with its published track length and owning railroad. Used to route rail legs. Loaded only when a movement has a rail leg.
 - **Port-code aliases**: a reviewed JSON file mapping 61 official UN/LOCODE sea-port codes to the port-list record held under another code. Used only when the port list lacks the requested code.
 - **UN/LOCODE sea-port supplement**: a hand-maintained JSON file of codes that UNECE publishes without the sea-port function but that cited sources document as sea ports. Currently two entries: Alumar and Duncan Bay. It only adds the sea-port function and never removes one.
 
