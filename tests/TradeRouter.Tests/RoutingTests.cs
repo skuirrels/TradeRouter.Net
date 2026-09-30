@@ -1,5 +1,5 @@
 using System.Text.Json;
-using FluentAssertions;
+using AwesomeAssertions;
 using TradeRouter.Common;
 using TradeRouter.GeoJson;
 using Xunit;
