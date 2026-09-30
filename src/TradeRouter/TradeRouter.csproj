@@ -9,13 +9,13 @@
     <PackageId>TradeRouter.Net</PackageId>
     <Version>2.0.0</Version>
     <Authors>eDC team</Authors>
-    <Description>High-performance .NET maritime shortest-path routing library based on Eurostat marnet data.</Description>
+    <Description>High-performance .NET maritime shortest-path routing library based on Eurostat marnet data, with North American rail routing on the BTS North American Rail Network.</Description>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/skuirrels/TradeRouter.Net</PackageProjectUrl>
     <RepositoryUrl>https://github.com/skuirrels/TradeRouter.Net</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageTags>maritime;searoute;routing;geospatial;ports;geojson;dijkstra;eurostat</PackageTags>
+    <PackageTags>maritime;searoute;rail;routing;geospatial;ports;geojson;dijkstra;eurostat</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>

@@ -27,6 +27,7 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
     private readonly string _maritimeDistanceSource;
     private readonly Lazy<UnLocodeDatabase> _lazyUnLocodes = new(EmbeddedResources.LoadUnLocodes, LazyThreadSafetyMode.ExecutionAndPublication);
     private readonly Lazy<IReadOnlyDictionary<string, string>> _lazyPortCodeAliases = new(EmbeddedResources.LoadPortCodeAliases, LazyThreadSafetyMode.ExecutionAndPublication);
+    private readonly Lazy<MaritimeGraph> _lazyRailGraph = new(EmbeddedResources.LoadRailGraph, LazyThreadSafetyMode.ExecutionAndPublication);
 
     /// <inheritdoc />
     public MaritimeGraph Graph => _lazyGraph.Value;
@@ -38,6 +39,12 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
     /// Gets the embedded UN/LOCODE list, used to resolve movement locations that are not sea ports.
     /// </summary>
     public UnLocodeDatabase UnLocodes => _lazyUnLocodes.Value;
+
+    /// <summary>
+    /// Gets the embedded North American rail graph, the main line of the BTS North American Rail Network, used to
+    /// route rail legs. Edge labels are the reporting marks of the railroads owning the track.
+    /// </summary>
+    public MaritimeGraph RailGraph => _lazyRailGraph.Value;
 
     /// <summary>
     /// Creates a new instance of <see cref="TradeRouterEngine"/> using default embedded datasets.
@@ -308,6 +315,10 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
                     allowProvider,
                     cancellationToken).ConfigureAwait(false);
             }
+            else if (leg.Mode == TransportMode.Rail)
+            {
+                feature = CalculateRailLeg(from, to, units, request);
+            }
             else
             {
                 feature = CalculateStraightLeg(from, to, leg.Mode, units, request.SpeedsKmh);
@@ -441,6 +452,91 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
                 DistanceSource = "built_in",
                 DurationBasis = "assumed_speed",
                 GeometryBasis = "great_circle",
+                PortOrigin = from.Port,
+                PortDest = to.Port
+            }
+        };
+    }
+
+    /// <summary>
+    /// Routes a rail leg on the embedded North American rail network when both ends lie within the request's snap
+    /// distance of one connected main line; the gap at each end is added as straight-line distance. Any other rail
+    /// leg keeps great-circle distance and carries a warning saying why.
+    /// </summary>
+    private GeoJsonFeature CalculateRailLeg(ResolvedLocation from, ResolvedLocation to, DistanceUnit units, MovementRequest request)
+    {
+        if (request.RailRoutingMode == RailRoutingMode.GreatCircleOnly)
+            return CalculateStraightLeg(from, to, TransportMode.Rail, units, request.SpeedsKmh);
+
+        var graph = RailGraph;
+        int origin = graph.FindNearestNode(from.Coordinate);
+        int destination = graph.FindNearestNode(to.Coordinate);
+        double accessKm = Haversine.DistanceKm(from.Coordinate, graph.GetCoordinate(origin));
+        double egressKm = Haversine.DistanceKm(graph.GetCoordinate(destination), to.Coordinate);
+
+        string warning;
+        if (accessKm > request.RailNetworkSnapKm || egressKm > request.RailNetworkSnapKm)
+        {
+            var (label, gapKm) = accessKm >= egressKm ? (from.Label, accessKm) : (to.Label, egressKm);
+            warning = $"{label} is {gapKm:N0} km from the nearest main line of the embedded North American rail network, " +
+                $"beyond the {request.RailNetworkSnapKm:N0} km limit; great-circle distance used.";
+        }
+        else
+        {
+            var (networkKm, path) = BidirectionalDijkstra.FindPath(graph, origin, destination, null);
+            if (path.Count > 0 && double.IsFinite(networkKm))
+                return CreateRailNetworkFeature(graph, from, to, units, request.SpeedsKmh, accessKm + networkKm + egressKm, path);
+            warning = $"No connected main line joins {from.Label} and {to.Label} on the embedded North American rail network; " +
+                "great-circle distance used.";
+        }
+
+        var feature = CalculateStraightLeg(from, to, TransportMode.Rail, units, request.SpeedsKmh);
+        feature.Properties.DistanceWarning = warning;
+        return feature;
+    }
+
+    private static GeoJsonFeature CreateRailNetworkFeature(
+        MaritimeGraph graph,
+        ResolvedLocation from,
+        ResolvedLocation to,
+        DistanceUnit units,
+        IReadOnlyDictionary<TransportMode, double> speedsKmh,
+        double distanceKm,
+        List<Coordinate> path)
+    {
+        if (!speedsKmh.TryGetValue(TransportMode.Rail, out double speedKmh) || speedKmh <= 0)
+            throw new ArgumentException("No positive speed configured for mode Rail. Set MovementRequest.SpeedsKmh[TransportMode.Rail].");
+
+        var railroads = new List<string>();
+        for (int i = 1; i < path.Count; i++)
+        {
+            if (graph.GetPassage(path[i - 1], path[i]) is { } owner && !railroads.Contains(owner))
+                railroads.Add(owner);
+        }
+
+        var coordinates = new List<Coordinate>(path.Count + 2);
+        AddIfDifferent(coordinates, from.Coordinate);
+        foreach (var coordinate in path)
+            AddIfDifferent(coordinates, coordinate);
+        AddIfDifferent(coordinates, to.Coordinate);
+        if (coordinates.Count == 1)
+            coordinates.Add(to.Coordinate);
+
+        double metresToUnits = units.GetConversionFactorFromMeters();
+        return new GeoJsonFeature
+        {
+            Geometry = GeoJsonGeometry.FromCoordinates(RouteNormalizer.NormalizeRoute(coordinates)),
+            Properties = new TradeRouterProperties
+            {
+                Length = distanceKm * 1000.0 * metresToUnits,
+                Units = units.ToUnitString(),
+                DurationHours = distanceKm / speedKmh,
+                DistanceBasis = "rail_network",
+                StraightLineLength = Haversine.DistanceKm(from.Coordinate, to.Coordinate) * 1000.0 * metresToUnits,
+                DistanceSource = "narn",
+                DurationBasis = "assumed_speed",
+                GeometryBasis = "rail_network",
+                Railroads = railroads,
                 PortOrigin = from.Port,
                 PortDest = to.Port
             }
@@ -829,6 +925,10 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
             throw new ArgumentException("Movement road-routing mode is unknown.", nameof(request));
         if (!Enum.IsDefined(request.RoadDurationMode))
             throw new ArgumentException("Movement road-duration mode is unknown.", nameof(request));
+        if (!Enum.IsDefined(request.RailRoutingMode))
+            throw new ArgumentException("Movement rail-routing mode is unknown.", nameof(request));
+        if (!double.IsFinite(request.RailNetworkSnapKm) || request.RailNetworkSnapKm < 0)
+            throw new ArgumentOutOfRangeException(nameof(request.RailNetworkSnapKm), request.RailNetworkSnapKm, "Rail network snap distance must be finite and non-negative.");
         request.Emissions.Validate();
         ValidatePositiveOptional(request.CargoTonnes, nameof(request.CargoTonnes));
         ValidatePositiveOptional(request.CargoTeu, nameof(request.CargoTeu));
