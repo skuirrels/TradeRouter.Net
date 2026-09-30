@@ -356,7 +356,8 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
                 + feature.Properties.PortHours
                 + feature.Properties.OperationalAllowanceHours
                 + feature.Properties.ConnectionHours;
-            ApplyEmissions(feature, leg.Mode, units, request);
+            bool northAmericanRail = leg.Mode == TransportMode.Rail && IsNorthAmericanRail(from, to, request);
+            ApplyEmissions(feature, leg.Mode, units, request, northAmericanRail);
 
             legResults.Add(new LegResult(sequence, leg, from, to, feature));
         }
@@ -368,11 +369,18 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
     /// Stamps the leg with its GLEC-style CO2e figures: intensity in g per tonne-km, kg per tonne of cargo for
     /// the leg, and absolute kg when the request states a cargo weight. Length is converted to kilometres first.
     /// </summary>
-    private static void ApplyEmissions(GeoJsonFeature feature, TransportMode mode, DistanceUnit units, MovementRequest request)
+    private static void ApplyEmissions(
+        GeoJsonFeature feature,
+        TransportMode mode,
+        DistanceUnit units,
+        MovementRequest request,
+        bool northAmericanRail)
     {
         var factors = request.Emissions;
         double lengthKm = feature.Properties.Length / (units.GetConversionFactorFromMeters() * 1000.0);
-        double gramsPerTonneKm = factors.GramsPerTonneKm(mode, lengthKm);
+        double gramsPerTonneKm = northAmericanRail
+            ? factors.RailNorthAmericaGramsPerTonneKm
+            : factors.GramsPerTonneKm(mode, lengthKm);
         double kgPerTonne = gramsPerTonneKm * lengthKm / 1000.0;
 
         feature.Properties.Co2eGramsPerTonneKm = gramsPerTonneKm;
@@ -495,6 +503,18 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
         var feature = CalculateStraightLeg(from, to, TransportMode.Rail, units, request.SpeedsKmh);
         feature.Properties.DistanceWarning = warning;
         return feature;
+    }
+
+    /// <summary>
+    /// A rail leg is North American when both ends lie within the request's snap distance of the embedded North
+    /// American rail network: the coverage test the rail router uses, applied whether the leg was routed on the
+    /// network, supplied or left at great-circle distance.
+    /// </summary>
+    private bool IsNorthAmericanRail(ResolvedLocation from, ResolvedLocation to, MovementRequest request)
+    {
+        var graph = RailGraph;
+        return Haversine.DistanceKm(from.Coordinate, graph.GetCoordinate(graph.FindNearestNode(from.Coordinate))) <= request.RailNetworkSnapKm
+            && Haversine.DistanceKm(to.Coordinate, graph.GetCoordinate(graph.FindNearestNode(to.Coordinate))) <= request.RailNetworkSnapKm;
     }
 
     private static GeoJsonFeature CreateRailNetworkFeature(

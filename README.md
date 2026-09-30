@@ -588,12 +588,13 @@ Pass `cargoTeu` as well for containerised freight. Sea legs are then charged per
 | Sea, per tonne | 7.6 | Table 46, industry-average dry container, 76 g per TEU-km at the GLEC average of 10 t per TEU |
 | Sea, per container | 76 per TEU-km | Table 46, industry-average dry container, used when a TEU count is given |
 | Road | 92 | Europe starting value for an HGV over 20 t gross vehicle weight |
-| Rail | 28 | Table 38, European diesel traction, average mixed load |
+| Rail, North America | 16 | Module 2 rail, North America: US average diesel from Class I railroad fuel reporting. Used when both ends of a rail leg lie within `RailNetworkSnapKm` of the embedded North American rail network |
+| Rail, elsewhere | 28 | Table 38, European diesel traction, average mixed load |
 | Air, under 1,000 km | 1,130 | Table 35, ICAO/IATA RP1678 basis, aircraft type unknown |
 | Air, 1,000 to 3,700 km | 700 | Table 35, as above |
 | Air, over 3,700 km | 630 | Table 35, as above |
 
-Source: Smart Freight Centre, [GLEC Framework, July 2022 edition](https://smart-freight-centre-media.s3.amazonaws.com/documents/2019_GLEC_Framework_July_2022.pdf), Module 2. These are defaults for when carrier data is unavailable; the sea figure assumes an average dry container on an unknown trade lane, and reefer or trade-lane-specific values differ. Set `MovementRequest.Emissions` to your own `EmissionFactors` to override any of them.
+Source: Smart Freight Centre, [GLEC Framework, July 2022 edition](https://smart-freight-centre-media.s3.amazonaws.com/documents/2019_GLEC_Framework_July_2022.pdf), Module 2. These are defaults for when carrier data is unavailable; the sea figure assumes an average dry container on an unknown trade lane, and reefer or trade-lane-specific values differ. The North American rail value is GLEC's US figure and also applies to Canadian and Mexican legs on the network, and the rail value elsewhere assumes diesel traction; GLEC's European average for unknown traction is 17 g. Set `MovementRequest.Emissions` to your own `EmissionFactors` to override any of them; `RailNorthAmericaGramsPerTonneKm` and `RailGramsPerTonneKm` hold the two rail values.
 
 ## Known limitations and judgement calls
 

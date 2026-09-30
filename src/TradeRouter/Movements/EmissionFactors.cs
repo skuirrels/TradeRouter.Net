@@ -28,8 +28,18 @@ public sealed class EmissionFactors
     /// <summary>Road haulage. GLEC Europe starting value for an HGV over 20 t GVW, 92 g CO2e per tonne-km WTW.</summary>
     public double RoadGramsPerTonneKm { get; set; } = 92.0;
 
-    /// <summary>Rail freight. GLEC Table 38, European diesel traction, average/mixed load, 28 g CO2e per tonne-km WTW.</summary>
+    /// <summary>
+    /// Rail freight outside North America. GLEC Table 38, European diesel traction, average/mixed load,
+    /// 28 g CO2e per tonne-km WTW.
+    /// </summary>
     public double RailGramsPerTonneKm { get; set; } = 28.0;
+
+    /// <summary>
+    /// Rail freight in North America: a rail leg whose ends both lie within
+    /// <see cref="MovementRequest.RailNetworkSnapKm"/> of the embedded North American rail network. GLEC Module 2,
+    /// North America, US average diesel, 16 g CO2e per tonne-km WTW, derived from Class I railroad fuel reporting.
+    /// </summary>
+    public double RailNorthAmericaGramsPerTonneKm { get; set; } = 16.0;
 
     /// <summary>Air freight under 1,000 km. GLEC Table 35, ICAO/IATA RP1678 basis, aircraft type unknown, 1,130 g CO2e per tonne-km WTW.</summary>
     public double AirShortHaulGramsPerTonneKm { get; set; } = 1130.0;
@@ -41,7 +51,9 @@ public sealed class EmissionFactors
     public double AirLongHaulGramsPerTonneKm { get; set; } = 630.0;
 
     /// <summary>
-    /// Returns the factor for a leg of the given mode and length. Air uses the GLEC distance bands.
+    /// Returns the factor for a leg of the given mode and length. Air uses the GLEC distance bands. Rail returns
+    /// <see cref="RailGramsPerTonneKm"/>; a movement charges North American rail legs at
+    /// <see cref="RailNorthAmericaGramsPerTonneKm"/> instead.
     /// </summary>
     public double GramsPerTonneKm(TransportMode mode, double distanceKm) => mode switch
     {
@@ -62,6 +74,7 @@ public sealed class EmissionFactors
         ValidateNonNegative(SeaGramsPerTonneKm, nameof(SeaGramsPerTonneKm));
         ValidateNonNegative(RoadGramsPerTonneKm, nameof(RoadGramsPerTonneKm));
         ValidateNonNegative(RailGramsPerTonneKm, nameof(RailGramsPerTonneKm));
+        ValidateNonNegative(RailNorthAmericaGramsPerTonneKm, nameof(RailNorthAmericaGramsPerTonneKm));
         ValidateNonNegative(AirShortHaulGramsPerTonneKm, nameof(AirShortHaulGramsPerTonneKm));
         ValidateNonNegative(AirMediumHaulGramsPerTonneKm, nameof(AirMediumHaulGramsPerTonneKm));
         ValidateNonNegative(AirLongHaulGramsPerTonneKm, nameof(AirLongHaulGramsPerTonneKm));
