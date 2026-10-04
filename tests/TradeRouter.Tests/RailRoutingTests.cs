@@ -170,6 +170,60 @@ public class RailRoutingTests
     }
 
     [Fact]
+    public void Rail_NorthAmericanNetworkLegUsesTheUsAverageFactor()
+    {
+        var request = RailLeg(LosAngeles, "Los Angeles", Chicago, "Chicago");
+        request.CargoTonnes = 12.0;
+
+        var leg = TradeRouterEngine.Default.CalculateMovement(request).Legs.Single();
+
+        leg.Feature.Properties.DistanceBasis.Should().Be("rail_network");
+        leg.Co2eGramsPerTonneKm.Should().Be(16.0);
+        leg.Co2eKgPerTonne.Should().BeApproximately(16.0 * leg.Length / 1000.0, 1e-9);
+        leg.Co2eKg.Should().BeApproximately(16.0 * leg.Length / 1000.0 * 12.0, 1e-9);
+    }
+
+    [Fact]
+    public void Rail_NorthAmericanFactorAppliesToSuppliedAndGreatCircleLegs()
+    {
+        var supplied = RailLeg(LosAngeles, "Los Angeles", Chicago, "Chicago");
+        supplied.RailRouteOverrides[1] = new SuppliedRoute { DistanceKm = 3_600.0, Source = "rail-planner" };
+        var greatCircle = RailLeg(LosAngeles, "Los Angeles", Chicago, "Chicago");
+        greatCircle.RailRoutingMode = RailRoutingMode.GreatCircleOnly;
+
+        TradeRouterEngine.Default.CalculateMovement(supplied).Legs.Single().Co2eGramsPerTonneKm.Should().Be(16.0);
+        TradeRouterEngine.Default.CalculateMovement(greatCircle).Legs.Single().Co2eGramsPerTonneKm.Should().Be(16.0);
+    }
+
+    [Fact]
+    public void Rail_LegOutsideNorthAmericaKeepsTheEuropeanDieselFactor()
+    {
+        var leg = TradeRouterEngine.Default.CalculateMovement(RailLeg(London, "London", Felixstowe, "Felixstowe")).Legs.Single();
+
+        leg.Co2eGramsPerTonneKm.Should().Be(28.0);
+    }
+
+    [Fact]
+    public void Rail_NorthAmericanFactorCanBeOverridden()
+    {
+        var request = RailLeg(LosAngeles, "Los Angeles", Chicago, "Chicago");
+        request.Emissions = new EmissionFactors { RailNorthAmericaGramsPerTonneKm = 20.0 };
+
+        TradeRouterEngine.Default.CalculateMovement(request).Legs.Single().Co2eGramsPerTonneKm.Should().Be(20.0);
+    }
+
+    [Fact]
+    public void Rail_NegativeNorthAmericanFactor_IsRejected()
+    {
+        var request = RailLeg(LosAngeles, "Los Angeles", Chicago, "Chicago");
+        request.Emissions = new EmissionFactors { RailNorthAmericaGramsPerTonneKm = -1.0 };
+
+        var act = () => TradeRouterEngine.Default.CalculateMovement(request);
+
+        act.Should().Throw<ArgumentOutOfRangeException>().WithParameterName(nameof(EmissionFactors.RailNorthAmericaGramsPerTonneKm));
+    }
+
+    [Fact]
     public void RailGraph_HoldsTheConnectedMainLine()
     {
         var graph = TradeRouterEngine.Default.RailGraph;

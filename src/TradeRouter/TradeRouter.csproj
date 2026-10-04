@@ -8,8 +8,9 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <PackageId>TradeRouter.Net</PackageId>
     <Version>2.0.0</Version>
-    <Authors>eDC team</Authors>
-    <Description>High-performance .NET maritime shortest-path routing library based on Eurostat marnet data, with North American rail routing on the BTS North American Rail Network.</Description>
+    <Authors>Tyrone Omidi</Authors>
+    <Copyright>Copyright 2026 Tyrone Omidi</Copyright>
+    <Description>High-performance .NET maritime shortest-path routing library on the Marnet network from searoute-py 1.6.0, derived from Eurostat SeaRoute, with North American rail routing on the BTS North American Rail Network.</Description>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/skuirrels/TradeRouter.Net</PackageProjectUrl>
     <RepositoryUrl>https://github.com/skuirrels/TradeRouter.Net</RepositoryUrl>
