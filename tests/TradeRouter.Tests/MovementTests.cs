@@ -498,13 +498,37 @@ public class MovementTests
     {
         var f = EmissionFactors.GlecDefaults;
 
-        f.GramsPerTonneKm(TransportMode.Sea, 15000).Should().Be(7.6);
-        f.GramsPerTonneKm(TransportMode.Road, 100).Should().Be(92.0);
-        f.GramsPerTonneKm(TransportMode.Rail, 500).Should().Be(28.0);
-        f.GramsPerTonneKm(TransportMode.Air, 999).Should().Be(1130.0);
-        f.GramsPerTonneKm(TransportMode.Air, 1000).Should().Be(700.0);
-        f.GramsPerTonneKm(TransportMode.Air, 3700).Should().Be(700.0);
-        f.GramsPerTonneKm(TransportMode.Air, 3701).Should().Be(630.0);
+        f.GramsPerTonneKm(TransportMode.Sea, 15000).Should().Be(7.17);
+        f.GramsPerTonneKm(TransportMode.Road, 100).Should().Be(125.0);
+        f.GramsPerTonneKm(TransportMode.Rail, 500).Should().Be(30.7);
+        f.GramsPerTonneKm(TransportMode.Air, 1499).Should().Be(1363.0);
+        f.GramsPerTonneKm(TransportMode.Air, 1500).Should().Be(788.0);
+        f.GramsPerTonneKm(TransportMode.Air, 1499, AirCargoService.Freighter).Should().Be(1516.0);
+        f.GramsPerTonneKm(TransportMode.Air, 9000, AirCargoService.Freighter).Should().Be(608.0);
+        f.GramsPerTonneKm(TransportMode.Air, 1499, AirCargoService.Belly).Should().Be(1239.0);
+        f.GramsPerTonneKm(TransportMode.Air, 9000, AirCargoService.Belly).Should().Be(936.0);
+        f.GramsPerTonneKm(TransportMode.Road, 100, AirCargoService.Freighter).Should().Be(125.0, "only air legs depend on the service");
+    }
+
+    [Fact]
+    public void Emissions_AirLegsAreChargedForTheirServiceOnTheGreatCircleDistance()
+    {
+        MovementResult Fly(AirCargoService service) => TradeRouterEngine.Default.CalculateMovement(new MovementRequest
+        {
+            Legs = [new MovementLeg("GBLHR", "AUMEL", TransportMode.Air, airService: service)],
+            CargoTonnes = 2.0
+        });
+
+        var freighter = Fly(AirCargoService.Freighter).Legs[0];
+        var belly = Fly(AirCargoService.Belly).Legs[0];
+        var unknown = Fly(AirCargoService.Unknown).Legs[0];
+
+        freighter.Feature.Properties.Co2eGramsPerTonneKm.Should().Be(608.0);
+        freighter.Feature.Properties.Co2eKg.Should().BeApproximately(608.0 * 2.0 * freighter.Length / 1000.0, 1e-6,
+            "the GLEC air factors already include the +95 km adjustment, so no distance is added");
+        freighter.Feature.Properties.AirService.Should().Be("freighter");
+        belly.Feature.Properties.Co2eGramsPerTonneKm.Should().Be(936.0);
+        unknown.Feature.Properties.AirService.Should().Be("unknown");
     }
 
     [Fact]
@@ -513,13 +537,13 @@ public class MovementTests
         var result = TradeRoutes.CalculateMovement(MelbourneMovement, cargoTonnes: 20.0);
 
         var road = result.Legs[0];
-        road.Co2eGramsPerTonneKm.Should().Be(92.0);
-        road.Co2eKgPerTonne.Should().BeApproximately(92.0 * road.Length / 1000.0, 1e-9);
+        road.Co2eGramsPerTonneKm.Should().Be(125.0);
+        road.Co2eKgPerTonne.Should().BeApproximately(125.0 * road.Length / 1000.0, 1e-9);
         road.Co2eKg.Should().BeApproximately(road.Co2eKgPerTonne * 20.0, 1e-9);
 
         var sea = result.Legs[1];
-        sea.Co2eGramsPerTonneKm.Should().Be(7.6);
-        sea.Co2eKgPerTonne.Should().BeApproximately(7.6 * sea.Length / 1000.0, 1e-9);
+        sea.Co2eGramsPerTonneKm.Should().Be(7.17);
+        sea.Co2eKgPerTonne.Should().BeApproximately(7.17 * sea.Length / 1000.0, 1e-9);
 
         result.CargoTonnes.Should().Be(20.0);
         result.TotalCo2eKgPerTonne.Should().BeApproximately(result.Legs.Sum(l => l.Co2eKgPerTonne), 1e-9);
@@ -534,11 +558,11 @@ public class MovementTests
         result.CargoTonnes.Should().BeNull();
         result.TotalCo2eKg.Should().BeNull();
         result.Legs[0].Co2eKg.Should().BeNull();
-        result.Legs[0].Co2eKgPerTonne.Should().BeGreaterThan(100.0, "15,400 km at 7.6 g per tonne-km");
+        result.Legs[0].Co2eKgPerTonne.Should().BeGreaterThan(100.0, "15,400 km at 7.17 g per tonne-km");
 
         using var doc = JsonDocument.Parse(result.ToJson());
         var props = doc.RootElement.GetProperty("features")[0].GetProperty("properties");
-        props.GetProperty("co2e_g_per_tonne_km").GetDouble().Should().Be(7.6);
+        props.GetProperty("co2e_g_per_tonne_km").GetDouble().Should().Be(7.17);
         props.TryGetProperty("co2e_kg", out _).Should().BeFalse();
         doc.RootElement.GetProperty("properties").GetProperty("total_co2e_kg_per_tonne").GetDouble().Should().BeGreaterThan(100.0);
     }
@@ -573,8 +597,8 @@ public class MovementTests
 
         var sea = result.Legs[1];
         sea.Co2eBasis.Should().Be("teu");
-        sea.Feature.Properties.Co2eGramsPerTeuKm.Should().Be(76.0);
-        sea.Co2eKg.Should().BeApproximately(76.0 * 2.0 * sea.Length / 1000.0, 1e-9);
+        sea.Feature.Properties.Co2eGramsPerTeuKm.Should().Be(71.7);
+        sea.Co2eKg.Should().BeApproximately(71.7 * 2.0 * sea.Length / 1000.0, 1e-9);
 
         var road = result.Legs[0];
         road.Co2eBasis.Should().Be("teu_average_weight", "12 t in 2 TEU is below the 20 t a pair of average containers carries");
@@ -586,7 +610,7 @@ public class MovementTests
         using var doc = JsonDocument.Parse(result.ToJson());
         var seaProps = doc.RootElement.GetProperty("features")[1].GetProperty("properties");
         seaProps.GetProperty("co2e_basis").GetString().Should().Be("teu");
-        seaProps.GetProperty("co2e_g_per_teu_km").GetDouble().Should().Be(76.0);
+        seaProps.GetProperty("co2e_g_per_teu_km").GetDouble().Should().Be(71.7);
         doc.RootElement.GetProperty("properties").GetProperty("cargo_teu").GetDouble().Should().Be(2.0);
     }
 
@@ -600,7 +624,7 @@ public class MovementTests
         {
             road.Co2eBasis.Should().Be("teu_average_weight");
             road.Co2eKg.Should().BeApproximately(road.Co2eKgPerTonne * 20.0, 1e-9);
-            road.Co2eKg.Should().BeApproximately(92.0 * 20.0 * road.Length / 1000.0, 1e-9, "GLEC road 92 g/t-km over 20 t, length in km");
+            road.Co2eKg.Should().BeApproximately(125.0 * 20.0 * road.Length / 1000.0, 1e-9, "GLEC road 125 g/t-km over 20 t, length in km");
         }
         result.Legs.Where(leg => leg.Leg.Mode == TransportMode.Sea).Should().OnlyContain(leg => leg.Co2eBasis == "teu");
         result.TotalCo2eKg.Should().BeApproximately(result.Legs.Sum(leg => leg.Co2eKg!.Value), 1e-9);

@@ -174,4 +174,9 @@ public sealed class TradeRouterProperties
     [JsonPropertyName("co2e_basis")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Co2eBasis { get; set; }
+
+    /// <summary>For an air leg, the service its emission intensity was taken for: "freighter", "belly" or "unknown".</summary>
+    [JsonPropertyName("air_service")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? AirService { get; set; }
 }

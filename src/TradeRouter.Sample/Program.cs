@@ -206,7 +206,7 @@ else
 static void PrintMovement(string title, MovementPlan plan, double tonnes = 20.0, double? teu = null)
 {
     // CO2e per leg uses GLEC well-to-wheel defaults per mode. With a TEU count, sea legs are charged per
-    // container (76 g per TEU-km) rather than per tonne, so a light box is not under-counted.
+    // container (71.7 g per TEU-km) rather than per tonne, so a light box is not under-counted.
     var request = new MovementRequest
     {
         Legs = plan.Legs.ToList(),

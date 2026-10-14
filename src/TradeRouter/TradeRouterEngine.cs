@@ -357,7 +357,7 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
                 + feature.Properties.OperationalAllowanceHours
                 + feature.Properties.ConnectionHours;
             bool northAmericanRail = leg.Mode == TransportMode.Rail && IsNorthAmericanRail(from, to, request);
-            ApplyEmissions(feature, leg.Mode, units, request, northAmericanRail);
+            ApplyEmissions(feature, leg, units, request, northAmericanRail);
 
             legResults.Add(new LegResult(sequence, leg, from, to, feature));
         }
@@ -371,16 +371,18 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
     /// </summary>
     private static void ApplyEmissions(
         GeoJsonFeature feature,
-        TransportMode mode,
+        MovementLeg leg,
         DistanceUnit units,
         MovementRequest request,
         bool northAmericanRail)
     {
+        var mode = leg.Mode;
         var factors = request.Emissions;
         double lengthKm = feature.Properties.Length / (units.GetConversionFactorFromMeters() * 1000.0);
         double gramsPerTonneKm = northAmericanRail
             ? factors.RailNorthAmericaGramsPerTonneKm
-            : factors.GramsPerTonneKm(mode, lengthKm);
+            : factors.GramsPerTonneKm(mode, lengthKm, leg.AirService);
+        if (mode == TransportMode.Air) feature.Properties.AirService = leg.AirService.ToString().ToLowerInvariant();
         double kgPerTonne = gramsPerTonneKm * lengthKm / 1000.0;
 
         feature.Properties.Co2eGramsPerTonneKm = gramsPerTonneKm;
