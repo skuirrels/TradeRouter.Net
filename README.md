@@ -199,11 +199,13 @@ Example output for Jebel Ali (AEJEA) to St John's, Antigua (AGSJO) with Suez clo
 
 ## Installation
 
-The current version is 2.0.0. It is not yet on nuget.org, so either reference the project directly or build the package locally (see [Building, testing and trying it out](#building-testing-and-trying-it-out)) and add it from that folder:
+Install from [nuget.org](https://www.nuget.org/packages/TradeRouter.Net):
 
 ```bash
-dotnet add package TradeRouter.Net --source ./artifacts
+dotnet add package TradeRouter.Net
 ```
+
+Changes in each release are listed in the [changelog](https://github.com/skuirrels/TradeRouter.Net/blob/main/CHANGELOG.md).
 
 Targets `net8.0` and `net10.0`. The package has no dependencies beyond the base class library and `System.Text.Json`.
 
