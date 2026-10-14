@@ -107,8 +107,8 @@ public class RailRoutingTests
 
         rail.Length.Should().Be(640.0);
         rail.DurationHours.Should().BeApproximately(640.0 / 80.0, 1e-9);
-        rail.Co2eKgPerTonne.Should().BeApproximately(17.92, 1e-9);
-        rail.Co2eKg.Should().BeApproximately(358.4, 1e-9);
+        rail.Co2eKgPerTonne.Should().BeApproximately(19.648, 1e-9);
+        rail.Co2eKg.Should().BeApproximately(392.96, 1e-9);
         rail.Feature.Properties.DistanceBasis.Should().Be("supplied");
         rail.Feature.Properties.DistanceSource.Should().Be("rail-planner");
         rail.Feature.Properties.DistanceWarning.Should().BeNull();
@@ -178,9 +178,9 @@ public class RailRoutingTests
         var leg = TradeRouterEngine.Default.CalculateMovement(request).Legs.Single();
 
         leg.Feature.Properties.DistanceBasis.Should().Be("rail_network");
-        leg.Co2eGramsPerTonneKm.Should().Be(16.0);
-        leg.Co2eKgPerTonne.Should().BeApproximately(16.0 * leg.Length / 1000.0, 1e-9);
-        leg.Co2eKg.Should().BeApproximately(16.0 * leg.Length / 1000.0 * 12.0, 1e-9);
+        leg.Co2eGramsPerTonneKm.Should().Be(16.1);
+        leg.Co2eKgPerTonne.Should().BeApproximately(16.1 * leg.Length / 1000.0, 1e-9);
+        leg.Co2eKg.Should().BeApproximately(16.1 * leg.Length / 1000.0 * 12.0, 1e-9);
     }
 
     [Fact]
@@ -191,8 +191,8 @@ public class RailRoutingTests
         var greatCircle = RailLeg(LosAngeles, "Los Angeles", Chicago, "Chicago");
         greatCircle.RailRoutingMode = RailRoutingMode.GreatCircleOnly;
 
-        TradeRouterEngine.Default.CalculateMovement(supplied).Legs.Single().Co2eGramsPerTonneKm.Should().Be(16.0);
-        TradeRouterEngine.Default.CalculateMovement(greatCircle).Legs.Single().Co2eGramsPerTonneKm.Should().Be(16.0);
+        TradeRouterEngine.Default.CalculateMovement(supplied).Legs.Single().Co2eGramsPerTonneKm.Should().Be(16.1);
+        TradeRouterEngine.Default.CalculateMovement(greatCircle).Legs.Single().Co2eGramsPerTonneKm.Should().Be(16.1);
     }
 
     [Fact]
@@ -200,7 +200,7 @@ public class RailRoutingTests
     {
         var leg = TradeRouterEngine.Default.CalculateMovement(RailLeg(London, "London", Felixstowe, "Felixstowe")).Legs.Single();
 
-        leg.Co2eGramsPerTonneKm.Should().Be(28.0);
+        leg.Co2eGramsPerTonneKm.Should().Be(30.7);
     }
 
     [Fact]

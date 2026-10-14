@@ -91,8 +91,8 @@ public class RoadRoutingTests
 
         road.Length.Should().Be(64.0);
         road.DurationHours.Should().BeApproximately(64.0 / 60.0, 1e-9);
-        road.Co2eKgPerTonne.Should().BeApproximately(5.888, 1e-9);
-        road.Co2eKg.Should().BeApproximately(117.76, 1e-9);
+        road.Co2eKgPerTonne.Should().BeApproximately(8.0, 1e-9);
+        road.Co2eKg.Should().BeApproximately(160.0, 1e-9);
         road.Feature.Properties.DistanceBasis.Should().Be("supplied");
         road.Feature.Properties.DistanceSource.Should().Be("known-route");
         road.Feature.Properties.DistanceWarning.Should().BeNull();

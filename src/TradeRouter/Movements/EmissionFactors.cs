@@ -2,9 +2,8 @@ namespace TradeRouter.Movements;
 
 /// <summary>
 /// Well-to-wheel CO2e emission intensity per transport mode, in grams of CO2e per tonne-kilometre.
-/// Defaults are the GLEC Framework default values (Smart Freight Centre), which ISO 14083 builds on: the GLEC Framework
-/// v2, July 2022 edition, Module 2, for sea, road and rail, and the GLEC Framework v3.2, October 2025, Module 2,
-/// Table 1, for air. Override any property to use carrier-specific or newer factors.
+/// Defaults are the GLEC Framework v3.2 default values (Smart Freight Centre, October 2025, Module 2), which ISO 14083
+/// builds on. Override any property to use carrier-specific or newer factors.
 /// </summary>
 public sealed class EmissionFactors
 {
@@ -12,10 +11,10 @@ public sealed class EmissionFactors
     public static EmissionFactors GlecDefaults => new();
 
     /// <summary>
-    /// Deep-sea container shipping per container. GLEC Table 46, industry average dry container,
-    /// 76 g CO2e per TEU-km WTW. Used for sea legs when the request states a TEU count.
+    /// Deep-sea container shipping per container. GLEC v3.2 Table 18, industry average dry container, end-user
+    /// intensity, 71.7 g CO2e per TEU-km WTW. Used for sea legs when the request states a TEU count.
     /// </summary>
-    public double SeaGramsPerTeuKm { get; set; } = 76.0;
+    public double SeaGramsPerTeuKm { get; set; } = 71.7;
 
     /// <summary>GLEC average cargo weight per TEU, 10 tonnes, used to convert between the two sea bases.</summary>
     public double AverageTonnesPerTeu { get; set; } = 10.0;
@@ -24,23 +23,26 @@ public sealed class EmissionFactors
     /// Deep-sea container shipping per tonne: <see cref="SeaGramsPerTeuKm"/> divided by <see cref="AverageTonnesPerTeu"/>.
     /// Used for sea legs when only a cargo weight is known.
     /// </summary>
-    public double SeaGramsPerTonneKm { get; set; } = 7.6;
-
-    /// <summary>Road haulage. GLEC Europe starting value for an HGV over 20 t GVW, 92 g CO2e per tonne-km WTW.</summary>
-    public double RoadGramsPerTonneKm { get; set; } = 92.0;
+    public double SeaGramsPerTonneKm { get; set; } = 7.17;
 
     /// <summary>
-    /// Rail freight outside North America. GLEC Table 38, European diesel traction, average/mixed load,
-    /// 28 g CO2e per tonne-km WTW.
+    /// Road haulage. GLEC v3.2 Europe starting value for an HGV over 20 t GVW, 125 g CO2e per tonne-km WTW, including
+    /// GLEC's +5% distance adjustment.
     /// </summary>
-    public double RailGramsPerTonneKm { get; set; } = 28.0;
+    public double RoadGramsPerTonneKm { get; set; } = 125.0;
+
+    /// <summary>
+    /// Rail freight outside North America. GLEC v3.2 Table 4, European diesel traction, average/mixed load,
+    /// 30.7 g CO2e per tonne-km WTW.
+    /// </summary>
+    public double RailGramsPerTonneKm { get; set; } = 30.7;
 
     /// <summary>
     /// Rail freight in North America: a rail leg whose ends both lie within
-    /// <see cref="MovementRequest.RailNetworkSnapKm"/> of the embedded North American rail network. GLEC Module 2,
-    /// North America, US average diesel, 16 g CO2e per tonne-km WTW, derived from Class I railroad fuel reporting.
+    /// <see cref="MovementRequest.RailNetworkSnapKm"/> of the embedded North American rail network. GLEC v3.2 Module 2,
+    /// North America, US average diesel, 16.1 g CO2e per tonne-km WTW, derived from Class I railroad fuel reporting.
     /// </summary>
-    public double RailNorthAmericaGramsPerTonneKm { get; set; } = 16.0;
+    public double RailNorthAmericaGramsPerTonneKm { get; set; } = 16.1;
 
     /// <summary>
     /// Great-circle length below which an air leg is short-haul, 1,500 km as in GLEC v3.2 Table 1 (SBTi and ISO 14083

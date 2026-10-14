@@ -43,7 +43,7 @@ public class MovementTextTests
         text.Should().Contain(result.TotalTransitHours.ToString("N1", CultureInfo.InvariantCulture));
         text.Should().Contain(result.TotalCo2eKg!.Value.ToString("N0", CultureInfo.InvariantCulture));
         text.Should().Contain("for 12 t of cargo in 2 TEU");
-        text.Should().Contain("76 g per TEU-km on sea legs");
+        text.Should().Contain("71.7 g per TEU-km on sea legs");
         text.Should().Contain("  teu_average_weight", "12 t in 2 TEU is charged at 10 t per TEU inland, in a column wide enough for the basis");
         text.Should().Contain("the greater of cargo weight and 10 t per TEU on road and rail legs");
     }

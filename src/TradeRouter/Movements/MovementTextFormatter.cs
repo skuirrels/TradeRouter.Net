@@ -81,7 +81,7 @@ internal static class MovementTextFormatter
             .FirstOrDefault(leg => leg.Leg.Mode == TransportMode.Sea)?
             .Feature.Properties.Co2eGramsPerTeuKm;
         string rate = seaRate.HasValue
-            ? seaRate.Value.ToString("N0", CultureInfo.InvariantCulture)
+            ? seaRate.Value.ToString("#,0.#", CultureInfo.InvariantCulture)
             : "the configured";
         return $"CO2e total     = kg of CO2e for this shipment: {rate} g per TEU-km on sea legs, the greater of cargo weight and 10 t per TEU on road and rail legs, cargo weight on air legs";
     }
