@@ -501,10 +501,34 @@ public class MovementTests
         f.GramsPerTonneKm(TransportMode.Sea, 15000).Should().Be(7.6);
         f.GramsPerTonneKm(TransportMode.Road, 100).Should().Be(92.0);
         f.GramsPerTonneKm(TransportMode.Rail, 500).Should().Be(28.0);
-        f.GramsPerTonneKm(TransportMode.Air, 999).Should().Be(1130.0);
-        f.GramsPerTonneKm(TransportMode.Air, 1000).Should().Be(700.0);
-        f.GramsPerTonneKm(TransportMode.Air, 3700).Should().Be(700.0);
-        f.GramsPerTonneKm(TransportMode.Air, 3701).Should().Be(630.0);
+        f.GramsPerTonneKm(TransportMode.Air, 1499).Should().Be(1363.0);
+        f.GramsPerTonneKm(TransportMode.Air, 1500).Should().Be(788.0);
+        f.GramsPerTonneKm(TransportMode.Air, 1499, AirCargoService.Freighter).Should().Be(1516.0);
+        f.GramsPerTonneKm(TransportMode.Air, 9000, AirCargoService.Freighter).Should().Be(608.0);
+        f.GramsPerTonneKm(TransportMode.Air, 1499, AirCargoService.Belly).Should().Be(1239.0);
+        f.GramsPerTonneKm(TransportMode.Air, 9000, AirCargoService.Belly).Should().Be(936.0);
+        f.GramsPerTonneKm(TransportMode.Road, 100, AirCargoService.Freighter).Should().Be(92.0, "only air legs depend on the service");
+    }
+
+    [Fact]
+    public void Emissions_AirLegsAreChargedForTheirServiceOnTheGreatCircleDistance()
+    {
+        MovementResult Fly(AirCargoService service) => TradeRouterEngine.Default.CalculateMovement(new MovementRequest
+        {
+            Legs = [new MovementLeg("GBLHR", "AUMEL", TransportMode.Air, airService: service)],
+            CargoTonnes = 2.0
+        });
+
+        var freighter = Fly(AirCargoService.Freighter).Legs[0];
+        var belly = Fly(AirCargoService.Belly).Legs[0];
+        var unknown = Fly(AirCargoService.Unknown).Legs[0];
+
+        freighter.Feature.Properties.Co2eGramsPerTonneKm.Should().Be(608.0);
+        freighter.Feature.Properties.Co2eKg.Should().BeApproximately(608.0 * 2.0 * freighter.Length / 1000.0, 1e-6,
+            "the GLEC air factors already include the +95 km adjustment, so no distance is added");
+        freighter.Feature.Properties.AirService.Should().Be("freighter");
+        belly.Feature.Properties.Co2eGramsPerTonneKm.Should().Be(936.0);
+        unknown.Feature.Properties.AirService.Should().Be("unknown");
     }
 
     [Fact]

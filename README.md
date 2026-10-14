@@ -590,11 +590,14 @@ Pass `cargoTeu` as well for containerised freight. Sea legs are then charged per
 | Road | 92 | Europe starting value for an HGV over 20 t gross vehicle weight |
 | Rail, North America | 16 | Module 2 rail, North America: US average diesel from Class I railroad fuel reporting. Used when both ends of a rail leg lie within `RailNetworkSnapKm` of the embedded North American rail network |
 | Rail, elsewhere | 28 | Table 38, European diesel traction, average mixed load |
-| Air, under 1,000 km | 1,130 | Table 35, ICAO/IATA RP1678 basis, aircraft type unknown |
-| Air, 1,000 to 3,700 km | 700 | Table 35, as above |
-| Air, over 3,700 km | 630 | Table 35, as above |
+| Air freighter, under 1,500 km | 1,516 | v3.2 Table 1 |
+| Air freighter, 1,500 km and over | 608 | v3.2 Table 1 |
+| Air belly freight, under 1,500 km | 1,239 | v3.2 Table 1, passenger aircraft |
+| Air belly freight, 1,500 km and over | 936 | v3.2 Table 1, passenger aircraft |
+| Air, service unknown, under 1,500 km | 1,363 | v3.2 Table 1, 55% belly freight and 45% freighter |
+| Air, service unknown, 1,500 km and over | 788 | v3.2 Table 1, as above |
 
-Source: Smart Freight Centre, [GLEC Framework, July 2022 edition](https://smart-freight-centre-media.s3.amazonaws.com/documents/2019_GLEC_Framework_July_2022.pdf), Module 2. These are defaults for when carrier data is unavailable; the sea figure assumes an average dry container on an unknown trade lane, and reefer or trade-lane-specific values differ. The North American rail value is GLEC's US figure and also applies to Canadian and Mexican legs on the network, and the rail value elsewhere assumes diesel traction; GLEC's European average for unknown traction is 17 g. Set `MovementRequest.Emissions` to your own `EmissionFactors` to override any of them; `RailNorthAmericaGramsPerTonneKm` and `RailGramsPerTonneKm` hold the two rail values.
+Source: Smart Freight Centre, [GLEC Framework, July 2022 edition](https://smart-freight-centre-media.s3.amazonaws.com/documents/2019_GLEC_Framework_July_2022.pdf), Module 2, for sea, road and rail, and [GLEC Framework v3.2, October 2025](https://smart-freight-centre-media.s3.amazonaws.com/documents/GLEC_FRAMEWORK_v3.2_21_10_25_1.pdf), Module 2, Table 1, for air. An air leg is charged for its `MovementLeg.AirService`, `Freighter`, `Belly` or `Unknown` (the default), on its great-circle distance: GLEC's air factors already include its +95 km distance adjustment, so none is added. The leg reports the service it was charged for in `air_service`. These are defaults for when carrier data is unavailable; the sea figure assumes an average dry container on an unknown trade lane, and reefer or trade-lane-specific values differ. The North American rail value is GLEC's US figure and also applies to Canadian and Mexican legs on the network, and the rail value elsewhere assumes diesel traction; GLEC's European average for unknown traction is 17 g. Set `MovementRequest.Emissions` to your own `EmissionFactors` to override any of them; `RailNorthAmericaGramsPerTonneKm` and `RailGramsPerTonneKm` hold the two rail values.
 
 ## Known limitations and judgement calls
 

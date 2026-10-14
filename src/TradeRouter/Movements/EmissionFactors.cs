@@ -2,8 +2,9 @@ namespace TradeRouter.Movements;
 
 /// <summary>
 /// Well-to-wheel CO2e emission intensity per transport mode, in grams of CO2e per tonne-kilometre.
-/// Defaults are the GLEC Framework default values (Smart Freight Centre, GLEC Framework v2, July 2022 edition,
-/// Module 2), which ISO 14083 builds on. Override any property to use carrier-specific or newer factors.
+/// Defaults are the GLEC Framework default values (Smart Freight Centre), which ISO 14083 builds on: the GLEC Framework
+/// v2, July 2022 edition, Module 2, for sea, road and rail, and the GLEC Framework v3.2, October 2025, Module 2,
+/// Table 1, for air. Override any property to use carrier-specific or newer factors.
 /// </summary>
 public sealed class EmissionFactors
 {
@@ -41,28 +42,50 @@ public sealed class EmissionFactors
     /// </summary>
     public double RailNorthAmericaGramsPerTonneKm { get; set; } = 16.0;
 
-    /// <summary>Air freight under 1,000 km. GLEC Table 35, ICAO/IATA RP1678 basis, aircraft type unknown, 1,130 g CO2e per tonne-km WTW.</summary>
-    public double AirShortHaulGramsPerTonneKm { get; set; } = 1130.0;
+    /// <summary>
+    /// Great-circle length below which an air leg is short-haul, 1,500 km as in GLEC v3.2 Table 1 (SBTi and ISO 14083
+    /// definitions). The air factors already include GLEC's +95 km distance adjustment, so they apply to the
+    /// great-circle distance of the leg as it stands.
+    /// </summary>
+    public double AirShortHaulMaxKm { get; set; } = 1500.0;
 
-    /// <summary>Air freight from 1,000 to 3,700 km. GLEC Table 35, aircraft type unknown, 700 g CO2e per tonne-km WTW.</summary>
-    public double AirMediumHaulGramsPerTonneKm { get; set; } = 700.0;
+    /// <summary>Freighter, short-haul. GLEC v3.2 Table 1, 1,516 g CO2e per tonne-km WTW.</summary>
+    public double AirFreighterShortHaulGramsPerTonneKm { get; set; } = 1516.0;
 
-    /// <summary>Air freight over 3,700 km. GLEC Table 35, aircraft type unknown, 630 g CO2e per tonne-km WTW.</summary>
-    public double AirLongHaulGramsPerTonneKm { get; set; } = 630.0;
+    /// <summary>Freighter, long-haul. GLEC v3.2 Table 1, 608 g CO2e per tonne-km WTW.</summary>
+    public double AirFreighterLongHaulGramsPerTonneKm { get; set; } = 608.0;
+
+    /// <summary>Belly freight on a passenger aircraft, short-haul. GLEC v3.2 Table 1, 1,239 g CO2e per tonne-km WTW.</summary>
+    public double AirBellyShortHaulGramsPerTonneKm { get; set; } = 1239.0;
+
+    /// <summary>Belly freight on a passenger aircraft, long-haul. GLEC v3.2 Table 1, 936 g CO2e per tonne-km WTW.</summary>
+    public double AirBellyLongHaulGramsPerTonneKm { get; set; } = 936.0;
+
+    /// <summary>Air freight on an unknown service, short-haul. GLEC v3.2 Table 1, 1,363 g CO2e per tonne-km WTW.</summary>
+    public double AirUnknownShortHaulGramsPerTonneKm { get; set; } = 1363.0;
+
+    /// <summary>Air freight on an unknown service, long-haul. GLEC v3.2 Table 1, 788 g CO2e per tonne-km WTW.</summary>
+    public double AirUnknownLongHaulGramsPerTonneKm { get; set; } = 788.0;
 
     /// <summary>
-    /// Returns the factor for a leg of the given mode and length. Air uses the GLEC distance bands. Rail returns
-    /// <see cref="RailGramsPerTonneKm"/>; a movement charges North American rail legs at
-    /// <see cref="RailNorthAmericaGramsPerTonneKm"/> instead.
+    /// Returns the factor for a leg of the given mode and length. Air uses the GLEC short- and long-haul bands for
+    /// the service, unknown unless given. Rail returns <see cref="RailGramsPerTonneKm"/>; a movement charges North
+    /// American rail legs at <see cref="RailNorthAmericaGramsPerTonneKm"/> instead.
     /// </summary>
-    public double GramsPerTonneKm(TransportMode mode, double distanceKm) => mode switch
+    public double GramsPerTonneKm(TransportMode mode, double distanceKm, AirCargoService airService = AirCargoService.Unknown) => mode switch
     {
         TransportMode.Sea => SeaGramsPerTonneKm,
         TransportMode.Road => RoadGramsPerTonneKm,
         TransportMode.Rail => RailGramsPerTonneKm,
-        TransportMode.Air when distanceKm < 1000.0 => AirShortHaulGramsPerTonneKm,
-        TransportMode.Air when distanceKm <= 3700.0 => AirMediumHaulGramsPerTonneKm,
-        TransportMode.Air => AirLongHaulGramsPerTonneKm,
+        TransportMode.Air => (airService, distanceKm < AirShortHaulMaxKm) switch
+        {
+            (AirCargoService.Freighter, true) => AirFreighterShortHaulGramsPerTonneKm,
+            (AirCargoService.Freighter, false) => AirFreighterLongHaulGramsPerTonneKm,
+            (AirCargoService.Belly, true) => AirBellyShortHaulGramsPerTonneKm,
+            (AirCargoService.Belly, false) => AirBellyLongHaulGramsPerTonneKm,
+            (_, true) => AirUnknownShortHaulGramsPerTonneKm,
+            _ => AirUnknownLongHaulGramsPerTonneKm
+        },
         _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, "Unknown transport mode.")
     };
 
@@ -75,9 +98,13 @@ public sealed class EmissionFactors
         ValidateNonNegative(RoadGramsPerTonneKm, nameof(RoadGramsPerTonneKm));
         ValidateNonNegative(RailGramsPerTonneKm, nameof(RailGramsPerTonneKm));
         ValidateNonNegative(RailNorthAmericaGramsPerTonneKm, nameof(RailNorthAmericaGramsPerTonneKm));
-        ValidateNonNegative(AirShortHaulGramsPerTonneKm, nameof(AirShortHaulGramsPerTonneKm));
-        ValidateNonNegative(AirMediumHaulGramsPerTonneKm, nameof(AirMediumHaulGramsPerTonneKm));
-        ValidateNonNegative(AirLongHaulGramsPerTonneKm, nameof(AirLongHaulGramsPerTonneKm));
+        ValidateNonNegative(AirShortHaulMaxKm, nameof(AirShortHaulMaxKm));
+        ValidateNonNegative(AirFreighterShortHaulGramsPerTonneKm, nameof(AirFreighterShortHaulGramsPerTonneKm));
+        ValidateNonNegative(AirFreighterLongHaulGramsPerTonneKm, nameof(AirFreighterLongHaulGramsPerTonneKm));
+        ValidateNonNegative(AirBellyShortHaulGramsPerTonneKm, nameof(AirBellyShortHaulGramsPerTonneKm));
+        ValidateNonNegative(AirBellyLongHaulGramsPerTonneKm, nameof(AirBellyLongHaulGramsPerTonneKm));
+        ValidateNonNegative(AirUnknownShortHaulGramsPerTonneKm, nameof(AirUnknownShortHaulGramsPerTonneKm));
+        ValidateNonNegative(AirUnknownLongHaulGramsPerTonneKm, nameof(AirUnknownLongHaulGramsPerTonneKm));
     }
 
     private static void ValidateNonNegative(double value, string name)
