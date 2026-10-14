@@ -138,17 +138,17 @@ public static class EmbeddedResources
     }
 
     /// <summary>
-    /// Loads unlocode-supplement.json: researched coordinates for codes that UNECE publishes without any,
+    /// Loads unlocode-supplement.json.gz: researched coordinates for codes that UNECE publishes without any,
     /// each with the source it was taken from.
     /// </summary>
     private static Dictionary<string, (Coordinate Coordinate, string Source)> LoadUnLocodeSupplement()
     {
         var result = new Dictionary<string, (Coordinate, string)>(StringComparer.OrdinalIgnoreCase);
-        using var stream = CurrentAssembly.GetManifestResourceStream("TradeRouter.Data.unlocode-supplement.json");
-        if (stream == null)
-            return result;
+        using var rawStream = CurrentAssembly.GetManifestResourceStream("TradeRouter.Data.unlocode-supplement.json.gz")
+            ?? throw new InvalidOperationException("Embedded resource 'TradeRouter.Data.unlocode-supplement.json.gz' not found.");
 
-        using var doc = JsonDocument.Parse(stream);
+        using var gzipStream = new GZipStream(rawStream, CompressionMode.Decompress);
+        using var doc = JsonDocument.Parse(gzipStream);
         foreach (var item in doc.RootElement.EnumerateArray())
         {
             string code = item.GetProperty("code").GetString() ?? "";
