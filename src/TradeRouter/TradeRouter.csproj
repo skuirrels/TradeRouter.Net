@@ -16,6 +16,7 @@
     <RepositoryUrl>https://github.com/skuirrels/TradeRouter.Net</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageReleaseNotes>https://github.com/skuirrels/TradeRouter.Net/blob/main/CHANGELOG.md</PackageReleaseNotes>
     <PackageTags>maritime;searoute;rail;routing;geospatial;ports;geojson;dijkstra;eurostat</PackageTags>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
