@@ -17,11 +17,16 @@
     <RepositoryType>git</RepositoryType>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>maritime;searoute;rail;routing;geospatial;ports;geojson;dijkstra;eurostat</PackageTags>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(GITHUB_ACTIONS)' == 'true'">
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
   </PropertyGroup>
 
   <ItemGroup>
     <EmbeddedResource Include="Data\*.gz" />
-    <EmbeddedResource Include="Data\unlocode-supplement.json" />
     <EmbeddedResource Include="Data\unlocode-seaport-supplement.json" />
     <EmbeddedResource Include="Data\unlocode-rail-supplement.json" />
     <EmbeddedResource Include="Data\port-code-aliases.json" />
@@ -29,8 +34,6 @@
     <None Include="..\..\LICENSE" Pack="true" PackagePath="\" />
     <None Include="..\..\DATA_PROVENANCE.md" Pack="true" PackagePath="\" />
     <None Include="..\..\THIRD-PARTY-NOTICES.md" Pack="true" PackagePath="\" />
-    <None Include="..\..\docs\**\*" Exclude="..\..\docs\.DS_Store" Pack="true" PackagePath="docs\%(RecursiveDir)%(Filename)%(Extension)" />
-    <None Include="..\..\tools\*.py" Pack="true" PackagePath="tools\%(Filename)%(Extension)" />
   </ItemGroup>
 
 </Project>
