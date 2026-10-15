@@ -1,5 +1,6 @@
 # TradeRouter.Net
 
+[![NuGet](https://img.shields.io/nuget/v/TradeRouter.Net?logo=nuget)](https://www.nuget.org/packages/TradeRouter.Net)
 [![.NET 8 | 10](https://img.shields.io/badge/.NET-8.0%20%7C%2010.0-512BD4?logo=dotnet)](https://dotnet.microsoft.com)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](https://github.com/skuirrels/TradeRouter.Net/blob/main/LICENSE)
 [![Dependencies: none](https://img.shields.io/badge/dependencies-none-brightgreen)](https://github.com/skuirrels/TradeRouter.Net/blob/main/src/TradeRouter/TradeRouter.csproj)
