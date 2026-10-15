@@ -4,7 +4,7 @@ All notable changes to TradeRouter.Net are recorded here. The format follows [Ke
 
 ## [2.0.0] - 2026-10-15
 
-First release on nuget.org. The library was developed as SeaRoute.Net and renamed TradeRouter.Net before release.
+First release on nuget.org.
 
 ### Sea routing
 
@@ -30,17 +30,12 @@ First release on nuget.org. The library was developed as SeaRoute.Net and rename
 
 ### Emissions
 
-- Well-to-wheel CO2e per leg and in totals, from the GLEC Framework v3.2 default intensities.
-- Sea legs are charged per TEU when a container count is given. FCL road and rail legs are charged per container at no less than 10 t per TEU.
-- North American rail is charged at the GLEC US average of 16.1 g per tonne-km.
-- Air legs are charged for their service: freighter, belly freight or unknown.
-
-### Breaking changes from SeaRoute.Net
-
-- The package, namespaces and facade are renamed from SeaRoute.Net and `SeaRouter` to TradeRouter.Net and `TradeRoutes`.
-- `GeoJsonFeature.Geometry` is now a nullable `GeoJsonGeometry`.
-- Indexed custom graphs are immutable.
-- Invalid algorithms, restrictions and physical values now throw instead of being ignored.
+- Well-to-wheel CO2e per leg and in totals. Every factor is a GLEC Framework v3.2 (Smart Freight Centre, October 2025) Module 2 default, the basis ISO 14083 builds on.
+- Sea: 71.7 g per TEU-km from Table 18, industry-average dry container, or 7.17 g per tonne-km at the GLEC average of 10 t per TEU. Legs are charged per TEU when a container count is given.
+- Road: 125 g per tonne-km, the European starting value for an HGV over 20 t, with GLEC's +5% distance adjustment.
+- Rail: 16.1 g per tonne-km on the North American rail network, the US average, and 30.7 g elsewhere from Table 4, European diesel, average or mixed load.
+- FCL road and rail legs are charged per container at no less than 10 t per TEU.
+- Air: Table 1 factors for the leg's `AirService`, freighter, belly freight or unknown, in bands under and from 1,500 km, including GLEC's +95 km distance adjustment.
 
 ### Packaging
 
