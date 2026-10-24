@@ -216,6 +216,21 @@ public class SeaAreaTests
     }
 
     [Fact]
+    public void Traverse_ListsAReturnSeparatelyWhenAnOverlappingAreaSpansTheGap()
+    {
+        // The route is already inside "sea" when it leaves "ocean" for the hole, and still inside it on return.
+        var index = new SeaAreaIndex(
+        [
+            Area("ocean", Square(0, 0, 10, 10), Square(4, 4, 6, 6)),
+            Area("sea", Square(3, 4, 7, 6))
+        ]);
+
+        var areas = index.Traverse([new Coordinate(1, 5), new Coordinate(9, 5)]);
+
+        areas.Select(area => area.Id).Should().Equal("ocean", "sea", "ocean");
+    }
+
+    [Fact]
     public void Traverse_ListsEveryOverlappingAreaAndIgnoresUnlistedWater()
     {
         var index = new SeaAreaIndex(

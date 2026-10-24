@@ -47,7 +47,7 @@ def main() -> None:
         # Names and classes compare without case: the source spells INDIAN OCEAN and SOUTHERN OCEAN in capitals.
         checks = {"name": (area["name"], str.casefold), "featurecla": (area["class"], str.casefold), "wikidataid": (area["wikidata"], str)}
         for key, (value, normalise) in checks.items():
-            source_value = properties.get(key)
+            source_value = properties.get(key) or ""
             if normalise(source_value) != normalise(value):
                 raise ValueError(f"{area['id']}: source {key} is {source_value!r}, selection has {value!r}")
         parts = polygons(matches[0]["geometry"])

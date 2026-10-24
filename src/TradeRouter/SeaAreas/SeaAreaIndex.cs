@@ -131,6 +131,7 @@ internal sealed class SeaAreaIndex
         private readonly bool[] _known = new bool[shapes.Length];
         private readonly double[] _enteredKm = new double[shapes.Length];
         private readonly List<double> _crossings = [];
+        private double _lastX = double.NaN;
 
         public List<AreaInterval> Intervals { get; } = [];
 
@@ -139,7 +140,7 @@ internal sealed class SeaAreaIndex
         /// <summary>Advances along one chord, splitting it where it crosses the antimeridian.</summary>
         public void Chord(double lon0, double lat0, double lon1, double lat1, double km0, double km1)
         {
-            double x0 = ((lon0 % 360.0) + 540.0) % 360.0 - 180.0;
+            double x0 = new Coordinate(lon0, lat0).WithNormalizedLongitude().Longitude;
             double x1 = x0 + PnPoly.NormalizeLongitudeDelta(lon1 - lon0);
             if (x1 is <= 180.0 and >= -180.0)
             {
@@ -152,9 +153,6 @@ internal sealed class SeaAreaIndex
             double latAtBoundary = lat0 + ((lat1 - lat0) * fraction);
             double kmAtBoundary = km0 + ((km1 - km0) * fraction);
             Piece(x0, lat0, boundary, latAtBoundary, km0, kmAtBoundary);
-
-            // Natural Earth splits polygons at the antimeridian, so the far side is a different ring.
-            ForgetState();
             double shift = boundary > 0 ? -360.0 : 360.0;
             Piece(boundary + shift, latAtBoundary, x1 + shift, lat1, kmAtBoundary, km1);
         }
@@ -169,6 +167,12 @@ internal sealed class SeaAreaIndex
         {
             if (km1 <= km0)
                 return;
+
+            // A piece that does not start where the last one ended has wrapped across the antimeridian, where
+            // Natural Earth splits polygons into separate rings, so the carried state no longer applies.
+            if (!(Math.Abs(x0 - _lastX) <= 1e-9))
+                ForgetState();
+            _lastX = x1;
 
             for (int area = 0; area < shapes.Length; area++)
             {

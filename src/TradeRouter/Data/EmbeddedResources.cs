@@ -198,7 +198,8 @@ public static class EmbeddedResources
                 item.GetProperty("name").GetString() ?? throw new InvalidDataException("A sea area has no name."),
                 item.GetProperty("wikidata").GetString() ?? throw new InvalidDataException("A sea area has no Wikidata item."),
                 item.GetProperty("ne_id").GetInt64()))
-            .ToList();
+            .ToList()
+            .AsReadOnly();
     }
 
     /// <summary>
