@@ -23,7 +23,7 @@ Console.WriteLine($"{route.Properties.Length:N0} {route.Properties.Units}, {rout
 
 ### Complete multi-leg movement
 
-Route pickup, two sea legs and final delivery using UN/LOCODEs throughout. The result contains every leg, totals, a modelled minimum time, emissions, choke points and a GeoJSON `FeatureCollection`. Set `ReturnSeaAreas` in `seaOptions` to add the sea areas each sea leg crosses.
+Route pickup, two sea legs and final delivery using UN/LOCODEs throughout. The result contains every leg, totals, a modelled minimum time, emissions, choke points and a GeoJSON `FeatureCollection`. `ReturnSeaAreas` in `seaOptions` adds the sea areas each sea leg crosses to that leg's GeoJSON properties; `ToText()` does not list them.
 
 ```csharp
 using TradeRouter;
@@ -38,7 +38,7 @@ var plan = MovementPlan
 
 var movement = TradeRoutes.CalculateMovement(
     plan,
-    seaOptions: new TradeRouterOptions { ReturnPassages = true },
+    seaOptions: new TradeRouterOptions { ReturnPassages = true, ReturnSeaAreas = true },
     cargoTonnes: 12.0, // Optional: gross weight, used on inland legs when above 10 t per TEU
     cargoTeu: 2.0);    // Optional: one 40-foot container, charged per TEU at sea and at least 10 t per TEU inland
 
@@ -77,7 +77,7 @@ var plan = MovementPlan
 
 var movement = TradeRoutes.CalculateMovement(
     plan,
-    seaOptions: new TradeRouterOptions { ReturnPassages = true },
+    seaOptions: new TradeRouterOptions { ReturnPassages = true, ReturnSeaAreas = true },
     cargoTonnes: 24.0, // Heavier than 10 t per TEU, so road and rail legs are charged on the stated weight
     cargoTeu: 2.0);
 
