@@ -145,7 +145,8 @@ These apply to single routes and to multi-leg movements, which are described [be
 - **Lane**: a straight link between two neighbouring lane points. Sea legs travel only along lanes.
 - **Snapping**: moving a waypoint's position to its nearest lane point so a sea leg can start or end on the map, then joining the two with a straight line so the leg still begins and ends at the waypoint.
 - **Choke point**: a lane that runs through a canal or strait, tagged with its name. Thirteen exist. Closing one makes the router route round it.
-- **Non-sea leg**: road legs use a configured road-network provider when available and otherwise a labelled circuity estimate. Rail legs in the United States, Canada and Mexico are routed on the embedded North American rail network; other rail legs and air legs use great-circle distance. None uses maritime lane points or choke points.
+- **Sea area**: a named sea, gulf, strait or ocean drawn as a polygon, one of 42 from Natural Earth. A route can report which ones it crosses and where it enters and leaves each. Sea areas never change the route; unlike choke points they cannot be closed.
+- **Non-sea leg**: road legs use a configured road-network provider when available and otherwise a labelled circuity estimate. Rail legs in the United States, Canada and Mexico are routed on the embedded North American rail network; other rail legs and air legs use great-circle distance. None uses maritime lane points, choke points or sea areas.
 
 Implementation notes:
 
@@ -154,6 +155,7 @@ Implementation notes:
 - **No route.** A single route with no surviving path returns RFC 7946 `null` geometry and zero length. A movement leg with no path throws, so totals are never silently short.
 - **Antimeridian.** Trans-Pacific routes are split at ±180° into a `MultiLineString`, keeping every emitted longitude in the RFC 7946 range.
 - **Areas.** Polygons can name several preferred ports with share weights, in which case one route per port is returned.
+- **Sea areas.** Found after the search, on the finished path: each lane is followed along its great circle in steps of at most 10 km and tested against the polygons through a 1° grid index. The polygons load on the first request that asks for sea areas.
 
 ## What you get back
 
@@ -279,6 +281,8 @@ var arctic = TradeRoutes.Calculate("NLRTM", "JPYOK", new TradeRouterOptions
 // arctic.Properties.TraversedPassages contains "northwest"
 ```
 
+Recognised passages: `Babalmandab`, `Bering`, `Bosporus`, `Chili` (Magellan Strait), `Dardanelles`, `Gibraltar`, `Malacca`, `Northwest` (closed unless `AllowNorthwest` is true), `Ormuz`, `Panama`, `SouthAfrica` (Cape of Good Hope), `Suez`, `Sunda`. Each one, and every kind of waypoint a route can contain, is described with measured detour distances in [docs/waypoints-and-choke-points.md](https://github.com/skuirrels/TradeRouter.Net/blob/main/docs/waypoints-and-choke-points.md).
+
 ### Sea areas along a route
 
 Set `ReturnSeaAreas` to list the named seas, gulfs, straits and oceans a route passes through, with where it enters and leaves each. Distances are kilometres from the start of the route, whatever `Units` is set to, measured along the same great circles as the route's length.
@@ -314,9 +318,7 @@ The rules:
 - Connector segments, such as port to lane, count. Areas are found on the continuous path before it is split at the antimeridian.
 - Each sea leg of a movement carries the same property, counted from the start of that leg.
 
-The 42 areas are the `SeaArea` constants, from `SeaArea.RedSea` to `SeaArea.SouthernOcean`. `SeaArea.Catalogue` gives each one's `Id`, `Name`, `Wikidata` and Natural Earth `NeId`. The Wikidata item is a cross-reference only: the North and South halves of an ocean share one. Finding the areas adds about 0.45 ms to the Shanghai to Rotterdam benchmark route and nothing to a route that does not ask for them.
-
-Recognised passages: `Babalmandab`, `Bering`, `Bosporus`, `Chili` (Magellan Strait), `Dardanelles`, `Gibraltar`, `Malacca`, `Northwest` (closed unless `AllowNorthwest` is true), `Ormuz`, `Panama`, `SouthAfrica` (Cape of Good Hope), `Suez`, `Sunda`. Each one, and every kind of waypoint a route can contain, is described with measured detour distances in [docs/waypoints-and-choke-points.md](https://github.com/skuirrels/TradeRouter.Net/blob/main/docs/waypoints-and-choke-points.md).
+Recognised sea areas: `AegeanSea`, `AndamanSea`, `ArabianSea`, `ArcticOcean`, `BalticSea`, `BayOfBengal`, `BayOfBiscay`, `BlackSea`, `BoHai`, `CaribbeanSea`, `CoralSea`, `EastChinaSea`, `EnglishChannel`, `GulfOfAden`, `GulfOfGuinea`, `GulfOfMexico`, `GulfOfOman`, `GulfOfThailand`, `IndianOcean`, `JavaSea`, `KoreaStrait`, `LaccadiveSea`, `MediterraneanSea`, `MozambiqueChannel`, `NorthAtlanticOcean`, `NorthPacificOcean`, `NorthSea`, `PersianGulf`, `PhilippineSea`, `RedSea`, `SeaOfJapan`, `SouthAtlanticOcean`, `SouthChinaSea`, `SouthPacificOcean`, `SouthernOcean`, `StraitOfGibraltar`, `StraitOfMalacca`, `StraitOfSingapore`, `StraitsOfFlorida`, `TaiwanStrait`, `TasmanSea`, `YellowSea`. Each is a `SeaArea` constant holding the lower snake_case identifier, such as `SeaArea.RedSea` for `red_sea`. `SeaArea.Catalogue` gives each one's `Id`, `Name`, `Wikidata` and Natural Earth `NeId`. The Wikidata item is a cross-reference only: the North and South halves of an ocean share one. Finding the areas adds about 0.45 ms to the Shanghai to Rotterdam benchmark route and nothing to a route that does not ask for them.
 
 ### Routing with coordinates
 
@@ -367,7 +369,7 @@ var routes = TradeRouterEngine.Default.CalculateRoutes(TradeRoutes.Locate("BEBRU
 
 ### Multi-leg movements
 
-A `MovementPlan` builds a continuous route from typed waypoints and transport modes. Each destination automatically becomes the next leg's origin, so intermediate UN/LOCODEs are stated once. Declared waypoint types and sea, rail and air modes are checked against known UN/LOCODE functions. Pickup and delivery ordering is enforced while the plan is built. Sea legs are routed on the maritime lane network. Road legs use an optional road-network provider or a labelled built-in estimate. Rail legs use a supplied rail route when one is given, otherwise the embedded North American rail network when both ends are near it; other rail legs and air legs use great-circle distance. None of the non-sea modes touches maritime lane points or choke points. Default assumed speeds are 60, 80 and 800 km/h for road, rail and air.
+A `MovementPlan` builds a continuous route from typed waypoints and transport modes. Each destination automatically becomes the next leg's origin, so intermediate UN/LOCODEs are stated once. Declared waypoint types and sea, rail and air modes are checked against known UN/LOCODE functions. Pickup and delivery ordering is enforced while the plan is built. Sea legs are routed on the maritime lane network. Road legs use an optional road-network provider or a labelled built-in estimate. Rail legs use a supplied rail route when one is given, otherwise the embedded North American rail network when both ends are near it; other rail legs and air legs use great-circle distance. None of the non-sea modes touches maritime lane points, choke points or sea areas. Default assumed speeds are 60, 80 and 800 km/h for road, rail and air.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/skuirrels/TradeRouter.Net/main/docs/diagrams/movement-flow.svg" alt="TradeRouter.Net movement flow: a typed MovementPlan builds continuous legs, resolves each leg's locations, routes sea legs on Marnet, resolves road distance from a road provider or fallback estimate, routes North American rail legs on the NARN rail network, and measures other rail legs and air legs by great-circle distance" width="70%">
@@ -395,7 +397,7 @@ string geoJson = movement.ToJson();   // FeatureCollection, one feature per leg
 
 The string overload remains available as an import convenience when a source system already supplies human-written leg lines. Code-first callers should use `MovementPlan`; the strings above are only the UN/LOCODE identifiers themselves.
 
-Each leg feature carries `leg`, `mode`, `kind`, `from` and `to` in its properties, plus distance provenance and the time components described below. The collection carries the corresponding totals. Every leg starts and ends at its resolved locations, so consecutive legs join end to end; `AppendOriginDestination` is always on for movement legs. A sea or confirmed road-network leg with no route throws an `InvalidOperationException` naming the leg rather than contributing zero. Build a `MovementRequest` directly when you need road routing, supplied rail routes, declared location functions, custom speeds, timing assumptions or emission factors.
+Each leg feature carries `leg`, `mode`, `kind`, `from` and `to` in its properties, plus distance provenance and the time components described below. Sea legs also carry `traversed_passages` and `traversed_sea_areas` when `ReturnPassages` and `ReturnSeaAreas` are set in `seaOptions`; sea-area distances count from the start of the leg. The collection carries the corresponding totals. Every leg starts and ends at its resolved locations, so consecutive legs join end to end; `AppendOriginDestination` is always on for movement legs. A sea or confirmed road-network leg with no route throws an `InvalidOperationException` naming the leg rather than contributing zero. Build a `MovementRequest` directly when you need road routing, supplied rail routes, declared location functions, custom speeds, timing assumptions or emission factors.
 
 Codes resolve in this order:
 
@@ -653,6 +655,7 @@ Everything here is deliberate and documented, but each is a simplification you s
 - **UN/LOCODE edition.** The embedded import did not preserve its UNECE publication edition. Its hash and record counts are documented, but it is not claimed to be the latest release.
 - **Single routes with several area matches** return the first feature from `CalculateRoute`; use `CalculateRoutes` to see them all.
 - **Single routes with no path** return null geometry and zero length rather than throwing; movement legs throw.
+- **Sea areas are drawn at 1:50m.** Natural Earth's polygons are cartographic, not legal or IHO limits, and are accurate to a few kilometres. They leave gaps: no Gulf of Suez or Sea of Marmara, and water between neighbouring areas that belongs to none. That water is not reported, so the listed areas need not cover a whole route.
 - **Untagged lane links.** Three internal tags in the lane data, `segment`, `segment2` and `pacific_ocean`, stitch the antimeridian and are never reported or restrictable.
 - **Road estimates and non-road geometry.** Without a supplied value or provider, road distance comes from the calibrated distance-decay circuity model, not a road-network route. It is an average planning relationship and cannot reproduce barriers or the exact route between a particular pair. When no road geometry is available, the GeoJSON still joins the resolved endpoints with a straight display line and reports `geometry_basis: great_circle`; this does not change the separately reported estimated or routed distance. Rail legs outside North America and air legs use great-circle distance.
 - **Time and emissions are estimates.** Movement time is labelled modelled minimum and exposes every allowance, but it still has no carrier schedule, customs, cargo cut-off, booking availability or disruption data.
@@ -690,6 +693,8 @@ BenchmarkDotNet, Release, Apple M4 Pro, .NET 10, measured at 1.1.0. Results incl
 
 Cold start, including decompressing and indexing the embedded data, is about 75 ms and happens once per process.
 
+At 2.1.0, `ReturnSeaAreas` raises Shanghai to Rotterdam with bidirectional Dijkstra from 330 µs and 28.1 KB to 775 µs and 43.0 KB. Routes that do not ask for sea areas are unchanged. The first request that asks for them loads the polygons, about 30 ms once per process.
+
 Run the benchmarks yourself:
 
 ```bash
@@ -725,7 +730,7 @@ src/
     TradeRoutes.cs          static facade
   TradeRouter.Sample/       console app exercising every entry point
 tests/
-  TradeRouter.Tests/        multi-target xunit suite: routing, passages, ports, spatial, graph and movements
+  TradeRouter.Tests/        multi-target xunit suite: routing, passages, sea areas, ports, spatial, graph and movements
 benchmarks/
   TradeRouter.Benchmarks/   BenchmarkDotNet routing benchmarks
 docs/
