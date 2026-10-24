@@ -6,6 +6,7 @@ using TradeRouter.Locations;
 using TradeRouter.Movements;
 using TradeRouter.Passages;
 using TradeRouter.Ports;
+using TradeRouter.SeaAreas;
 
 namespace TradeRouter;
 
@@ -141,6 +142,7 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
         bool appendOrigDest = options.AppendOriginDestination;
         bool includePorts = options.IncludePorts;
         bool returnPassages = options.ReturnPassages;
+        bool returnSeaAreas = options.ReturnSeaAreas;
         var restrictions = options.GetClosedPassages();
         string algorithm = options.Algorithm;
 
@@ -222,7 +224,9 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
                     GeometryBasis = "maritime_network",
                     PortOrigin = includePorts && pFrom != null ? pFrom : null,
                     PortDest = includePorts && pTo != null ? pTo : null,
-                    TraversedPassages = returnPassages ? Passage.FilterValidPassages(traversedPassages) : null
+                    TraversedPassages = returnPassages ? Passage.FilterValidPassages(traversedPassages) : null,
+                    // Measured on the continuous path, connectors included, before the antimeridian split.
+                    TraversedSeaAreas = returnSeaAreas ? SeaAreaIndex.Default.Traverse(normalizedCoords) : null
                 }
             };
 

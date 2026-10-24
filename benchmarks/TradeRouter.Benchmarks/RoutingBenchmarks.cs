@@ -56,6 +56,12 @@ public class RoutingBenchmarks
     }
 
     [Benchmark]
+    public GeoJsonFeature Dijkstra_ShanghaiToRotterdam_WithSeaAreas()
+    {
+        return TradeRoutes.Calculate(_shanghai, _rotterdam, appendOrigDest: true, algorithm: "dijkstra", returnSeaAreas: true);
+    }
+
+    [Benchmark]
     public GeoJsonFeature Routing_WithPorts_ParisToTokyo()
     {
         return TradeRoutes.Calculate(_paris, _tokyo, appendOrigDest: true, includePorts: true);

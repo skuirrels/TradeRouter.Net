@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using TradeRouter.Ports;
+using TradeRouter.SeaAreas;
 
 namespace TradeRouter.GeoJson;
 
@@ -74,6 +75,14 @@ public sealed class TradeRouterProperties
     [JsonPropertyName("traversed_passages")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<string>? TraversedPassages { get; set; }
+
+    /// <summary>
+    /// Named sea areas the route passes through, in the order it enters them, with where it enters and leaves each
+    /// in kilometres from the start of the route. Water outside every listed area is not reported.
+    /// </summary>
+    [JsonPropertyName("traversed_sea_areas")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<SeaAreaTraversal>? TraversedSeaAreas { get; set; }
 
     /// <summary>
     /// Reporting marks of the railroads owning the track of a rail leg routed on the rail network, in route order,

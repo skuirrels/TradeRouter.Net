@@ -5,6 +5,7 @@ using TradeRouter.Common;
 using TradeRouter.Graph;
 using TradeRouter.Locations;
 using TradeRouter.Ports;
+using TradeRouter.SeaAreas;
 
 namespace TradeRouter.Data;
 
@@ -179,6 +180,70 @@ public static class EmbeddedResources
                 result.Add(code);
         }
         return result;
+    }
+
+    /// <summary>
+    /// Loads sea-areas.json: the selection of Natural Earth 1:50m marine polygons reported as sea areas, with each
+    /// area's identifier, English name, Wikidata cross-reference and Natural Earth <c>ne_id</c>.
+    /// </summary>
+    public static IReadOnlyList<SeaAreaInfo> LoadSeaAreaCatalogue()
+    {
+        using var stream = CurrentAssembly.GetManifestResourceStream("TradeRouter.Data.sea-areas.json")
+            ?? throw new InvalidOperationException("Embedded resource 'TradeRouter.Data.sea-areas.json' not found.");
+
+        using var doc = JsonDocument.Parse(stream);
+        return doc.RootElement.EnumerateArray()
+            .Select(item => new SeaAreaInfo(
+                item.GetProperty("id").GetString() ?? throw new InvalidDataException("A sea area has no id."),
+                item.GetProperty("name").GetString() ?? throw new InvalidDataException("A sea area has no name."),
+                item.GetProperty("wikidata").GetString() ?? throw new InvalidDataException("A sea area has no Wikidata item."),
+                item.GetProperty("ne_id").GetInt64()))
+            .ToList()
+            .AsReadOnly();
+    }
+
+    /// <summary>
+    /// Loads sea-area-polygons.json.gz, the selected areas' polygons keyed by <c>ne_id</c>, and indexes them for
+    /// the catalogue in <see cref="SeaArea.Catalogue"/>.
+    /// </summary>
+    internal static SeaAreaIndex LoadSeaAreaIndex()
+    {
+        using var rawStream = CurrentAssembly.GetManifestResourceStream("TradeRouter.Data.sea-area-polygons.json.gz")
+            ?? throw new InvalidOperationException("Embedded resource 'TradeRouter.Data.sea-area-polygons.json.gz' not found.");
+
+        using var gzipStream = new GZipStream(rawStream, CompressionMode.Decompress);
+        using var doc = JsonDocument.Parse(gzipStream);
+
+        var ringsByNeId = new Dictionary<long, List<double[]>>();
+        foreach (var area in doc.RootElement.GetProperty("areas").EnumerateArray())
+        {
+            // Outer rings and holes of every part are kept alike; the even-odd rule tells them apart.
+            var rings = new List<double[]>();
+            foreach (var polygon in area.GetProperty("polygons").EnumerateArray())
+            {
+                foreach (var ring in polygon.EnumerateArray())
+                {
+                    var flat = new double[ring.GetArrayLength() * 2];
+                    int i = 0;
+                    foreach (var position in ring.EnumerateArray())
+                    {
+                        flat[i++] = position[0].GetDouble();
+                        flat[i++] = position[1].GetDouble();
+                    }
+                    rings.Add(flat);
+                }
+            }
+            ringsByNeId[area.GetProperty("ne_id").GetInt64()] = rings;
+        }
+
+        var areas = new List<(SeaAreaInfo Info, IReadOnlyList<double[]> Rings)>();
+        foreach (var info in SeaArea.Catalogue)
+        {
+            if (!ringsByNeId.TryGetValue(info.NeId, out var rings))
+                throw new InvalidDataException($"No polygon for sea area '{info.Id}' (ne_id {info.NeId}).");
+            areas.Add((info, rings));
+        }
+        return new SeaAreaIndex(areas);
     }
 
     /// <summary>
