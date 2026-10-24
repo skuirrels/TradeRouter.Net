@@ -53,6 +53,12 @@ public sealed class TradeRouterOptions
     /// <summary>Whether to return the list of traversed passages in the route properties. Default is false.</summary>
     public bool ReturnPassages { get; set; }
 
+    /// <summary>
+    /// Whether to return the named sea areas the route passes through, with where it enters and leaves each, in the
+    /// route properties. Default is false.
+    /// </summary>
+    public bool ReturnSeaAreas { get; set; }
+
     /// <summary>Pathfinding algorithm: "dijkstra" (default) or "astar".</summary>
     public string Algorithm { get; set; } = "dijkstra";
 
@@ -71,6 +77,7 @@ public sealed class TradeRouterOptions
         IncludePorts = IncludePorts,
         PortParameters = PortParameters?.Clone(),
         ReturnPassages = ReturnPassages,
+        ReturnSeaAreas = ReturnSeaAreas,
         Algorithm = Algorithm
     };
 

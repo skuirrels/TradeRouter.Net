@@ -197,6 +197,7 @@ Example output for Jebel Ali (AEJEA) to St John's, Antigua (AGSJO) with Suez clo
 | `distance_warning` | Present when a road leg fell back to an estimate. |
 | `port_origin`, `port_dest` | Present when routing by port code or with `IncludePorts`. |
 | `traversed_passages` | Present when `ReturnPassages` is set. Lower-case identifiers listed below. |
+| `traversed_sea_areas` | Present when `ReturnSeaAreas` is set. Named sea areas in the order the route enters them, each with `id`, `name`, `wikidata`, `enter_km` and `exit_km`. |
 
 ## Installation
 
@@ -277,6 +278,43 @@ var arctic = TradeRoutes.Calculate("NLRTM", "JPYOK", new TradeRouterOptions
 
 // arctic.Properties.TraversedPassages contains "northwest"
 ```
+
+### Sea areas along a route
+
+Set `ReturnSeaAreas` to list the named seas, gulfs, straits and oceans a route passes through, with where it enters and leaves each. Distances are kilometres from the start of the route, whatever `Units` is set to, measured along the same great circles as the route's length.
+
+```csharp
+using TradeRouter.SeaAreas;
+
+var route = TradeRoutes.Calculate("SAJED", "PKKHI", new TradeRouterOptions // Jeddah to Karachi
+{
+    AppendOriginDestination = true,
+    ReturnSeaAreas = true
+});
+
+// route.Properties.TraversedSeaAreas:
+//   red_sea        4 km to 1,160 km
+//   gulf_of_aden   1,160 km to 2,097 km
+//   arabian_sea    2,097 km to 4,116 km
+```
+
+```json
+"traversed_sea_areas": [
+  { "id": "red_sea", "name": "Red Sea", "wikidata": "Q23406", "enter_km": 4.2, "exit_km": 1160.1 },
+  { "id": "gulf_of_aden", "name": "Gulf of Aden", "wikidata": "Q41837", "enter_km": 1160.1, "exit_km": 2097.0 },
+  { "id": "arabian_sea", "name": "Arabian Sea", "wikidata": "Q58705", "enter_km": 2097.0, "exit_km": 4116.2 }
+]
+```
+
+The rules:
+
+- An area is listed once for each time the route enters it. A return with no other listed area in between is merged into one entry, so a route crossing the North Atlantic's unlisted Sargasso Sea hole shows the North Atlantic once.
+- Where listed areas overlap, each of them is listed.
+- Water outside every listed area is not reported. On the five routes in the tests this is 0.3% to 26% of the route, most on Istanbul to Port Said; the 1:50m data has no Gulf of Suez or Sea of Marmara, which the `suez`, `bosporus` and `dardanelles` passages cover.
+- Connector segments, such as port to lane, count. Areas are found on the continuous path before it is split at the antimeridian.
+- Each sea leg of a movement carries the same property, counted from the start of that leg.
+
+The 42 areas are the `SeaArea` constants, from `SeaArea.RedSea` to `SeaArea.SouthernOcean`. `SeaArea.Catalogue` gives each one's `Id`, `Name`, `Wikidata` and Natural Earth `NeId`. The Wikidata item is a cross-reference only: the North and South halves of an ocean share one. Finding the areas adds about 0.45 ms to the Shanghai to Rotterdam benchmark route and nothing to a route that does not ask for them.
 
 Recognised passages: `Babalmandab`, `Bering`, `Bosporus`, `Chili` (Magellan Strait), `Dardanelles`, `Gibraltar`, `Malacca`, `Northwest` (closed unless `AllowNorthwest` is true), `Ormuz`, `Panama`, `SouthAfrica` (Cape of Good Hope), `Suez`, `Sunda`. Each one, and every kind of waypoint a route can contain, is described with measured detour distances in [docs/waypoints-and-choke-points.md](https://github.com/skuirrels/TradeRouter.Net/blob/main/docs/waypoints-and-choke-points.md).
 
@@ -634,6 +672,7 @@ Everything here is deliberate and documented, but each is a simplification you s
 | `IncludePorts` | `false` | Route from and to the nearest ports instead of the raw points. |
 | `PortParameters` | `null` | Terminal-only, country filters, area polygons. `Strict` is true by default: a filter that matches no port yields no port rather than silently widening. |
 | `ReturnPassages` | `false` | Populate `traversed_passages`. |
+| `ReturnSeaAreas` | `false` | Populate `traversed_sea_areas`. |
 | `Algorithm` | `"dijkstra"` | `"dijkstra"` or `"astar"`. Both return an optimal cost; equal-cost route geometry can differ. |
 
 ## Performance
@@ -671,13 +710,14 @@ THIRD-PARTY-NOTICES.md      data licences and attribution
 src/
   TradeRouter/              the library, packed as TradeRouter.Net
     Common/                 Coordinate, Haversine, DistanceUnit, antimeridian normaliser, point-in-polygon
-    Data/                   marnet.json.gz, ports.json.gz, unlocode.json.gz, rail-narn.json.gz, the UN/LOCODE coordinate, sea-port and rail supplements, port-code aliases and their loader
+    Data/                   marnet.json.gz, ports.json.gz, unlocode.json.gz, rail-narn.json.gz, sea-area selection and polygons, the UN/LOCODE coordinate, sea-port and rail supplements, port-code aliases and their loader
     GeoJson/                Feature, FeatureCollection, LineString/MultiLineString and serializer
     Graph/                  MaritimeGraph, BidirectionalDijkstra, AStar, per-thread search buffers
     Locations/              UN/LOCODE entry, functions and lookup
     Movements/              multi-leg movements: plan, legs, parser, request, result, location resolution, road estimators, OSRM provider, emission factors, sea service allowance
     Passages/               passage identifiers
     Ports/                  Port, PortDatabase, PortParameters, AreaFeature, PortProps
+    SeaAreas/               sea-area identifiers, catalogue and the index that finds them along a route
     Spatial/                spherical 3D KD-tree
     ITradeRouterEngine.cs   engine interface
     TradeRouterEngine.cs    ITradeRouterEngine implementation
@@ -732,6 +772,7 @@ dotnet pack src/TradeRouter/TradeRouter.csproj -c Release -m:1 -nr:false -o ./ar
 - **UN/LOCODE**, the UNECE code list for trade and transport locations: 106,588 codes with name and function flags, of which 84,516 carry coordinates to one minute of arc. Used to resolve movement legs that name airports, terminals and inland places. Loaded only when a movement needs it.
 - **UN/LOCODE coordinate supplement**: one JSON file of 17,918 rows, each recording its source. 17,771 fill codes UNECE publishes without a coordinate: five hand-reviewed entries (Gatwick, Shanghai Railway Station, Shanghai Hongqiao, Melrose and Guildford) and 17,766 positions from the 16 September 2026 GeoNames snapshot, each with an explicit `unlc` code, matching country and name or recorded alternate name, and one unambiguous coordinate. Lightwater (`GBLGE`) is included. The other 147 replace UNECE coordinates that fall far outside their country: 145 from GeoNames, the Akpo offshore field (`NGAKP`) from Wikipedia, and Amurang (`IDTZD`) with its longitude sign corrected. [DATA_PROVENANCE.md](https://github.com/skuirrels/TradeRouter.Net/blob/main/DATA_PROVENANCE.md) documents the selection.
 - **North American rail network**, the main line of the BTS NTAD North American Rail Network Lines: 87,789 nodes and 91,000 track edges covering 272,068 km in the United States, Canada and Mexico, each edge with its published track length and owning railroad. Used to route rail legs. Loaded only when a movement has a rail leg.
+- **Sea areas**, from Natural Earth 1:50m marine polygons, public domain: a JSON selection of 42 seas, gulfs, straits and oceans and their polygons, 21,055 vertices. Used to report `traversed_sea_areas`. Loaded only when a route asks for sea areas.
 - **Port-code aliases**: a reviewed JSON file mapping 61 official UN/LOCODE sea-port codes to the port-list record held under another code. Used only when the port list lacks the requested code.
 - **UN/LOCODE sea-port supplement**: a hand-maintained JSON file of codes that UNECE publishes without the sea-port function but that cited sources document as sea ports. Currently two entries: Alumar and Duncan Bay. It only adds the sea-port function and never removes one.
 - **UN/LOCODE rail supplement**: a hand-maintained JSON file of 20 codes that UNECE publishes without a rail or multimodal function but where a cited source documents a freight rail terminal: 12 in the United States, five in Canada, two in Mexico and Łódź in Poland. It only adds the rail-terminal function and never removes one.

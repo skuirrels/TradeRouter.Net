@@ -16,6 +16,17 @@ SHA-256 values are hashes of the files as stored, not of their decompressed JSON
 
 The searoute-py project credits [Eurostat SeaRoute](https://github.com/eurostat/searoute) as the origin of the maritime network. Eurostat describes that network as based on the Oak Ridge National Labs CTA global shipping lane network, enriched around European coasts with AIS-derived lines.
 
+## Sea areas
+
+- Publisher: [Natural Earth](https://www.naturalearthdata.com/), 1:50m physical vectors, `ne_50m_geography_marine_polys`. Natural Earth is in the public domain ([terms of use](https://www.naturalearthdata.com/about/terms-of-use/)).
+- Source: [nvkelso/natural-earth-vector](https://github.com/nvkelso/natural-earth-vector) commit `117488dc88`, the last change to the file, 5 May 2022. `geojson/ne_50m_geography_marine_polys.geojson` SHA-256 `6fe58083e0cc5c7fad9e396970e28a8580bbd8770cfa4d1d7b5a34423e912f97`; 118 features.
+- Embedded `sea-areas.json`: SHA-256 `5517a2b4801d52639553539ba744310d6975df1e16a9dab9559c3eda13197887`; the selection of 42 areas requested by Supply Chain Intelligence on 24 October 2026. Each entry gives the identifier, the English name in lower snake_case as passages are named, the Natural Earth class, the Wikidata item and the `ne_id`.
+- Embedded `sea-area-polygons.json.gz`: SHA-256 `8a3a1ee19767b9d347b5be424169a86ef6c66189cdbfc2b29a3daf0d2fd464b9`; the 42 selected polygons, 21,055 vertices, keyed by `ne_id`.
+
+`tools/build-sea-area-data.py` verifies the source hash, finds exactly one feature for each selected `ne_id`, and checks the selection's name, class and Wikidata item against the feature's `name`, `featurecla` and `wikidataid`. Names and classes are compared without case because the source spells `INDIAN OCEAN` and `SOUTHERN OCEAN` in capitals; the selection uses the title-case names. Polygons are copied unchanged, holes and antimeridian-split parts included, and written as deterministic gzip.
+
+The Wikidata item is a cross-reference, not an identifier: the North and South Atlantic share Q97 and the North and South Pacific share Q98. The 1:50m data has no Gulf of Suez or Sea of Marmara, and on the five acceptance routes, Jeddah to Karachi, Singapore to Rotterdam, Shanghai to Los Angeles, Houston to Antwerp and Istanbul to Port Said, 0.3% to 26.2% of the route lies outside every selected polygon. Nothing fills those gaps.
+
 ## UN/LOCODE
 
 - Publisher: [United Nations Economic Commission for Europe, UN/LOCODE](https://unlocode.unece.org/).

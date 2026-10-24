@@ -31,6 +31,8 @@
     <EmbeddedResource Include="Data\unlocode-seaport-supplement.json" />
     <EmbeddedResource Include="Data\unlocode-rail-supplement.json" />
     <EmbeddedResource Include="Data\port-code-aliases.json" />
+    <EmbeddedResource Include="Data\sea-areas.json" />
+    <InternalsVisibleTo Include="TradeRouter.Tests" />
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />
     <None Include="..\..\LICENSE" Pack="true" PackagePath="\" />
     <None Include="..\..\DATA_PROVENANCE.md" Pack="true" PackagePath="\" />
