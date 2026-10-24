@@ -141,6 +141,24 @@ public class SeaAreaTests
     }
 
     [Fact]
+    public void Facade_KeepsThe200SignatureForCompiledCallers()
+    {
+        Type[] signature =
+        [
+            typeof(Coordinate), typeof(Coordinate), typeof(DistanceUnit), typeof(double), typeof(bool),
+            typeof(IEnumerable<string>), typeof(bool), typeof(TradeRouter.Ports.PortParameters), typeof(bool),
+            typeof(string), typeof(bool)
+        ];
+
+        var method = typeof(TradeRoutes).GetMethod(nameof(TradeRoutes.Calculate), signature);
+
+        method.Should().NotBeNull();
+        var route = (GeoJsonFeature)method!.Invoke(null,
+            [new Coordinate(39.17, 21.48), new Coordinate(66.98, 24.84), DistanceUnit.Km, 16.0, false, null, false, null, false, "dijkstra", false])!;
+        route.Properties.TraversedSeaAreas.Should().BeNull();
+    }
+
+    [Fact]
     public void ReturnSeaAreasOff_LeavesRouteOutputUnchanged()
     {
         var byDefault = TradeRouterEngine.Default.CalculateRoute("SGSIN", "NLRTM");

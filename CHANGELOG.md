@@ -2,13 +2,13 @@
 
 All notable changes to TradeRouter.Net are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.1.0] - 2026-10-24
 
 ### Sea routing
 
 - `ReturnSeaAreas` reports the named sea areas a route passes through as `traversed_sea_areas`, in the order it enters them, with `enter_km` and `exit_km` from the start of the route. Each sea leg of a movement carries it too, counted from the start of the leg.
 - 42 seas, gulfs, straits and oceans from Natural Earth 1:50m marine polygons, as `SeaArea` constants with a `SeaArea.Catalogue` of names, Wikidata items and Natural Earth IDs.
-- `TradeRoutes.Calculate` takes a `returnSeaAreas` argument.
+- `TradeRoutes.Calculate` takes a `returnSeaAreas` argument. The 2.0.0 signature is kept, so code compiled against 2.0.0 runs unchanged.
 
 ## [2.0.0] - 2026-10-15
 
@@ -51,4 +51,5 @@ First release on nuget.org.
 - All data is embedded as compressed JSON. A symbols package with Source Link ships alongside.
 - Releases are published from GitHub Actions through nuget.org Trusted Publishing.
 
+[2.1.0]: https://github.com/skuirrels/TradeRouter.Net/releases/tag/v2.1.0
 [2.0.0]: https://github.com/skuirrels/TradeRouter.Net/releases/tag/v2.0.0

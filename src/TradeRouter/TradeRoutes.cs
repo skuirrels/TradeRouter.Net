@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using TradeRouter.Common;
 using TradeRouter.GeoJson;
 using TradeRouter.Movements;
@@ -79,6 +80,28 @@ public static class TradeRoutes
         TradeRouterOptions? options = null)
     {
         return Engine.CalculateRoute(originPortCode, destPortCode, options);
+    }
+
+    /// <summary>
+    /// Calculates the shortest sea route with the 2.0.0 explicit parameters. Kept so code compiled against 2.0.0
+    /// still binds; source code resolves to the overload that also takes <c>returnSeaAreas</c>.
+    /// </summary>
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    public static GeoJsonFeature Calculate(
+        Coordinate origin,
+        Coordinate destination,
+        DistanceUnit units,
+        double speedKnots,
+        bool appendOrigDest,
+        IEnumerable<string>? restrictions,
+        bool includePorts,
+        PortParameters? portParams,
+        bool returnPassages,
+        string algorithm,
+        bool allowNorthwest)
+    {
+        return Calculate(origin, destination, units, speedKnots, appendOrigDest, restrictions, includePorts, portParams,
+            returnPassages, algorithm, allowNorthwest, returnSeaAreas: false);
     }
 
     /// <summary>
