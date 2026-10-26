@@ -448,6 +448,18 @@ request.RoadDistanceEstimator = new CircuityRoadDistanceEstimator(
     factor: configuration.RoadCircuityFactor);
 ```
 
+#### Choosing a road provider
+
+Each application chooses its own road-network provider by setting `MovementRequest.RoadRouteProvider`. The library includes two adapters, and any other service can be plugged in through `IRoadRouteProvider`:
+
+| Provider | Road data | Runs where | Cost | Result restrictions |
+| --- | --- | --- | --- | --- |
+| `OsrmRoadRouteProvider` | OpenStreetMap extract you load | Your own OSRM service | Your hosting | ODbL attribution and share-alike for derived databases |
+| `GoogleRoutesRoadRouteProvider` | Google's global road network | Google Maps Platform Routes API | Per request, after a monthly free allowance | Google Maps Platform Terms: limited caching, Google Map or attribution when displayed |
+| Your own `IRoadRouteProvider` | Any | Any | Any | The provider's own terms |
+
+#### OSRM
+
 For network distance, run OSRM separately and configure the included HTTP adapter. The library does not start, stop or download data for the OSRM service:
 
 ```csharp
@@ -517,6 +529,86 @@ dotnet run --project src/TradeRouter.Sample
 ```
 
 Example 13 always shows the built-in `EstimateOnly` result. Examples 14 and 15 use `OsrmRoadRouteProvider` and `RequireNetwork`, so they must return OSRM routes rather than silently fall back. Example 15 covers two continents: Cape Town to Johannesburg by road, Johannesburg to London Heathrow by air, and Heathrow to Guildford by road. When `TRADEROUTER_OSRM_URL` is not set, both OSRM examples are clearly reported as skipped and the rest of the sample still runs. `TRADEROUTER_OSRM_DATA_VERSION` is optional output provenance and may be omitted.
+
+#### Google Routes API
+
+`GoogleRoutesRoadRouteProvider` calls the Google Maps Platform [Routes API](https://developers.google.com/maps/documentation/routes) `computeRoutes` method. It needs an API key for a Google Cloud project with the Routes API enabled; no service or road data runs locally:
+
+```csharp
+using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+var request = new MovementRequest
+{
+    Legs = plan.Legs.ToList(),
+    RoadRouteProvider = new GoogleRoutesRoadRouteProvider(
+        httpClient,
+        configuration["GoogleMaps:ApiKey"]!),
+    RoadRoutingMode = RoadRoutingMode.PreferNetworkThenEstimate
+};
+
+var movement = await TradeRouterEngine.Default.CalculateMovementAsync(request);
+// Road legs report distance_basis "road_network" and distance_source "google-routes".
+```
+
+Read the key from configuration or a secret store; never commit it. The key is sent only in the `X-Goog-Api-Key` header and never appears in result messages. In Google Cloud, restrict the key to the Routes API and to your servers.
+
+The adapter requests `DRIVE` routes without live traffic, asks only for distance, duration and geometry, and receives the geometry as a GeoJSON line. Those choices keep requests on Google's Compute Routes Essentials SKU. Other travel modes are accepted through the `travelMode` argument, but Google bills two-wheeler and large-vehicle routing at a higher SKU, and `TRUCK` needs vehicle attributes this adapter does not send. Google snaps endpoints to roads without a distance limit, so the adapter compares each endpoint with the start and end of the returned route and reports `OutsideCoverage` when either is more than `maximumSnapDistanceMeters` away, 10 km by default. Google does not version its road data, so `routing_data_version` is empty and the same request can return a different route later.
+
+Google's terms apply to every result from this adapter, and they differ from OpenStreetMap's. Google's [Routes API policies](https://developers.google.com/maps/documentation/routes/policies) restrict caching of most Routes API content, require Routes results drawn on a map to be shown on a Google Map, and require Google Maps attribution when a result is displayed without one. A movement's GeoJSON carries Google's route geometry, so do not store it long-term or draw it on another map provider's tiles. Read the [Google Maps Platform Terms](https://cloud.google.com/maps-platform/terms) before using the adapter in production.
+
+For prototyping, Google's [Maps Demo Key](https://developers.google.com/maps/demo-key) covers Compute Routes without a billing account. It is available only to personal Google accounts, has an unpublished daily limit and is not for production use. Production use needs a project with billing enabled.
+
+Examples 16 and 17 in the sample repeat examples 14 and 15 with `GoogleRoutesRoadRouteProvider`. They run when `TRADEROUTER_GOOGLE_MAPS_API_KEY` is set and otherwise report that they were skipped:
+
+```bash
+TRADEROUTER_GOOGLE_MAPS_API_KEY="$(cat ~/.config/traderouter/google-maps-api-key)" \
+dotnet run --project src/TradeRouter.Sample
+```
+
+#### Your own provider
+
+Implement `IRoadRouteProvider` to use any other routing service, such as a commercial truck-routing API or an internal service. Return a status rather than throwing for service outcomes, because `RoadRoutingMode` decides what each status means for the movement:
+
+```csharp
+public sealed class MyRoadRouteProvider(HttpClient httpClient) : IRoadRouteProvider
+{
+    public async ValueTask<RoadRouteResult> RouteAsync(
+        RoadRouteRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            MyRoute? route = await CallMyServiceAsync(httpClient, request.From.Coordinate, request.To.Coordinate, cancellationToken);
+            if (route is null)
+                return new RoadRouteResult { Status = RoadRouteStatus.NoRoute, Source = "my-router", Message = "No road connects the endpoints." };
+
+            return new RoadRouteResult
+            {
+                Status = RoadRouteStatus.Success,
+                DistanceKm = route.Metres / 1000.0,
+                DurationHours = route.Seconds / 3600.0,
+                Geometry = route.Points,
+                Source = "my-router",
+                Profile = "hgv"
+            };
+        }
+        catch (HttpRequestException ex)
+        {
+            return new RoadRouteResult { Status = RoadRouteStatus.Unavailable, Source = "my-router", Message = ex.Message };
+        }
+    }
+}
+```
+
+| Status | Return it when | `PreferNetworkThenEstimate` | `RequireNetwork` |
+| --- | --- | --- | --- |
+| `Success` | A route was found. `DistanceKm` is required; duration and geometry are optional. | Uses the route | Uses the route |
+| `OutsideCoverage` | An endpoint cannot be matched to the provider's road network | Falls back to the estimate with a `distance_warning` | Throws |
+| `NoRoute` | Both endpoints are covered but not connected by road | Throws | Throws |
+| `Unavailable` | Timeouts, transport failures or unusable responses | Falls back to the estimate with a `distance_warning` | Throws |
+
+`Source` is required and becomes `distance_source` in the output. `Geometry` is in traversal order with longitude first. Let the caller's cancellation propagate. One provider instance may be shared by concurrent movement calculations, so keep it thread-safe.
+
+#### Fallback and errors
 
 `PreferNetworkThenEstimate` falls back only when the provider is unavailable or an endpoint is outside its loaded coverage, and records the reason in `distance_warning`. A provider-confirmed `NoRoute` is an error rather than silently inventing a distance. `RequireNetwork` also treats unavailable or out-of-coverage results as errors. `EstimateOnly` never calls the provider. Because provider calls are I/O, use `CalculateMovementAsync`; synchronous calculation is available for estimates.
 
@@ -719,7 +811,7 @@ src/
     GeoJson/                Feature, FeatureCollection, LineString/MultiLineString and serializer
     Graph/                  MaritimeGraph, BidirectionalDijkstra, AStar, per-thread search buffers
     Locations/              UN/LOCODE entry, functions and lookup
-    Movements/              multi-leg movements: plan, legs, parser, request, result, location resolution, road estimators, OSRM provider, emission factors, sea service allowance
+    Movements/              multi-leg movements: plan, legs, parser, request, result, location resolution, road estimators, OSRM and Google Routes providers, emission factors, sea service allowance
     Passages/               passage identifiers
     Ports/                  Port, PortDatabase, PortParameters, AreaFeature, PortProps
     SeaAreas/               sea-area identifiers, catalogue and the index that finds them along a route
@@ -762,7 +854,7 @@ To prepare or reuse the default local OSRM container and run the same sample:
 ./src/TradeRouter.Sample/run-with-osrm.sh
 ```
 
-The sample contains fifteen numbered examples covering coordinates, port codes, restrictions, terminal resolution, area weighting, A*, blocked routes, GeoJSON output, the Shanghai to London walkthrough and multi-leg movements. Examples 13 and 14 compare the built-in road estimate with OSRM for the same Gatwick-to-Heathrow leg. Example 15 demonstrates OSRM-backed road legs in South Africa and the United Kingdom around a Johannesburg-to-Heathrow air leg. Examples 14 and 15 run when `TRADEROUTER_OSRM_URL` is set as shown in [Road routing](#road-routing); otherwise they report that they were skipped. Add `--geojson` to print a full feature.
+The sample contains seventeen numbered examples covering coordinates, port codes, restrictions, terminal resolution, area weighting, A*, blocked routes, GeoJSON output, the Shanghai to London walkthrough and multi-leg movements. Examples 13 and 14 compare the built-in road estimate with OSRM for the same Gatwick-to-Heathrow leg. Example 15 demonstrates OSRM-backed road legs in South Africa and the United Kingdom around a Johannesburg-to-Heathrow air leg. Examples 14 and 15 run when `TRADEROUTER_OSRM_URL` is set as shown in [Road routing](#road-routing); otherwise they report that they were skipped. Examples 16 and 17 repeat them with the Google Routes API when `TRADEROUTER_GOOGLE_MAPS_API_KEY` is set. Add `--geojson` to print a full feature.
 
 To produce the NuGet package locally:
 
