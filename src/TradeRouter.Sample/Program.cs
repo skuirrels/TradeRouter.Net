@@ -203,6 +203,44 @@ else
         capeTownToGuildfordRequest);
 }
 
+const string googleApiKeyVariable = "TRADEROUTER_GOOGLE_MAPS_API_KEY";
+string? googleApiKey = Environment.GetEnvironmentVariable(googleApiKeyVariable);
+if (string.IsNullOrWhiteSpace(googleApiKey))
+{
+    string skippedGoogle = $"Skipped: set {googleApiKeyVariable} to a Google Maps Platform key with the Routes API, as shown in the README.";
+    Print("16. Gatwick to Heathrow using the Google Routes API", skippedGoogle);
+    Print("17. Cape Town to Guildford via Johannesburg and Heathrow using the Google Routes API", skippedGoogle);
+}
+else
+{
+    using var googleHttpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+    var googleRoadRouteProvider = new GoogleRoutesRoadRouteProvider(googleHttpClient, googleApiKey);
+    var googleRoadRequest = new MovementRequest
+    {
+        Legs = roadPlan.Legs.ToList(),
+        CargoTonnes = 20.0,
+        RoadRouteProvider = googleRoadRouteProvider,
+        RoadRoutingMode = RoadRoutingMode.RequireNetwork
+    };
+    await PrintMovementRequestAsync("16. Gatwick to Heathrow using the Google Routes API", googleRoadRequest);
+
+    var googleCapeTownToGuildfordRequest = new MovementRequest
+    {
+        Legs = MovementPlan
+            .From(Waypoint.Place("ZACPT"))
+            .PickupTo(Waypoint.Airport("ZAJNB"), TransportMode.Road)
+            .ThenTo(Waypoint.Airport("GBLHR"), TransportMode.Air)
+            .DeliverTo(Waypoint.Place("GBGDD"), TransportMode.Road)
+            .Legs.ToList(),
+        CargoTonnes = 20.0,
+        RoadRouteProvider = googleRoadRouteProvider,
+        RoadRoutingMode = RoadRoutingMode.RequireNetwork
+    };
+    await PrintMovementRequestAsync(
+        "17. Cape Town to Guildford via Johannesburg and Heathrow using the Google Routes API",
+        googleCapeTownToGuildfordRequest);
+}
+
 static void PrintMovement(string title, MovementPlan plan, double tonnes = 20.0, double? teu = null)
 {
     // CO2e per leg uses GLEC well-to-wheel defaults per mode. With a TEU count, sea legs are charged per

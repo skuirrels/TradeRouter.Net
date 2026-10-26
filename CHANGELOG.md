@@ -2,6 +2,18 @@
 
 All notable changes to TradeRouter.Net are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2026-10-26
+
+### Road routing
+
+- `GoogleRoutesRoadRouteProvider` routes road legs through the Google Maps Platform Routes API, as an alternative to `OsrmRoadRouteProvider`. It sends `DRIVE` requests without live traffic, so calls stay on the Compute Routes Essentials SKU, and reports an endpoint snapped beyond `maximumSnapDistanceMeters` as `OutsideCoverage`.
+- `IRoadRouteProvider` documents the contract for custom providers: which status to return, how each `RoadRoutingMode` treats it, and the thread-safety requirement.
+- Sample examples 16 and 17 route road legs with Google when `TRADEROUTER_GOOGLE_MAPS_API_KEY` is set.
+
+### Documentation
+
+- The README compares the OSRM, Google and custom road providers, covers Google's caching and display terms, and shows a custom provider.
+
 ## [2.1.1] - 2026-10-24
 
 ### Documentation
@@ -60,6 +72,7 @@ First release on nuget.org.
 - All data is embedded as compressed JSON. A symbols package with Source Link ships alongside.
 - Releases are published from GitHub Actions through nuget.org Trusted Publishing.
 
+[2.2.0]: https://github.com/skuirrels/TradeRouter.Net/releases/tag/v2.2.0
 [2.1.1]: https://github.com/skuirrels/TradeRouter.Net/releases/tag/v2.1.1
 [2.1.0]: https://github.com/skuirrels/TradeRouter.Net/releases/tag/v2.1.0
 [2.0.0]: https://github.com/skuirrels/TradeRouter.Net/releases/tag/v2.0.0

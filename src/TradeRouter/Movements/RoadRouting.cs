@@ -78,7 +78,22 @@ public sealed record RoadRouteResult
     public string? Message { get; init; }
 }
 
-/// <summary>Supplies road-network distance, duration and geometry for resolved movement legs.</summary>
+/// <summary>
+/// Supplies road-network distance, duration and geometry for resolved movement legs. The library includes
+/// <see cref="OsrmRoadRouteProvider"/> and <see cref="GoogleRoutesRoadRouteProvider"/>; implement this interface
+/// to use any other routing service.
+/// </summary>
+/// <remarks>
+/// Implementations should return a result rather than throw for service outcomes: <see cref="RoadRouteStatus.Success"/>
+/// with a non-negative <see cref="RoadRouteResult.DistanceKm"/>, <see cref="RoadRouteStatus.OutsideCoverage"/> when an
+/// endpoint cannot be matched to the provider's road network, <see cref="RoadRouteStatus.NoRoute"/> when the endpoints
+/// are covered but not connected, and <see cref="RoadRouteStatus.Unavailable"/> for timeouts, transport failures and
+/// unusable responses. <see cref="RoadRoutingMode.PreferNetworkThenEstimate"/> falls back to the estimator only for
+/// <see cref="RoadRouteStatus.OutsideCoverage"/> and <see cref="RoadRouteStatus.Unavailable"/>. Set
+/// <see cref="RoadRouteResult.Source"/> to a stable identifier for the service. Let cancellation requested by the
+/// caller's token propagate. One instance may be shared by concurrent movement calculations, so implementations
+/// must be thread-safe.
+/// </remarks>
 public interface IRoadRouteProvider
 {
     /// <summary>Routes one road leg without blocking the calling thread.</summary>
