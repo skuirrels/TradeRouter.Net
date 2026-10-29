@@ -12,6 +12,7 @@ public class PassageRestrictionTests
     [InlineData(Passage.Ormuz, "Hormuz")]
     [InlineData(Passage.SouthAfrica, "Cape of Good Hope")]
     [InlineData(Passage.Chili, "Magellan Strait")]
+    [InlineData(Passage.VolgaDon, "Volga-Don Canal")]
     public void DisplayName_UsesRecognizableGeographicNames(string passage, string expected)
     {
         Passage.GetDisplayName(passage).Should().Be(expected);
@@ -158,6 +159,47 @@ public class PassageRestrictionTests
         var clone = options.Clone();
         clone.AllowNorthwest.Should().BeTrue();
         clone.GetClosedPassages().Should().BeEquivalentTo([Passage.Suez]);
+    }
+
+    [Fact]
+    public void VolgaDon_IsOpenByDefaultAndReportedOutOfTheCaspian()
+    {
+        var route = TradeRoutes.Calculate("AZBAK", "RUNVS", new TradeRouterOptions { ReturnPassages = true }); // Baku to Novorossiysk
+
+        new TradeRouterOptions().GetClosedPassages().Should().NotContain(Passage.VolgaDon);
+        route.Geometry.Should().NotBeNull();
+        route.Properties.TraversedPassages.Should().BeEquivalentTo([Passage.VolgaDon]);
+    }
+
+    [Fact]
+    public void VolgaDon_Closed_LeavesNoRouteOutOfTheCaspian()
+    {
+        var options = new TradeRouterOptions { Restrictions = [Passage.VolgaDon] };
+
+        var route = TradeRoutes.Calculate("AZBAK", "RUNVS", options);
+
+        route.Geometry.Should().BeNull();
+        route.Properties.Length.Should().Be(0.0);
+        var movement = () => TradeRoutes.CalculateMovement("Port AZBAK to Port RUNVS Sea", seaOptions: options);
+        movement.Should().Throw<InvalidOperationException>().WithMessage("*no sea route between AZBAK and RUNVS*");
+    }
+
+    [Theory]
+    [InlineData("AZBAK", "RUASF")] // Baku to Astrakhan, up the lower Volga
+    [InlineData("RURND", "RUNVS")] // Rostov-on-Don to Novorossiysk, down the lower Don
+    [InlineData("AZBAK", "KZAAU")] // Baku to Aktau
+    public void VolgaDon_Closed_KeepsTheLowerVolgaAndDonOnTheirOwnSeas(string origin, string destination)
+    {
+        var open = TradeRoutes.Calculate(origin, destination, new TradeRouterOptions { ReturnPassages = true });
+        var closed = TradeRoutes.Calculate(origin, destination, new TradeRouterOptions
+        {
+            Restrictions = [Passage.VolgaDon],
+            ReturnPassages = true
+        });
+
+        open.Properties.TraversedPassages.Should().BeEmpty();
+        closed.Geometry.Should().NotBeNull();
+        closed.Properties.Length.Should().Be(open.Properties.Length);
     }
 
     private static Coordinate At(string code) => TradeRoutes.Locate(code).Coordinate;

@@ -46,6 +46,9 @@ public static class Passage
     /// <summary>Dardanelles strait connecting the Aegean Sea to the Sea of Marmara.</summary>
     public const string Dardanelles = "dardanelles";
 
+    /// <summary>Volga-Don Canal in Russia, the only lane between the Caspian Sea and the Sea of Azov.</summary>
+    public const string VolgaDon = "volga_don";
+
     private static readonly FrozenSet<string> AllPassages = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
         Babalmandab,
@@ -60,7 +63,8 @@ public static class Passage
         Chili,
         SouthAfrica,
         Bering,
-        Dardanelles
+        Dardanelles,
+        VolgaDon
     }.ToFrozenSet(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
@@ -87,6 +91,7 @@ public static class Passage
             SouthAfrica => "Cape of Good Hope",
             Bering => "Bering Strait",
             Dardanelles => "Dardanelles",
+            VolgaDon => "Volga-Don Canal",
             _ => throw new ArgumentException($"Unknown passage identifier '{passage}'.", nameof(passage))
         };
     }

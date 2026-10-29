@@ -143,7 +143,7 @@ public class SeaAreaTests
         });
 
         // The lanes from Astrakhan to the Sea of Azov cross no listed area, and the Sea of Azov is not listed either.
-        route.Properties.TraversedPassages.Should().BeEmpty();
+        route.Properties.TraversedPassages.Should().BeEquivalentTo([Passage.VolgaDon]);
         var areas = route.Properties.TraversedSeaAreas!;
         areas.Select(area => area.Id).Should().Equal(SeaArea.CaspianSea, SeaArea.BlackSea);
         areas[0].ExitKm.Should().BeApproximately(764, 5.0);

@@ -2,6 +2,13 @@
 
 All notable changes to TradeRouter.Net are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Sea routing
+
+- The Volga–Don Canal is a passage: `Passage.VolgaDon`, `volga_don`. It is the only lane out of the Caspian Sea, so routes leaving the Caspian now report it in `traversed_passages`, and listing it in `Restrictions` closes it. It is open by default, so routes are unchanged.
+- `tools/build-marnet-data.py` tags the canal stretch of the untagged searoute-py line between the Caspian Sea and Taganrog Bay. The lower Volga and lower Don stay untagged, so Astrakhan and Rostov-on-Don keep their routes to their own seas when the canal is closed.
+
 ## [2.3.0] - 2026-10-29
 
 ### Sea routing

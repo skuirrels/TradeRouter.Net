@@ -1,6 +1,6 @@
 # Waypoints and choke points in TradeRouter.Net
 
-This document describes every kind of waypoint that can appear in a route produced by TradeRouter.Net, and every choke point (canal or strait) that the routing network knows about. All counts and distances below were measured against the datasets embedded in the library on 10 September 2026.
+This document describes every kind of waypoint that can appear in a route produced by TradeRouter.Net, and every choke point (canal or strait) that the routing network knows about. All counts and distances below were measured against the datasets embedded in the library on 10 September 2026, except the Volga–Don Canal, added and measured on 29 October 2026.
 
 ## 1. Transport modes covered
 
@@ -8,7 +8,7 @@ TradeRouter.Net routes deep-sea shipping on the Eurostat Marnet network. Multi-l
 
 | Mode | Routed | Network | Leg geometry | Duration basis | Choke points |
 |---|---|---|---|---|---|
-| Sea | Yes | Marnet, 9,708 nodes, 31,950 directed edges | Network path | `SpeedKnots`, default 16, plus 24 h port dwell per leg end in movements | 13 tagged passages, listed in section 3 |
+| Sea | Yes | Marnet, 9,708 nodes, 31,950 directed edges | Network path | `SpeedKnots`, default 16, plus 24 h port dwell per leg end in movements | 14 tagged passages, listed in section 3 |
 | Road | When an `IRoadRouteProvider` is configured | Configured provider, for example OSRM | Network path when returned; otherwise a straight display line | Routed or estimated distance divided by `SpeedsKmh[Road]`, default 60; provider/imported duration by explicit opt-in | None |
 | Rail | No | None | Straight line, 2 points | `SpeedsKmh[Rail]`, default 80 | None |
 | Air | No | None | Straight line, 2 points | `SpeedsKmh[Air]`, default 800 | None |
@@ -131,6 +131,7 @@ Locations are the bounding box of the tagged edges in the dataset. Detours were 
 | `chili` | `Passage.Chili` | Atlantic and Pacific round South America | 5 | 857 km | 80.0° to 68.0° W, 60.0° to 52.4° S | Buenos Aires to Valparaíso | 5,611 km | 15,080 km via Panama |
 | `south_africa` | `Passage.SouthAfrica` | Atlantic and Indian Ocean round Africa | 7 | 4,650 km | 18.0° to 30.0° E, 50.0° to 35.0° S | Singapore to Rotterdam, Suez also closed | 15,525 km | 22,787 km via Sunda and the far south |
 | `bering` | `Passage.Bering` | Pacific and Arctic Ocean | 7 | 847 km | 169.5° W to 190.9° E, 62.1° to 66.0° N | Rotterdam to Yokohama, `AllowNorthwest` | 14,055 km | 20,961 km via Suez |
+| `volga_don` | `Passage.VolgaDon` | Caspian Sea and Sea of Azov, by the Volga and Don rivers | 7 | 71 km | 43.7° to 44.5° E, 48.4° to 48.7° N | Baku to Novorossiysk | 2,236 km | No route |
 | `northwest` | `Passage.Northwest` | Atlantic and Pacific through the Arctic | 12 | 1,933 km | 171.7° W to 190.9° E, 66.0° to 74.3° N | Rotterdam to Yokohama | Closed unless `AllowNorthwest` | Opening it gives 14,055 km |
 
 ### 3.3 Notes on each choke point
@@ -157,6 +158,8 @@ Locations are the bounding box of the tagged edges in the dataset. Detours were 
 
 **Bering Strait (`bering`).** About 82 km wide between Russia and Alaska, linking the Pacific to the Arctic Ocean. In the dataset it only matters in combination with `northwest`, because every Arctic route passes through both tags.
 
+**Volga–Don Canal (`volga_don`).** About 101 km of locks between the Volga at Volgograd and the Don near Kalach-na-Donu, open to river-sea vessels of a few thousand tonnes and usually closed by ice from December to April. It is the only lane out of the Caspian Sea. Unlike every other passage, the tag does not come from searoute-py: the source line from the Caspian to Taganrog Bay is untagged, and `tools/build-marnet-data.py` tags its canal stretch, 71 km of coarse lane points. The lower Volga and lower Don stay untagged, so closing it isolates Caspian ports from every other sea while Astrakhan keeps its route to the Caspian and Rostov-on-Don its route to the Black Sea. It is open by default, because closing it would leave every Caspian port without a route to the ocean.
+
 **Northwest Passage and Arctic lanes (`northwest`).** The tag covers the Arctic lanes north of 66° N between Alaska and the Canadian archipelago. These routes are seasonal and ice-dependent, so the library closes them unless `AllowNorthwest` is true. Opening them cuts Rotterdam to Yokohama from 20,961 km to 14,055 km, a saving of about a third, which is the reason the option exists.
 
 ### 3.4 Combinations worth knowing
@@ -164,6 +167,7 @@ Locations are the bounding box of the tagged edges in the dataset. Detours were 
 - **Mediterranean sealed.** `suez` and `gibraltar` together: no route between the Mediterranean and any other sea.
 - **Black Sea sealed.** `bosporus` or `dardanelles` alone: no route to or from any Black Sea port.
 - **Persian Gulf sealed.** `ormuz` alone: no route to or from any Gulf port.
+- **Caspian Sea sealed.** `volga_don` alone: no route between a Caspian port and any other sea.
 - **Red Sea bypassed.** `suez` or `babalmandab`: Europe to Asia traffic goes round the Cape.
 - **Indonesia bypassed.** `malacca` and `sunda`: traffic goes through an untagged strait further east, which cannot be restricted.
 - **Arctic opened.** Set `AllowNorthwest = true`: Europe to north-east Asia traffic goes over the top of Russia.
@@ -204,5 +208,6 @@ All identifiers, as constants and as strings:
 | `Passage.SouthAfrica` | `south_africa` |
 | `Passage.Suez` | `suez` |
 | `Passage.Sunda` | `sunda` |
+| `Passage.VolgaDon` | `volga_don` |
 
 Strings are matched case-insensitively. Unknown strings in `Restrictions` throw an `ArgumentException` instead of being silently ignored. Internal seam tags (`segment`, `segment2`, `pacific_ocean`) are never reported and cannot be supplied as public restrictions.
