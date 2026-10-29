@@ -2,6 +2,12 @@
 
 All notable changes to TradeRouter.Net are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Sea routing
+
+- The Caspian Sea is a sea area: `SeaArea.CaspianSea`, `caspian_sea`, Wikidata Q5484, from the same pinned Natural Earth 1:50m marine polygons. Routes between Caspian ports, and routes leaving it over the Volga–Don link, now report it in `traversed_sea_areas`.
+
 ## [2.2.0] - 2026-10-26
 
 ### Road routing

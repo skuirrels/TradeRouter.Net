@@ -79,6 +79,9 @@ public static class SeaArea
     /// <summary>Black Sea.</summary>
     public const string BlackSea = "black_sea";
 
+    /// <summary>Caspian Sea.</summary>
+    public const string CaspianSea = "caspian_sea";
+
     /// <summary>Strait of Gibraltar.</summary>
     public const string StraitOfGibraltar = "strait_of_gibraltar";
 
