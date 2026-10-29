@@ -60,7 +60,7 @@ public class SeaAreaTests
             .Select(field => (string)field.GetRawConstantValue()!)
             .ToList();
 
-        SeaArea.Catalogue.Should().HaveCount(42);
+        SeaArea.Catalogue.Should().HaveCount(43);
         SeaArea.Catalogue.Select(area => area.Id).Should().BeEquivalentTo(constants);
         SeaArea.Catalogue.Select(area => area.NeId).Should().OnlyHaveUniqueItems();
         SeaArea.ValidSeaAreas.Should().BeEquivalentTo(constants);
@@ -113,6 +113,41 @@ public class SeaAreaTests
         }
 
         areas[^1].ExitKm.Should().BeLessThanOrEqualTo(route.Properties.Length + 1e-6);
+    }
+
+    [Fact]
+    public void CaspianRoute_StaysInsideTheCaspianSea()
+    {
+        var route = TradeRouterEngine.Default.CalculateRoute("AZBAK", "KZAAU", new TradeRouterOptions // Baku to Aktau
+        {
+            AppendOriginDestination = true,
+            ReturnSeaAreas = true
+        });
+
+        var area = route.Properties.TraversedSeaAreas.Should().ContainSingle().Subject;
+        area.Id.Should().Be(SeaArea.CaspianSea);
+        area.Name.Should().Be("Caspian Sea");
+        area.Wikidata.Should().Be("Q5484");
+        area.EnterKm.Should().BeLessThan(15.0);
+        area.ExitKm.Should().BeInRange(route.Properties.Length - 15.0, route.Properties.Length);
+    }
+
+    [Fact]
+    public void CaspianRoute_LeavesForTheBlackSeaOverTheVolgaDonLink()
+    {
+        var route = TradeRouterEngine.Default.CalculateRoute("AZBAK", "RUNVS", new TradeRouterOptions // Baku to Novorossiysk
+        {
+            AppendOriginDestination = true,
+            ReturnPassages = true,
+            ReturnSeaAreas = true
+        });
+
+        // The lanes from Astrakhan to the Sea of Azov cross no listed area, and the Sea of Azov is not listed either.
+        route.Properties.TraversedPassages.Should().BeEmpty();
+        var areas = route.Properties.TraversedSeaAreas!;
+        areas.Select(area => area.Id).Should().Equal(SeaArea.CaspianSea, SeaArea.BlackSea);
+        areas[0].ExitKm.Should().BeApproximately(764, 5.0);
+        areas[1].EnterKm.Should().BeApproximately(2071, 5.0);
     }
 
     [Fact]
