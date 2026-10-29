@@ -9,10 +9,12 @@ SHA-256 values are hashes of the files as stored, not of their decompressed JSON
 - Source `marnet_searoute.geojson`: SHA-256 `111a82d949bb949c396a69a08828781314d3afe779c07e9754c3b2834dfca415`.
 - Source `segment.geojson`: SHA-256 `56052b2ddd35de483ec00a29a7f0ffc37e162b0ee0249a9a435c8a8b2d8ffe0f`.
 - Source `ports.geojson`: SHA-256 `8398cb9554a19cf37f53f932f3842f58fbd94fce4c8e2704c3f5a4205ea5977e`.
-- Embedded `marnet.json.gz`: SHA-256 `8d9be0fb7881b77f46d21bd066779cd4c561f8f70c80f02a5e381706ff7aa880`; 9,708 nodes and 31,950 directed edges.
+- Embedded `marnet.json.gz`: SHA-256 `7cb0ea865b4e080abf6caa8e28baef2146b4a644a37dad71fa80d001f4c9a074`; 9,708 nodes and 31,950 directed edges.
 - Embedded `ports.json.gz`: SHA-256 `ccf97018a8d8c9cccafc08d69388dc0b483e39520f24bde94b36d6a8f8d2dca2`; 3,962 records.
 
-`tools/build-marnet-data.py` combines the tagged Marnet network with its tagged antimeridian segments, converts every line to directed edges in both directions, and calculates weights with the same mean-earth-radius Haversine formula used by the library. `tools/build-ports-data.py` retains every source port record, including duplicate codes. Both scripts verify their input hashes and write deterministic gzip files.
+`tools/build-marnet-data.py` combines the tagged Marnet network with its tagged antimeridian segments, converts every line to directed edges in both directions, tags the Volga–Don Canal, and calculates weights with the same mean-earth-radius Haversine formula used by the library. `tools/build-ports-data.py` retains every source port record, including duplicate codes. Both scripts verify their input hashes and write deterministic gzip files.
+
+The Volga–Don Canal tag, `volga_don`, is the one passage not taken from searoute-py, added on 29 October 2026. The source line from the Caspian Sea at 47.8023° E, 45.1174° N to Taganrog Bay at 39.0431° E, 47.104° N carries no passage. The build script tags its seven segments from the vertex at 44.503624° E, 48.424983° N, where the lane leaves the Volga at Volgograd, to the vertex at 43.694824° E, 48.654066° N, where it reaches the Don near Kalach-na-Donu: 14 directed edges, 71.4 km. It fails unless both vertices lie on exactly one untagged source line and seven segments apart. Without the tag the script reproduces the earlier embedded file, SHA-256 `8d9be0fb7881b77f46d21bd066779cd4c561f8f70c80f02a5e381706ff7aa880`, byte for byte.
 
 The searoute-py project credits [Eurostat SeaRoute](https://github.com/eurostat/searoute) as the origin of the maritime network. Eurostat describes that network as based on the Oak Ridge National Labs CTA global shipping lane network, enriched around European coasts with AIS-derived lines.
 

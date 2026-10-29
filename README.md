@@ -144,7 +144,7 @@ These apply to single routes and to multi-leg movements, which are described [be
 - **Lane point**: a fixed dot on the sea map, one of 9,708, all on water. The router inserts them between the two waypoints of a sea leg; you never name one.
 - **Lane**: a straight link between two neighbouring lane points. Sea legs travel only along lanes.
 - **Snapping**: moving a waypoint's position to its nearest lane point so a sea leg can start or end on the map, then joining the two with a straight line so the leg still begins and ends at the waypoint.
-- **Choke point**: a lane that runs through a canal or strait, tagged with its name. Thirteen exist. Closing one makes the router route round it.
+- **Choke point**: a lane that runs through a canal or strait, tagged with its name. Fourteen exist. Closing one makes the router route round it.
 - **Sea area**: a named sea, gulf, strait or ocean drawn as a polygon, one of 43 from Natural Earth. A route can report which ones it crosses and where it enters and leaves each. Sea areas never change the route; unlike choke points they cannot be closed.
 - **Non-sea leg**: road legs use a configured road-network provider when available and otherwise a labelled circuity estimate. Rail legs in the United States, Canada and Mexico are routed on the embedded North American rail network; other rail legs and air legs use great-circle distance. None uses maritime lane points, choke points or sea areas.
 
@@ -281,7 +281,7 @@ var arctic = TradeRoutes.Calculate("NLRTM", "JPYOK", new TradeRouterOptions
 // arctic.Properties.TraversedPassages contains "northwest"
 ```
 
-Recognised passages: `Babalmandab`, `Bering`, `Bosporus`, `Chili` (Magellan Strait), `Dardanelles`, `Gibraltar`, `Malacca`, `Northwest` (closed unless `AllowNorthwest` is true), `Ormuz`, `Panama`, `SouthAfrica` (Cape of Good Hope), `Suez`, `Sunda`. Each one, and every kind of waypoint a route can contain, is described with measured detour distances in [docs/waypoints-and-choke-points.md](https://github.com/skuirrels/TradeRouter.Net/blob/main/docs/waypoints-and-choke-points.md).
+Recognised passages: `Babalmandab`, `Bering`, `Bosporus`, `Chili` (Magellan Strait), `Dardanelles`, `Gibraltar`, `Malacca`, `Northwest` (closed unless `AllowNorthwest` is true), `Ormuz`, `Panama`, `SouthAfrica` (Cape of Good Hope), `Suez`, `Sunda`, `VolgaDon` (Volga–Don Canal, the only way out of the Caspian Sea). Each one, and every kind of waypoint a route can contain, is described with measured detour distances in [docs/waypoints-and-choke-points.md](https://github.com/skuirrels/TradeRouter.Net/blob/main/docs/waypoints-and-choke-points.md).
 
 ### Sea areas along a route
 
@@ -315,7 +315,7 @@ The rules:
 - An area is listed once for each time the route enters it. A return with no other listed area in between is merged into one entry, so a route crossing the North Atlantic's unlisted Sargasso Sea hole shows the North Atlantic once.
 - Where listed areas overlap, each of them is listed.
 - Water outside every listed area is not reported. On the five acceptance routes in the tests this is 0.3% to 26% of the route, most on Istanbul to Port Said; the 1:50m data has no Gulf of Suez or Sea of Marmara, which the `suez`, `bosporus` and `dardanelles` passages cover.
-- The Caspian Sea is reached only over the lane network's Volga–Don link from Astrakhan to the Sea of Azov, which crosses no listed area, so Baku to Novorossiysk lists the Caspian Sea and then the Black Sea with about 1,300 km between them.
+- The Caspian Sea is reached only through the Volga–Don Canal, passage `volga_don`. The lanes up the Volga from Astrakhan and down the Don to the Sea of Azov cross no listed area, so Baku to Novorossiysk lists the Caspian Sea and then the Black Sea with about 1,300 km between them.
 - Connector segments, such as port to lane, count. Areas are found on the continuous path before it is split at the antimeridian.
 - Each sea leg of a movement carries the same property, counted from the start of that leg.
 
@@ -827,7 +827,7 @@ tests/
 benchmarks/
   TradeRouter.Benchmarks/   BenchmarkDotNet routing benchmarks
 docs/
-  waypoints-and-choke-points.md   every waypoint type and all 13 passages with measured detours
+  waypoints-and-choke-points.md   every waypoint type and all 14 passages with measured detours
   diagrams/                 editable HTML diagrams with SVG and selected PNG exports
   unlocode-unresolved.csv   UN/LOCODEs still without a verified coordinate, with the reason
 scripts/
