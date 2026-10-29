@@ -24,13 +24,15 @@ The embedded sea-area polygons are taken unchanged from the [Natural Earth](http
 
 The embedded location-code data is published by the [United Nations Economic Commission for Europe](https://unlocode.unece.org/). UNECE states that UN/CEFACT standards are free to use under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 
-The coordinate supplement identifies its source in each JSON row. The five hand-reviewed entries cite:
+The coordinate supplement identifies its source in each JSON row. The seven hand-reviewed entries cite:
 
 - [Gatwick Airport](https://en.wikipedia.org/wiki/Gatwick_Airport)
 - [Shanghai railway station](https://en.wikipedia.org/wiki/Shanghai_railway_station)
 - [Shanghai Hongqiao International Airport](https://en.wikipedia.org/wiki/Shanghai_Hongqiao_International_Airport)
 - [Melrose, South Australia](https://en.wikipedia.org/wiki/Melrose,_South_Australia)
 - [Guildford](https://wiki.openstreetmap.org/wiki/Guildford)
+- [Port of Montreal](https://en.wikipedia.org/wiki/Port_of_Montreal)
+- [Tanger Med](https://en.wikipedia.org/wiki/Tanger_Med)
 
 ## GeoNames
 

@@ -1,5 +1,6 @@
 [
   {"code": "CAHAL", "name": "Halifax", "source": "Wikipedia, Halifax Harbour: every Halifax container terminal is served by CN with on-dock trains to Montreal, Toronto, Detroit and Chicago. https://en.wikipedia.org/wiki/Halifax_Harbour"},
+  {"code": "CAMTR", "name": "Montreal", "source": "Wikipedia, Port of Montreal: the port's own railway, over 100 km of track reaching almost every berth, connects with CN and CPKC for container traffic across North America. https://en.wikipedia.org/wiki/Port_of_Montreal"},
   {"code": "CAPRR", "name": "Prince Rupert", "source": "Port of Prince Rupert, Fairview Container Terminal: on-dock rail with seven working tracks, building 12,000 ft CN trains. https://www.rupertport.com/?p=42"},
   {"code": "CATOR", "name": "Toronto", "source": "Wikipedia, CPKC Vaughan Intermodal: CPKC intermodal terminal serving the Greater Toronto Area, in Vaughan north of the city. https://en.wikipedia.org/wiki/CPKC_Vaughan_Intermodal"},
   {"code": "CAVAN", "name": "Vancouver", "source": "Wikipedia, Centerm: Burrard Inlet container terminal in Vancouver served directly by CN and CPKC. https://en.wikipedia.org/wiki/Centerm"},

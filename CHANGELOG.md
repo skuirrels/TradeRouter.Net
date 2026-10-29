@@ -2,6 +2,13 @@
 
 All notable changes to TradeRouter.Net are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Location data
+
+- Tanger Med (`MAPTM`) has a coordinate, so movements can name it by code. UNECE publishes none and the port list does not hold it, so it previously needed a caller coordinate. Port-to-port `Calculate("MAPTM", ...)` still needs coordinates, because the port list lacks it.
+- Montreal (`CAMTR`) is a rail terminal in the rail supplement, so a sea leg into Montreal can continue by rail on the network without declaring `AdditionalLocationFunctions`. It also gains a UN/LOCODE coordinate at the port; the port list still places it for movements, so routes are unchanged.
+
 ## [2.4.0] - 2026-10-29
 
 ### Sea routing
@@ -85,6 +92,7 @@ First release on nuget.org.
 - All data is embedded as compressed JSON. A symbols package with Source Link ships alongside.
 - Releases are published from GitHub Actions through nuget.org Trusted Publishing.
 
+[Unreleased]: https://github.com/skuirrels/TradeRouter.Net/compare/v2.4.0...HEAD
 [2.4.0]: https://github.com/skuirrels/TradeRouter.Net/releases/tag/v2.4.0
 [2.3.0]: https://github.com/skuirrels/TradeRouter.Net/releases/tag/v2.3.0
 [2.2.0]: https://github.com/skuirrels/TradeRouter.Net/releases/tag/v2.2.0

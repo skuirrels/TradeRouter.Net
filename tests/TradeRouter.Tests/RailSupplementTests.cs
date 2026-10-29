@@ -79,4 +79,19 @@ public class RailSupplementTests
         leg.Feature.Properties.DistanceBasis.Should().Be("rail_network");
         leg.Length.Should().BeInRange(3_300.0, 3_800.0);
     }
+
+    [Fact]
+    public void Movement_TangerMedThroughMontrealToDetroitByCodeRoutesOnTheRailNetwork()
+    {
+        var plan = MovementPlan
+            .From(Waypoint.Port("MAPTM"))
+            .ThenTo(Waypoint.Port("CAMTR"), TransportMode.Sea)
+            .ThenTo(Waypoint.Station("USDET"), TransportMode.Rail);
+
+        var rail = TradeRoutes.CalculateMovement(plan).Legs[1];
+
+        rail.Feature.Properties.DistanceBasis.Should().Be("rail_network");
+        rail.Feature.Properties.Railroads.Should().Contain("CN");
+        rail.Length.Should().BeInRange(850.0, 1_000.0);
+    }
 }

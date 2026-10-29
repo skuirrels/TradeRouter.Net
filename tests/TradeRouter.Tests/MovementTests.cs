@@ -203,6 +203,25 @@ public class MovementTests
     }
 
     [Fact]
+    public void Movement_SupplementedPortCoordinates_PlaceTangerMedAndMontrealAtTheirPorts()
+    {
+        // Tanger Med is in neither UNECE's coordinates nor the port list, so movements could not place it by code.
+        var tangerMed = TradeRouterEngine.Default.UnLocodes.GetByCode("MAPTM")!;
+        tangerMed.Coordinate.Should().Be(new Coordinate(-5.52071, 35.87498));
+        tangerMed.CoordinateSource.Should().StartWith("Wikipedia, Tanger Med");
+        TradeRoutes.Locate("MAPTM").Source.Should().Be("unlocode");
+
+        // Montreal gains a UN/LOCODE position, but the port list agrees on the name and still places the code.
+        TradeRouterEngine.Default.UnLocodes.GetByCode("CAMTR")!.Coordinate.Should().Be(new Coordinate(-73.530, 45.547));
+        TradeRoutes.Locate("CAMTR").Source.Should().Be("ports");
+
+        var plan = MovementPlan
+            .From(Waypoint.Port("MAPTM"))
+            .ThenTo(Waypoint.Port("CAMTR"), TransportMode.Sea);
+        TradeRoutes.CalculateMovement(plan).Legs.Single().Length.Should().BeInRange(5_800.0, 6_400.0);
+    }
+
+    [Fact]
     public void Movement_GeoNamesSupplement_ResolvesLightwaterByUnLocode()
     {
         var database = TradeRouterEngine.Default.UnLocodes;
@@ -214,7 +233,7 @@ public class MovementTests
         var resolved = TradeRoutes.Locate("GBLGE");
         resolved.Source.Should().Be("unlocode");
         resolved.Coordinate.Should().Be(lightwater.Coordinate.Value);
-        database.CountWithCoordinates.Should().Be(102287);
+        database.CountWithCoordinates.Should().Be(102289);
     }
 
     [Fact]
@@ -228,7 +247,7 @@ public class MovementTests
         // A flipped sign (Luque, Paraguay, published in the northern hemisphere) and swapped latitude and longitude.
         TradeRouterEngine.Default.UnLocodes.GetByCode("PYLUQ")!.Coordinate!.Value.Latitude.Should().BeApproximately(-25.27, 0.01);
         TradeRouterEngine.Default.UnLocodes.GetByCode("DEGKO")!.Coordinate!.Value.Latitude.Should().BeApproximately(52.17, 0.01);
-        TradeRouterEngine.Default.UnLocodes.CountWithCoordinates.Should().Be(102287);
+        TradeRouterEngine.Default.UnLocodes.CountWithCoordinates.Should().Be(102289);
     }
 
     [Fact]
