@@ -8,6 +8,7 @@ All notable changes to TradeRouter.Net are recorded here. The format follows [Ke
 
 - Tanger Med (`MAPTM`) has a coordinate, so movements can name it by code. UNECE publishes none and the port list does not hold it, so it previously needed a caller coordinate. Port-to-port `Calculate("MAPTM", ...)` still needs coordinates, because the port list lacks it.
 - Montreal (`CAMTR`) is a rail terminal in the rail supplement, so a sea leg into Montreal can continue by rail on the network without declaring `AdditionalLocationFunctions`. It also gains a UN/LOCODE coordinate at the port; the port list still places it for movements, so routes are unchanged.
+- 414 more sea ports have coordinates, from the NGA World Port Index, Wikidata and GeoNames, so movements can name them by code. `tools/fill-sea-port-coordinates.py` builds them from pinned sources and places a port only when a code link, a second source, its UN/LOCODE subdivision or its distance from the coast supports the position. 1,330 sea-port codes still have no position.
 
 ## [2.4.0] - 2026-10-29
 
