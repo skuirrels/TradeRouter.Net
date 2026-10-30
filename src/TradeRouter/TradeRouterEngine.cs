@@ -356,10 +356,27 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
                 feature.Properties.OperationalAllowanceHours = 0.0;
             }
             feature.Properties.ConnectionHours = followsSeaLeg ? request.TransshipmentConnectionHours : 0.0;
+            double railAllowanceHours = 0.0;
+            if (leg.Mode == TransportMode.Rail)
+            {
+                int crossings = RailServiceAllowance.CountBorderCrossings(
+                    RailServiceAllowance.CountryOf(from),
+                    RailServiceAllowance.CountryOf(to));
+                if (request.RailInterchangeCounts.TryGetValue(sequence, out int interchanges))
+                    feature.Properties.RailInterchanges = interchanges;
+                feature.Properties.RailTerminalHours = request.RailOriginTerminalHours + request.RailDestinationTerminalHours;
+                feature.Properties.RailInterchangeHours = (feature.Properties.RailInterchanges ?? 0) * request.RailInterchangeHours;
+                feature.Properties.BorderCrossings = crossings;
+                feature.Properties.BorderHours = crossings * request.RailBorderCrossingHours;
+                railAllowanceHours = feature.Properties.RailTerminalHours.Value
+                    + feature.Properties.RailInterchangeHours.Value
+                    + feature.Properties.BorderHours.Value;
+            }
             feature.Properties.TransitHours = feature.Properties.DurationHours
                 + feature.Properties.PortHours
                 + feature.Properties.OperationalAllowanceHours
-                + feature.Properties.ConnectionHours;
+                + feature.Properties.ConnectionHours
+                + railAllowanceHours;
             bool northAmericanRail = leg.Mode == TransportMode.Rail && IsNorthAmericanRail(from, to, request);
             ApplyEmissions(feature, leg, units, request, northAmericanRail);
 
@@ -536,9 +553,12 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
             throw new ArgumentException("No positive speed configured for mode Rail. Set MovementRequest.SpeedsKmh[TransportMode.Rail].");
 
         var railroads = new List<string>();
+        var segments = new List<(string? Owner, double Km)>(path.Count);
         for (int i = 1; i < path.Count; i++)
         {
-            if (graph.GetPassage(path[i - 1], path[i]) is { } owner && !railroads.Contains(owner))
+            var owner = graph.GetPassage(path[i - 1], path[i]);
+            segments.Add((owner, Haversine.DistanceKm(path[i - 1], path[i])));
+            if (owner is not null && !railroads.Contains(owner))
                 railroads.Add(owner);
         }
 
@@ -565,6 +585,7 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
                 DurationBasis = "assumed_speed",
                 GeometryBasis = "rail_network",
                 Railroads = railroads,
+                RailInterchanges = RailServiceAllowance.CountClassIInterchanges(segments),
                 PortOrigin = from.Port,
                 PortDest = to.Port
             }
@@ -1007,6 +1028,10 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
             throw new ArgumentOutOfRangeException(nameof(request.SeaOperationalAllowance), allowance, "Sea operational allowance must be finite and non-negative.");
         if (!double.IsFinite(request.TransshipmentConnectionHours) || request.TransshipmentConnectionHours < 0)
             throw new ArgumentOutOfRangeException(nameof(request.TransshipmentConnectionHours), request.TransshipmentConnectionHours, "Transshipment connection time must be finite and non-negative.");
+        ValidateHours(request.RailOriginTerminalHours, nameof(request.RailOriginTerminalHours), "Rail origin terminal time");
+        ValidateHours(request.RailDestinationTerminalHours, nameof(request.RailDestinationTerminalHours), "Rail destination terminal time");
+        ValidateHours(request.RailInterchangeHours, nameof(request.RailInterchangeHours), "Rail interchange time");
+        ValidateHours(request.RailBorderCrossingHours, nameof(request.RailBorderCrossingHours), "Rail border-crossing time");
         if (request.SpeedsKmh.ContainsKey(TransportMode.Sea))
             throw new ArgumentException("Sea speed is taken from SeaOptions.SpeedKnots; remove the Sea entry from SpeedsKmh.", nameof(request));
 
@@ -1049,6 +1074,13 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
 
         ValidateRouteOverrides(request, request.RoadRouteOverrides, TransportMode.Road);
         ValidateRouteOverrides(request, request.RailRouteOverrides, TransportMode.Rail);
+        foreach (var (sequence, count) in request.RailInterchangeCounts)
+        {
+            if (sequence < 1 || sequence > request.Legs.Count || request.Legs[sequence - 1].Mode != TransportMode.Rail)
+                throw new ArgumentException($"Rail interchange count sequence {sequence} does not refer to a rail leg.", nameof(request));
+            if (count < 0)
+                throw new ArgumentOutOfRangeException(nameof(request), count, $"Rail interchange count for leg {sequence} must be non-negative.");
+        }
     }
 
     private static void ValidateRouteOverrides(
@@ -1087,6 +1119,12 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
     {
         if (value.HasValue && (!double.IsFinite(value.Value) || value.Value <= 0))
             throw new ArgumentOutOfRangeException(name, value, "Cargo amount must be finite and positive when supplied.");
+    }
+
+    private static void ValidateHours(double value, string name, string description)
+    {
+        if (!double.IsFinite(value) || value < 0)
+            throw new ArgumentOutOfRangeException(name, value, $"{description} must be finite and non-negative.");
     }
 
     private static void ValidateWaypoint(

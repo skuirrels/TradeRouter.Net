@@ -149,8 +149,40 @@ public sealed class TradeRouterProperties
     public double? ConnectionHours { get; set; }
 
     /// <summary>
-    /// Modelled minimum time for the leg in hours: travel, operational allowance, port handling and connection
-    /// time. This is not a carrier-scheduled or guaranteed transit time. Movement legs only.
+    /// Rail terminal time for the leg in hours: the request's origin and destination terminal dwell. Rail movement
+    /// legs only.
+    /// </summary>
+    [JsonPropertyName("rail_terminal_hours")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? RailTerminalHours { get; set; }
+
+    /// <summary>
+    /// Changes from one Class I railroad to another along a rail leg routed on the rail network. Other track owners
+    /// are skipped; see <c>RailServiceAllowance.ClassIRailroads</c>.
+    /// </summary>
+    [JsonPropertyName("rail_interchanges")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? RailInterchanges { get; set; }
+
+    /// <summary>Interchange time for the leg in hours: the interchange count times the request's hours per interchange. Rail movement legs only.</summary>
+    [JsonPropertyName("rail_interchange_hours")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? RailInterchangeHours { get; set; }
+
+    /// <summary>Crossings of the US–Canada or US–Mexico border, counted from the countries of the leg's ends. Rail movement legs only.</summary>
+    [JsonPropertyName("border_crossings")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? BorderCrossings { get; set; }
+
+    /// <summary>Border time for the leg in hours: the crossing count times the request's hours per crossing. Rail movement legs only.</summary>
+    [JsonPropertyName("border_hours")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? BorderHours { get; set; }
+
+    /// <summary>
+    /// Modelled minimum time for the leg in hours: travel, operational allowance, port handling, connection time
+    /// and, on rail legs, terminal, interchange and border time. This is not a carrier-scheduled or guaranteed
+    /// transit time. Movement legs only.
     /// </summary>
     [JsonPropertyName("transit_hours")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

@@ -82,6 +82,42 @@ public sealed class MovementRequest
     public double TransshipmentConnectionHours { get; set; } = 48.0;
 
     /// <summary>
+    /// Hours added to every rail leg for the wait at its origin terminal: loading or ramp dwell before the train
+    /// departs. The default is zero, which keeps rail time as distance divided by speed. Reported in the leg's
+    /// rail terminal hours together with <see cref="RailDestinationTerminalHours"/>.
+    /// </summary>
+    public double RailOriginTerminalHours { get; set; }
+
+    /// <summary>
+    /// Hours added to every rail leg for the wait at its destination terminal: arrival, unloading or ramp dwell
+    /// before the cargo is available. The default is zero.
+    /// </summary>
+    public double RailDestinationTerminalHours { get; set; }
+
+    /// <summary>
+    /// Hours added for each interchange between Class I railroads on a rail leg. The count comes from
+    /// <see cref="RailInterchangeCounts"/> when set for the leg, otherwise it is estimated from the track owners
+    /// along a leg routed on the embedded network by <see cref="RailServiceAllowance.CountClassIInterchanges"/>.
+    /// The estimate is approximate, because the network names track owners rather than train operators. Great-circle
+    /// and supplied rail legs have no routed path and receive no interchange time unless a count is set. The default
+    /// is zero.
+    /// </summary>
+    public double RailInterchangeHours { get; set; }
+
+    /// <summary>
+    /// Interchange counts keyed by one-based rail leg sequence, used instead of the estimate from the routed path.
+    /// Use it when the railroads that carry the leg are known, for example 0 for a single-line Class I move.
+    /// </summary>
+    public Dictionary<int, int> RailInterchangeCounts { get; } = [];
+
+    /// <summary>
+    /// Hours added for each crossing of the US–Canada or US–Mexico border by a rail leg, counted from the
+    /// UN/LOCODE country of each end by <see cref="RailServiceAllowance.CountBorderCrossings"/>. A leg whose end
+    /// has no UN/LOCODE-shaped code receives none. The default is zero.
+    /// </summary>
+    public double RailBorderCrossingHours { get; set; }
+
+    /// <summary>
     /// Assumed average speed in kilometres per hour for each non-sea mode, used to estimate leg duration.
     /// Defaults: Road 60, Rail 80, Air 800. Sea speed comes from <see cref="SeaOptions"/>.
     /// </summary>

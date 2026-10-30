@@ -2,6 +2,14 @@
 
 All notable changes to TradeRouter.Net are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Rail timing
+
+- Rail legs can carry time allowances on top of distance divided by speed, reported in `transit_hours`: `MovementRequest.RailOriginTerminalHours` and `RailDestinationTerminalHours` for terminal dwell, `RailInterchangeHours` for each interchange between Class I railroads, and `RailBorderCrossingHours` for each crossing of the US–Canada or US–Mexico border. All default to zero, so rail times are unchanged unless a request sets them. Negative or non-finite values are rejected.
+- Rail legs report `rail_terminal_hours`, `rail_interchanges`, `rail_interchange_hours`, `border_crossings` and `border_hours`, and movements report `total_rail_terminal_hours`, `total_rail_interchange_hours` and `total_border_hours`. The same figures are on `LegResult` and `MovementResult`, and the text summary names them when a request sets them.
+- Interchanges are estimated by `RailServiceAllowance.CountClassIInterchanges` as the number of Class I railroads owning at least 1,000 km of a routed leg, less one, because the rail network names track owners rather than train operators. `MovementRequest.RailInterchangeCounts` sets the count for a leg when it is known, including great-circle and supplied rail legs. Border crossings are counted from the UN/LOCODE country of each end.
+
 ## [2.5.0] - 2026-10-30
 
 ### Location data

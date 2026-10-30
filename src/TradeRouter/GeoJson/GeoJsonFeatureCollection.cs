@@ -58,6 +58,18 @@ public sealed class MovementProperties
     [JsonPropertyName("total_connection_hours")]
     public double TotalConnectionHours { get; set; }
 
+    /// <summary>Sum of rail terminal hours.</summary>
+    [JsonPropertyName("total_rail_terminal_hours")]
+    public double TotalRailTerminalHours { get; set; }
+
+    /// <summary>Sum of rail interchange hours.</summary>
+    [JsonPropertyName("total_rail_interchange_hours")]
+    public double TotalRailInterchangeHours { get; set; }
+
+    /// <summary>Sum of rail border-crossing hours.</summary>
+    [JsonPropertyName("total_border_hours")]
+    public double TotalBorderHours { get; set; }
+
     /// <summary>Modelled minimum hours across all legs.</summary>
     [JsonPropertyName("total_transit_hours")]
     public double TotalTransitHours { get; set; }
