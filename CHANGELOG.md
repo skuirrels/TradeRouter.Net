@@ -9,6 +9,10 @@ All notable changes to TradeRouter.Net are recorded here. The format follows [Ke
 - A code no longer resolves to a same-named port-list entry more than 50 km from its UN/LOCODE position; the UN/LOCODE position wins. The port list had filed namesakes under 277 codes over 100 km away, 194 of them in the United States, so Pittsburgh (`USPIT`) resolved to Pilottown, Louisiana, Phoenix (`USPHX`) to Louisiana, Nashville (`USBNA`) and Birmingham (`USBHM`) to Michigan, and Monterrey (`MXMTY`) to Chiapas. Rail legs to those codes now route to the right city: Chicago to Phoenix is 2,913 km on the network instead of 1,470 km via New Orleans, and Monterrey to Laredo routes on the network instead of a 1,398 km straight line. The resolved `Port` is null for these codes. Port-to-port `Calculate` still uses the port list and is unchanged.
 - 31 codes whose UN/LOCODE or GeoNames position was wrong where the port list was right are corrected from the World Port Index or GeoNames, so they keep resolving to the port list: for example Pago Pago (`ASPPG`), which UNECE lists in the northern hemisphere, High Point (`USHPZ`), which it places in West Virginia, and Rafina (`GRRAF`), whose GeoNames link named a hamlet in Thessaly rather than the Attica ferry port.
 
+### Rail
+
+- 44 more US codes are rail terminals in the rail supplement, so they can be named as stations and joined by rail legs without declaring `AdditionalLocationFunctions`. UNECE records no rail function for them, and a probe of 81 major US rail markets found 54 rejected. Each entry cites a page naming the terminal, mostly the Norfolk Southern, BNSF, CN and Union Pacific terminal lists. They include Joliet, Portland, Stockton, Lathrop, Charleston, Jacksonville, Mobile, Columbus, Philadelphia, Worcester, Charlotte, Greer, Salt Lake City, Phoenix, Reno, Saint Paul, Omaha, Indianapolis, Cincinnati, Louisville, San Antonio, Pittsburgh and Elizabeth. Albuquerque, Birmingham, Boston, Nashville, Orlando, Tampa and Tulsa still need `AdditionalLocationFunctions`, because no source documents a terminal within 25 km.
+
 ## [2.5.0] - 2026-10-30
 
 ### Location data
