@@ -2,6 +2,13 @@
 
 All notable changes to TradeRouter.Net are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Location resolution
+
+- A code no longer resolves to a same-named port-list entry more than 50 km from its UN/LOCODE position; the UN/LOCODE position wins. The port list had filed namesakes under 277 codes over 100 km away, 194 of them in the United States, so Pittsburgh (`USPIT`) resolved to Pilottown, Louisiana, Phoenix (`USPHX`) to Louisiana, Nashville (`USBNA`) and Birmingham (`USBHM`) to Michigan, and Monterrey (`MXMTY`) to Chiapas. Rail legs to those codes now route to the right city: Chicago to Phoenix is 2,913 km on the network instead of 1,470 km via New Orleans, and Monterrey to Laredo routes on the network instead of a 1,398 km straight line. The resolved `Port` is null for these codes. Port-to-port `Calculate` still uses the port list and is unchanged.
+- 31 codes whose UN/LOCODE or GeoNames position was wrong where the port list was right are corrected from the World Port Index or GeoNames, so they keep resolving to the port list: for example Pago Pago (`ASPPG`), which UNECE lists in the northern hemisphere, High Point (`USHPZ`), which it places in West Virginia, and Rafina (`GRRAF`), whose GeoNames link named a hamlet in Thessaly rather than the Attica ferry port.
+
 ## [2.5.0] - 2026-10-30
 
 ### Location data

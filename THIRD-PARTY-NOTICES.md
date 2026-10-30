@@ -36,7 +36,7 @@ The coordinate supplement identifies its source in each JSON row. The seven hand
 
 ## World Port Index
 
-Sea-port rows in the UN/LOCODE coordinate supplement whose `source` names the World Port Index take their position from the [World Port Index](https://msi.nga.mil/Publications/WPI) (Pub. 150), published by the US National Geospatial-Intelligence Agency. As a work of the US Government it is in the public domain.
+Sea-port rows and reviewed corrections in the UN/LOCODE coordinate supplement whose `source` names the World Port Index take their position from the [World Port Index](https://msi.nga.mil/Publications/WPI) (Pub. 150), published by the US National Geospatial-Intelligence Agency. As a work of the US Government it is in the public domain.
 
 ## Wikidata
 
