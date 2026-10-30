@@ -50,6 +50,76 @@ public class PortListNamesakeTests
         resolved.Port.Should().NotBeNull();
     }
 
+    [Theory]
+    [InlineData("USLBE", "Latrobe", "Laguna Beach")]
+    [InlineData("USMDN", "Madison", "Mandan")]
+    [InlineData("CASKE", "Saint-Anne-de-Kent", "Sherbrooke")]
+    public void Locate_RejectsAPortListNamesakeWhenUnLocodeHasNoPosition(string code, string unLocodeName, string portListName)
+    {
+        var locate = () => TradeRoutes.Locate(code);
+
+        locate.Should().Throw<ArgumentException>()
+            .WithMessage($"UN/LOCODE knows '{code}' as {unLocodeName} *no coordinates* The port list's {code}, {portListName}, is a different place.*");
+    }
+
+    [Theory]
+    [InlineData("FIHEL")] // Helsinki, filed by UN/LOCODE as Helsingfors (Helsinki).
+    [InlineData("CNHRB")] // Haerbin and Harbin Taiping International Apt.
+    [InlineData("RUNIA")] // Nikolaevsk on Amur and Nikolayevsk-na-Amure.
+    [InlineData("JPSGM")] // Shiogama and Sendaishiogama.
+    [InlineData("SNMBA")] // M'Bao Oil Terminal and M'bao Terminal.
+    public void Locate_StillUsesThePortListForASpellingVariant(string code)
+    {
+        TradeRoutes.Locate(code).Source.Should().Be("ports");
+    }
+
+    [Fact]
+    public void Locate_ResolvesEveryPortListCodeWithDuplicateRecords()
+    {
+        // INNSA is listed as both Jawaharlal Nehru Port and Nhava Sheva, and UN/LOCODE has no position to choose by.
+        var engine = TradeRouterEngine.Default;
+        using var raw = typeof(TradeRouterEngine).Assembly.GetManifestResourceStream("TradeRouter.Data.ports.json.gz")!;
+        using var gzip = new GZipStream(raw, CompressionMode.Decompress);
+        using var doc = JsonDocument.Parse(gzip);
+        var duplicated = doc.RootElement.EnumerateArray()
+            .GroupBy(port => port.GetProperty("port").GetString()!)
+            .Where(group => group.Count() > 1)
+            .Select(group => group.Key)
+            .ToList();
+
+        duplicated.Should().Contain("INNSA");
+        foreach (var code in duplicated)
+        {
+            var locate = () => engine.Locate(code);
+            locate.Should().NotThrow($"{code} has duplicate port-list records");
+        }
+    }
+
+    [Fact]
+    public void Movement_SeaLegFromNhavaShevaRoutes()
+    {
+        var plan = MovementPlan
+            .From(Waypoint.Port("INNSA"))
+            .ThenTo(Waypoint.Port("AEJEA"), TransportMode.Sea);
+
+        var leg = TradeRoutes.CalculateMovement(plan).Legs.Single();
+
+        leg.From.Port!.IsTerminal.Should().BeTrue();
+        Haversine.DistanceKm(leg.From.Coordinate, new Coordinate(72.95, 18.95)).Should().BeLessThan(10.0);
+        leg.Length.Should().BeInRange(1_800.0, 2_600.0);
+    }
+
+    [Theory]
+    [InlineData("INNSA", "AEJEA")] // No UN/LOCODE position: the records are 4 km apart, so either is the port.
+    [InlineData("CAVAN", "CNSHA")] // UN/LOCODE has a position, so the nearest record is taken.
+    public void CalculateRoute_AcceptsAPortCodeWithDuplicateRecords(string origin, string destination)
+    {
+        var route = TradeRouterEngine.Default.CalculateRoute(origin, destination);
+
+        route.Properties.PortOrigin!.PortCode.Should().Be(origin);
+        route.Properties.Length.Should().BeGreaterThan(0.0);
+    }
+
     [Fact]
     public void Locate_NeverTakesAPortListPositionMoreThan50KmFromUnLocode()
     {

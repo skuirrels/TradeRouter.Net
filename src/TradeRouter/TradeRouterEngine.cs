@@ -123,10 +123,35 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
     private Port? GetPortByCodeOrAlias(string portCode)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(portCode);
-        var port = Ports.GetByCode(portCode);
+        string code = portCode.Trim();
+        var port = SelectPortRecord(code, UnLocodes.GetByCode(code));
         if (port != null)
             return port;
-        return _lazyPortCodeAliases.Value.TryGetValue(portCode.Trim(), out var alias) ? Ports.GetByCode(alias) : null;
+        return _lazyPortCodeAliases.Value.TryGetValue(code, out var alias) ? SelectPortRecord(alias, UnLocodes.GetByCode(alias)) : null;
+    }
+
+    /// <summary>
+    /// Picks the port-list record for a code. Some codes have more than one record: the one nearest the code's
+    /// UN/LOCODE position is taken, or, when UN/LOCODE has no position, the first terminal record of a group lying
+    /// within <see cref="PortListNamesakeKm"/>, since that is one port listed twice, as Nhava Sheva and Jawaharlal
+    /// Nehru Port are under INNSA.
+    /// </summary>
+    private Port? SelectPortRecord(string code, UnLocode? unLocode)
+    {
+        var candidates = Ports.GetByCodeCandidates(code);
+        if (candidates.Count <= 1)
+            return candidates.Count == 0 ? null : candidates[0];
+        if (unLocode?.Coordinate is { } listed)
+            return Ports.GetByCode(code, listed);
+
+        double spread = candidates.Max(a => candidates.Max(b => Haversine.DistanceKm(a.Coordinate, b.Coordinate)));
+        if (spread > PortListNamesakeKm)
+        {
+            throw new ArgumentException(
+                $"Port code '{code.ToUpperInvariant()}' has {candidates.Count} port-list records up to {spread:N0} km apart, " +
+                "and UN/LOCODE publishes no position to choose between them. Supply the location as a coordinate.");
+        }
+        return candidates.FirstOrDefault(port => port.IsTerminal) ?? candidates[0];
     }
 
     /// <inheritdoc />
@@ -898,7 +923,7 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
     /// <summary>
     /// Resolution order: an explicit coordinate on the location; <see cref="MovementRequest.Coordinates"/>;
     /// the embedded port list when UN/LOCODE agrees it is the same place; the UN/LOCODE list when it carries
-    /// coordinates; the port list otherwise; then <see cref="MovementRequest.Resolver"/>.
+    /// coordinates; the port list otherwise, unless UN/LOCODE names a different place; then <see cref="MovementRequest.Resolver"/>.
     /// </summary>
     private ResolvedLocation ResolveUncached(Location location, MovementRequest request)
     {
@@ -935,9 +960,7 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
     private ResolvedLocation ResolveCode(string code, ILocationResolver? resolver)
     {
         UnLocode? unLocode = UnLocodes.GetByCode(code);
-        Port? port = unLocode?.Coordinate is { } knownPosition
-            ? Ports.GetByCode(code, knownPosition)
-            : Ports.GetByCode(code);
+        Port? port = SelectPortRecord(code, unLocode);
 
         // The port list has positions tuned to the lane network, so it wins when UN/LOCODE agrees on the name.
         // When the names disagree (the port list's CNSHG is Sanshan, UN/LOCODE's is Shanghai Pt) UN/LOCODE wins.
@@ -950,7 +973,10 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
         if (unLocode?.Coordinate is { } position)
             return new ResolvedLocation(code, unLocode.Name, position, null, "unlocode", unLocode.Functions);
 
-        if (port != null)
+        // With no UN/LOCODE position to measure against, the name is the only evidence that the port list's record is
+        // the place UN/LOCODE files under the code: the port list's USLBE is Laguna Beach, UN/LOCODE's is Latrobe.
+        bool portIsNamesake = port != null && unLocode != null && !NamesProbablyAgree(port.Name, unLocode.Name);
+        if (port != null && !portIsNamesake)
             return new ResolvedLocation(code, port.Name, port.Coordinate, port, "ports", unLocode?.Functions ?? LocationFunctions.SeaPort);
 
         if (resolver != null && resolver.TryResolve(code, out var fromResolver, out var name))
@@ -959,6 +985,8 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
         string known = unLocode != null
             ? $"UN/LOCODE knows '{code}' as {unLocode.Name} ({DescribeFunctions(unLocode.Functions)}) but publishes no coordinates for it."
             : $"Location '{code}' is in neither the embedded port list nor the UN/LOCODE list.";
+        if (portIsNamesake)
+            known += $" The port list's {code}, {port!.Name}, is a different place.";
         throw new ArgumentException($"{known} Add its coordinate to MovementRequest.Coordinates or supply an ILocationResolver.");
     }
 
@@ -988,6 +1016,80 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
                 chars[n++] = char.ToLowerInvariant(c);
         }
         return new string(chars, 0, n);
+    }
+
+    /// <summary>
+    /// A looser test than <see cref="NamesAgree"/>, for when no position can confirm the match. Ignoring words such
+    /// as Port, Terminal and Saint, the names agree when one contains the other or they differ by a spelling variant,
+    /// as Haerbin and Harbin or Nikolaevsk and Nikolayevsk do. Laguna Beach and Latrobe do not.
+    /// </summary>
+    private static bool NamesProbablyAgree(string portName, string unLocodeName)
+    {
+        if (NamesAgree(portName, unLocodeName))
+            return true;
+        var a = NameWords(portName);
+        var b = NameWords(unLocodeName);
+        string joinedA = string.Concat(a);
+        string joinedB = string.Concat(b);
+        if (Math.Min(joinedA.Length, joinedB.Length) >= 4
+            && (joinedA.Contains(joinedB, StringComparison.Ordinal) || joinedB.Contains(joinedA, StringComparison.Ordinal)
+                || SpellingVariants(joinedA, joinedB)))
+            return true;
+        return a.Any(x => b.Any(y => SpellingVariants(x, y)));
+    }
+
+    private static readonly HashSet<string> GenericNameWords = new(StringComparer.Ordinal)
+    {
+        "terminal", "marine", "port", "pt", "puerto", "harbour", "harbor", "havn", "oil", "apt", "airport",
+        "international", "intl", "island", "pulau", "refinery", "east", "west", "north", "south", "new",
+        "saint", "st", "de", "la", "the", "on", "na"
+    };
+
+    private static List<string> NameWords(string name)
+    {
+        var words = new List<string>();
+        var word = new System.Text.StringBuilder();
+        foreach (char c in name.Normalize(System.Text.NormalizationForm.FormD))
+        {
+            if (char.IsLetter(c))
+                word.Append(char.ToLowerInvariant(c));
+            else if (c is '\'' or '’'
+                || System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c) == System.Globalization.UnicodeCategory.NonSpacingMark)
+                continue;
+            else if (word.Length > 0)
+            {
+                words.Add(word.ToString());
+                word.Clear();
+            }
+        }
+        if (word.Length > 0)
+            words.Add(word.ToString());
+        words.RemoveAll(GenericNameWords.Contains);
+        return words;
+    }
+
+    /// <summary>Words of at least four letters within one edit per four letters of the shorter.</summary>
+    private static bool SpellingVariants(string a, string b)
+    {
+        int shorter = Math.Min(a.Length, b.Length);
+        int allowed = Math.Max(1, shorter / 4);
+        return shorter >= 4 && EditDistance(a, b) <= allowed;
+    }
+
+    private static int EditDistance(string a, string b)
+    {
+        var previous = new int[b.Length + 1];
+        var current = new int[b.Length + 1];
+        for (int j = 0; j <= b.Length; j++)
+            previous[j] = j;
+        for (int i = 1; i <= a.Length; i++)
+        {
+            current[0] = i;
+            for (int j = 1; j <= b.Length; j++)
+                current[j] = Math.Min(Math.Min(previous[j] + 1, current[j - 1] + 1), previous[j - 1] + (a[i - 1] == b[j - 1] ? 0 : 1));
+            (previous, current) = (current, previous);
+        }
+        return previous[b.Length];
     }
 
     private static string DescribeFunctions(LocationFunctions functions)
