@@ -18,6 +18,7 @@ All notable changes to TradeRouter.Net are recorded here. The format follows [Ke
 ### Rail terminals
 
 - 44 more US codes are rail terminals in the rail supplement, so they can be named as stations and joined by rail legs without declaring `AdditionalLocationFunctions`. UNECE records no rail function for them, and a probe of 81 major US rail markets found 54 rejected. Each entry cites a page naming the terminal, mostly the Norfolk Southern, BNSF, CN and Union Pacific terminal lists. They include Joliet, Portland, Stockton, Lathrop, Charleston, Jacksonville, Mobile, Columbus, Philadelphia, Worcester, Charlotte, Greer, Salt Lake City, Phoenix, Reno, Saint Paul, Omaha, Indianapolis, Cincinnati, Louisville, San Antonio, Pittsburgh and Elizabeth. Albuquerque, Birmingham, Boston, Nashville, Orlando, Tampa and Tulsa still need `AdditionalLocationFunctions`, because no source documents a terminal within 25 km.
+- 21 more codes are rail terminals in the rail supplement: the main Canadian hubs Brampton, Edmonton, Regina, Moncton, Surrey, Delta (Deltaport) and Pitt Meadows, and US suburban ramps with their own UN/LOCODE, Elwood, Edgerton, Cicero, Northlake, Dolton, Harvey, Bensenville, Bedford Park, North Bergen, Croxton, Austell, Rossville, Marion (Arkansas) and Santa Teresa. Each cites the railroad's or terminal operator's page. Rochelle (Union Pacific Global III) is left out because it was idled in 2019.
 
 ## [2.5.0] - 2026-10-30
 
