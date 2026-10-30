@@ -12,7 +12,7 @@
 
   <ItemGroup>
     <!-- Consumers of the published package replace this with:
-         <PackageReference Include="TradeRouter.Net" Version="2.6.0" /> -->
+         <PackageReference Include="TradeRouter.Net" Version="2.6.1" /> -->
     <ProjectReference Include="..\TradeRouter\TradeRouter.csproj" />
   </ItemGroup>
 
