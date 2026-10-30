@@ -2,6 +2,13 @@
 
 All notable changes to TradeRouter.Net are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Location resolution
+
+- A code whose port-list records are duplicated no longer throws in movements, `Locate` or port-to-port `Calculate`. Resolution takes the record nearest the code's UN/LOCODE position, or, without one, the terminal record when the records lie within 50 km of each other. Twelve codes had no UN/LOCODE position and threw `InvalidOperationException` for every mode, including Nhava Sheva (`INNSA`), Davao (`PHDVO`) and Palembang (`IDPLM`). Port-to-port `Calculate` also threw for the 26 duplicated codes that do have a position, such as Vancouver (`CAVAN`).
+- A code that UN/LOCODE lists without a position no longer falls back to a port-list record for a different place. With no position to compare, the names must agree, allowing for spelling variants such as Haerbin and Harbin. Latrobe (`USLBE`) had resolved to Laguna Beach, California, and Madison (`USMDN`) to Mandan, North Dakota. 27 codes now throw an `ArgumentException` naming both places, 21 of them in the United States. Shantou (`CNSWA`) and Wuxi (`CNWUX`) are among them, because UN/LOCODE files those codes as airports; the ports are `CNSTG` and `CNWXS`.
+
 ## [2.6.0] - 2026-10-30
 
 ### Location resolution
