@@ -116,6 +116,14 @@ public class RailSupplementTests
     [InlineData("CAREG", "CAWNP")]
     [InlineData("CADEL", "CATOR")] // Deltaport on-dock rail.
     [InlineData("CAMNT", "CAHAL")]
+    [InlineData("MXZLO", "MXGDL")] // Manzanillo on-dock rail inland to Guadalajara.
+    [InlineData("MXVER", "MXMEX")]
+    [InlineData("MXATM", "MXMTY")]
+    [InlineData("MXQRO", "MXMEX")]
+    [InlineData("MXTLC", "MXMEX")] // CPKC Puerta Mexico.
+    [InlineData("MXSIL", "MXAGU")] // Guanajuato Inland Port.
+    [InlineData("MXSLW", "MXMTY")]
+    [InlineData("MXCUU", "MXHMO")]
     public void Movement_SupplementedRampsRouteOnTheRailNetworkByCode(string origin, string destination)
     {
         var plan = MovementPlan
@@ -147,7 +155,10 @@ public class RailSupplementTests
     [InlineData("USBHM")] // Birmingham: the NS terminal at McCalla is 31 km out.
     [InlineData("USTUL")] // Tulsa: only the bulk Port of Catoosa, 24 km out.
     [InlineData("USRCX")] // Rochelle: UP idled Global III in 2019.
-    public void Movement_UnsourcedUsMarketsStillNeedADeclaredRailFunction(string code)
+    [InlineData("MXCJS")] // Ciudad Juarez: sources describe only the border crossing.
+    [InlineData("MXTAM")] // Tampico: no source names port rail; Altamira is about 26 km out.
+    [InlineData("MXPBC")] // Puebla: the only named terminal dates from 2005.
+    public void Movement_UnsourcedMarketsStillNeedADeclaredRailFunction(string code)
     {
         var plan = MovementPlan
             .From(Waypoint.Station("USCHI"))
