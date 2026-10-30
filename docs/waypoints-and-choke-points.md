@@ -1,6 +1,6 @@
 # Waypoints and choke points in TradeRouter.Net
 
-This document describes every kind of waypoint that can appear in a route produced by TradeRouter.Net, and every choke point (canal or strait) that the routing network knows about. All counts and distances below were measured against the datasets embedded in the library on 10 September 2026, except the Volga–Don Canal, added and measured on 29 October 2026.
+This document describes every kind of waypoint that can appear in a route produced by TradeRouter.Net, and every choke point (canal or strait) that the routing network knows about. All counts and distances below were measured against the datasets embedded in the library on 10 September 2026, except the Volga–Don Canal, added and measured on 29 October 2026, and the Kiel Canal, added and measured on 30 October 2026, which also changed the network counts.
 
 ## 1. Transport modes covered
 
@@ -8,7 +8,7 @@ TradeRouter.Net routes deep-sea shipping on the Eurostat Marnet network. Multi-l
 
 | Mode | Routed | Network | Leg geometry | Duration basis | Choke points |
 |---|---|---|---|---|---|
-| Sea | Yes | Marnet, 9,708 nodes, 31,950 directed edges | Network path | `SpeedKnots`, default 16, plus 24 h port dwell per leg end in movements | 14 tagged passages, listed in section 3 |
+| Sea | Yes | Marnet, 9,748 nodes, 32,034 directed edges | Network path | `SpeedKnots`, default 16, plus 24 h port dwell per leg end in movements | 15 tagged passages, listed in section 3 |
 | Road | When an `IRoadRouteProvider` is configured | Configured provider, for example OSRM | Network path when returned; otherwise a straight display line | Routed or estimated distance divided by `SpeedsKmh[Road]`, default 60; provider/imported duration by explicit opt-in | None |
 | Rail | No | None | Straight line, 2 points | `SpeedsKmh[Rail]`, default 80 | None |
 | Air | No | None | Straight line, 2 points | `SpeedsKmh[Air]`, default 800 | None |
@@ -24,7 +24,7 @@ A route is a GeoJSON `LineString`, or a `MultiLineString` split at the antimerid
 
 | # | Waypoint type | Source | Count in data | When it appears | Position in the line |
 |---|---|---|---|---|---|
-| 2.1 | Network node | Marnet vertex | 9,708 | Always | Interior, and the ends unless 2.3 or 2.4 apply |
+| 2.1 | Network node | Marnet vertex | 9,748 | Always | Interior, and the ends unless 2.3 or 2.4 apply |
 | 2.2 | Snapped endpoint | Nearest network node to a request point | Chosen per request | Always | First and last network node |
 | 2.3 | Requested origin and destination | Caller's coordinates | 2 per request | `AppendOriginDestination = true` | Very first and very last |
 | 2.4 | Port | World ports database | 3,962 records | Port-code overload, or `IncludePorts = true` | Between 2.3 and 2.2 at each end |
@@ -41,10 +41,10 @@ Node connectivity tells you what a node is for:
 
 | Degree | Nodes | Role |
 |---|---|---|
-| 1 | 701 | Dead-end spur into a port approach or a fjord |
-| 2 | 3,176 | Shape point along a lane |
-| 3 | 810 | Junction where a spur leaves a lane |
-| 4 | 4,048 | Grid crossing in open ocean |
+| 1 | 704 | Dead-end spur into a port approach or a fjord |
+| 2 | 3,208 | Shape point along a lane |
+| 3 | 814 | Junction where a spur leaves a lane |
+| 4 | 4,051 | Grid crossing in open ocean |
 | 5 to 17 | 973 | Hub where several lanes converge, for example off Singapore or Gibraltar |
 
 Every interior coordinate of a route is a network node. The path is the sequence of nodes chosen by bidirectional Dijkstra or A*.
@@ -132,6 +132,7 @@ Locations are the bounding box of the tagged edges in the dataset. Detours were 
 | `south_africa` | `Passage.SouthAfrica` | Atlantic and Indian Ocean round Africa | 7 | 4,650 km | 18.0° to 30.0° E, 50.0° to 35.0° S | Singapore to Rotterdam, Suez also closed | 15,525 km | 22,787 km via Sunda and the far south |
 | `bering` | `Passage.Bering` | Pacific and Arctic Ocean | 7 | 847 km | 169.5° W to 190.9° E, 62.1° to 66.0° N | Rotterdam to Yokohama, `AllowNorthwest` | 14,055 km | 20,961 km via Suez |
 | `volga_don` | `Passage.VolgaDon` | Caspian Sea and Sea of Azov, by the Volga and Don rivers | 7 | 71 km | 43.7° to 44.5° E, 48.4° to 48.7° N | Baku to Novorossiysk | 2,236 km | No route |
+| `kiel` | `Passage.Kiel` | Elbe and North Sea with the Baltic | 6 | 96 km | 9.1° to 10.2° E, 53.9° to 54.4° N | Hamburg to Fredericia | 398 km | 956 km round Skagen |
 | `northwest` | `Passage.Northwest` | Atlantic and Pacific through the Arctic | 12 | 1,933 km | 171.7° W to 190.9° E, 66.0° to 74.3° N | Rotterdam to Yokohama | Closed unless `AllowNorthwest` | Opening it gives 14,055 km |
 
 ### 3.3 Notes on each choke point
@@ -160,6 +161,8 @@ Locations are the bounding box of the tagged edges in the dataset. Detours were 
 
 **Volga–Don Canal (`volga_don`).** About 101 km of locks between the Volga at Volgograd and the Don near Kalach-na-Donu, open to river-sea vessels of a few thousand tonnes and usually closed by ice from December to April. It is the only lane out of the Caspian Sea. Unlike every other passage, the tag does not come from searoute-py: the source line from the Caspian to Taganrog Bay is untagged, and `tools/build-marnet-data.py` tags its canal stretch, 71 km of coarse lane points. The lower Volga and lower Don stay untagged, so closing it isolates Caspian ports from every other sea while Astrakhan keeps its route to the Caspian and Rostov-on-Don its route to the Black Sea. It is open by default, because closing it would leave every Caspian port without a route to the ocean.
 
+**Kiel Canal (`kiel`).** About 98 km of sea-level canal with locks at each end, from the Elbe at Brunsbüttel to the Baltic at Kiel-Holtenau, and the world's busiest artificial waterway by number of ships. Ships bound between the Elbe or the North Sea and the Baltic use it to avoid the passage round Skagen. searoute-py has no lane through it, so `tools/build-marnet-data.py` adds the Eurostat SeaRoute line tagged `kiel`, 96 km in six edges, with Eurostat's own approach lanes up and down the Elbe and out to Kiel Bay. Closing it restores the route round Skagen: Hamburg to Fredericia grows from 398 km to 956 km and Hamburg to Szczecin from 522 km to 1,178 km. Closing it leaves places on the canal without a route: Rendsburg in the port list, and in movements the UN/LOCODE sea ports that snap to it, such as Audorf, Borgstedt, Budelsdorf, Obereiderhafen and Osterronfeld, and Eiderdeich and Pahlhude on the Eider. Husum, Tönning and Eckernförde had no lane and lie nearer the canal than any other, so Eurostat's lanes to them are added too and they keep a route when it is closed. It is open by default.
+
 **Northwest Passage and Arctic lanes (`northwest`).** The tag covers the Arctic lanes north of 66° N between Alaska and the Canadian archipelago. These routes are seasonal and ice-dependent, so the library closes them unless `AllowNorthwest` is true. Opening them cuts Rotterdam to Yokohama from 20,961 km to 14,055 km, a saving of about a third, which is the reason the option exists.
 
 ### 3.4 Combinations worth knowing
@@ -170,6 +173,7 @@ Locations are the bounding box of the tagged edges in the dataset. Detours were 
 - **Caspian Sea sealed.** `volga_don` alone: no route between a Caspian port and any other sea.
 - **Red Sea bypassed.** `suez` or `babalmandab`: Europe to Asia traffic goes round the Cape.
 - **Indonesia bypassed.** `malacca` and `sunda`: traffic goes through an untagged strait further east, which cannot be restricted.
+- **Elbe to Baltic round Skagen.** `kiel` alone: traffic between the Elbe or the North Sea and the Baltic goes round Denmark.
 - **Arctic opened.** Set `AllowNorthwest = true`: Europe to north-east Asia traffic goes over the top of Russia.
 - **Suez closed, Arctic still closed.** `restrictions: [Passage.Suez]` alone keeps `northwest` shut, so Rotterdam to Yokohama goes west through Panama, 23,454 km port to port, rather than 14,051 km over the Arctic.
 
@@ -201,6 +205,7 @@ All identifiers, as constants and as strings:
 | `Passage.Chili` | `chili` |
 | `Passage.Dardanelles` | `dardanelles` |
 | `Passage.Gibraltar` | `gibraltar` |
+| `Passage.Kiel` | `kiel` |
 | `Passage.Malacca` | `malacca` |
 | `Passage.Northwest` | `northwest` |
 | `Passage.Ormuz` | `ormuz` |

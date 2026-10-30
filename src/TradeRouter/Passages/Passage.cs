@@ -49,6 +49,9 @@ public static class Passage
     /// <summary>Volga-Don Canal in Russia, the only lane between the Caspian Sea and the Sea of Azov.</summary>
     public const string VolgaDon = "volga_don";
 
+    /// <summary>Kiel Canal in Germany, between the Elbe at Brunsbüttel and the Baltic Sea at Kiel-Holtenau.</summary>
+    public const string Kiel = "kiel";
+
     private static readonly FrozenSet<string> AllPassages = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
         Babalmandab,
@@ -64,7 +67,8 @@ public static class Passage
         SouthAfrica,
         Bering,
         Dardanelles,
-        VolgaDon
+        VolgaDon,
+        Kiel
     }.ToFrozenSet(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
@@ -92,6 +96,7 @@ public static class Passage
             Bering => "Bering Strait",
             Dardanelles => "Dardanelles",
             VolgaDon => "Volga-Don Canal",
+            Kiel => "Kiel Canal",
             _ => throw new ArgumentException($"Unknown passage identifier '{passage}'.", nameof(passage))
         };
     }
