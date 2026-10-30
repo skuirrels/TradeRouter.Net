@@ -141,7 +141,7 @@ These apply to single routes and to multi-leg movements, which are described [be
 
 - **Waypoint**: a place you name in a leg by its UN/LOCODE. Pickup places, ports and delivery places are all waypoints. The first and last waypoints of a movement are the pickup and delivery places.
 - **Leg**: the journey between two consecutive waypoints, by one transport mode.
-- **Lane point**: a fixed dot on the sea map, one of 9,708, all on water. The router inserts them between the two waypoints of a sea leg; you never name one.
+- **Lane point**: a fixed dot on the sea map, one of 9,748, all on water. The router inserts them between the two waypoints of a sea leg; you never name one.
 - **Lane**: a straight link between two neighbouring lane points. Sea legs travel only along lanes.
 - **Snapping**: moving a waypoint's position to its nearest lane point so a sea leg can start or end on the map, then joining the two with a straight line so the leg still begins and ends at the waypoint.
 - **Choke point**: a lane that runs through a canal or strait, tagged with its name. Fourteen exist. Closing one makes the router route round it.
@@ -281,7 +281,7 @@ var arctic = TradeRoutes.Calculate("NLRTM", "JPYOK", new TradeRouterOptions
 // arctic.Properties.TraversedPassages contains "northwest"
 ```
 
-Recognised passages: `Babalmandab`, `Bering`, `Bosporus`, `Chili` (Magellan Strait), `Dardanelles`, `Gibraltar`, `Malacca`, `Northwest` (closed unless `AllowNorthwest` is true), `Ormuz`, `Panama`, `SouthAfrica` (Cape of Good Hope), `Suez`, `Sunda`, `VolgaDon` (Volga–Don Canal, the only way out of the Caspian Sea). Each one, and every kind of waypoint a route can contain, is described with measured detour distances in [docs/waypoints-and-choke-points.md](https://github.com/skuirrels/TradeRouter.Net/blob/main/docs/waypoints-and-choke-points.md).
+Recognised passages: `Babalmandab`, `Bering`, `Bosporus`, `Chili` (Magellan Strait), `Dardanelles`, `Gibraltar`, `Kiel` (Kiel Canal, between the Elbe and the Baltic), `Malacca`, `Northwest` (closed unless `AllowNorthwest` is true), `Ormuz`, `Panama`, `SouthAfrica` (Cape of Good Hope), `Suez`, `Sunda`, `VolgaDon` (Volga–Don Canal, the only way out of the Caspian Sea). Each one, and every kind of waypoint a route can contain, is described with measured detour distances in [docs/waypoints-and-choke-points.md](https://github.com/skuirrels/TradeRouter.Net/blob/main/docs/waypoints-and-choke-points.md).
 
 ### Sea areas along a route
 
@@ -898,7 +898,7 @@ dotnet pack src/TradeRouter/TradeRouter.csproj -c Release -m:1 -nr:false -o ./ar
 
 ## Data
 
-- **Marnet and antimeridian segments**, transformed from searoute-py 1.6.0: 9,708 nodes and 31,950 directed edges with distance and passage tags.
+- **Marnet and antimeridian segments**, transformed from searoute-py 1.6.0, with the Kiel Canal and its approaches added from Eurostat SeaRoute: 9,748 nodes and 32,034 directed edges with distance and passage tags.
 - **World ports**, transformed from searoute-py 1.6.0: 3,962 records with code, name, country, terminal flag and permitted destination countries.
 - **UN/LOCODE**, the UNECE code list for trade and transport locations: 106,588 codes with name and function flags, of which 84,516 carry coordinates to one minute of arc. Used to resolve movement legs that name airports, terminals and inland places. Loaded only when a movement needs it.
 - **UN/LOCODE coordinate supplement**: one JSON file of 19,496 rows, each recording its source. 19,330 fill codes UNECE publishes without a coordinate: seven hand-reviewed entries (Gatwick, Shanghai Railway Station, Shanghai Hongqiao, Melrose, Guildford, and the ports of Tanger Med and Montreal) and 17,754 positions from the 16 September 2026 GeoNames snapshot, each with an explicit `unlc` code, matching country and name or recorded alternate name, and one unambiguous coordinate. Lightwater (`GBLGE`) is included. 414 more place sea ports from the NGA World Port Index (public domain), Wikidata (CC0) and GeoNames, each confirmed by a code link, a second source, its subdivision or its distance from the coast. 1,143 more place airports from OurAirports (public domain), each the only open airport in the code's country carrying its IATA code, with a distinctive word of its UN/LOCODE name. 147 replace UNECE coordinates that fall far outside their country: 145 from GeoNames, the Akpo offshore field (`NGAKP`) from Wikipedia, and Amurang (`IDTZD`) with its longitude sign corrected. 31 more correct codes whose UNECE or GeoNames position lies over 50 km from a port-list entry that independent evidence supports: 21 from the World Port Index and ten from GeoNames. [DATA_PROVENANCE.md](https://github.com/skuirrels/TradeRouter.Net/blob/main/DATA_PROVENANCE.md) documents the selection.
