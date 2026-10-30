@@ -633,7 +633,7 @@ var leg = TradeRouterEngine.Default.CalculateMovement(request).Legs[0];
 // leg.Feature.Properties.DistanceBasis == "rail_network"; Railroads lists the owners, such as BNSF
 ```
 
-A rail leg keeps great-circle distance, with the reason in `distance_warning`, when an end is more than `RailNetworkSnapKm` from the network (25 km by default, so every rail leg outside North America) or when no connected main line joins the two ends. Set `RailRoutingMode` to `GreatCircleOnly` to skip the network. Duration stays distance divided by the configured rail speed; the network carries no timetable, speed limits or train paths.
+A rail leg keeps great-circle distance, with the reason in `distance_warning`, when an end is more than `RailNetworkSnapKm` from the network (25 km by default, so every rail leg outside North America) or when no connected main line joins the two ends. Set `RailRoutingMode` to `GreatCircleOnly` to skip the network. Duration is distance divided by the configured rail speed; the network carries no timetable, speed limits or train paths. Terminal, interchange and border allowances can be added on top; see [Rail allowances](#rail-allowances).
 
 Where the network has no coverage, or an upstream rail planner or operator knows the actual route, import it with `RailRouteOverrides`, keyed by one-based leg sequence. An entry takes precedence over both the network and great-circle distance:
 
@@ -671,6 +671,7 @@ travel time
 + a service allowance: a fraction of sea travel time, chosen by trade corridor
 + 24 hours of cargo handling at each end of every sea leg
 + 48 hours for each connection between consecutive sea legs
++ rail terminal, interchange and border allowances, zero unless the request sets them
 ```
 
 The service allowance covers what a shortest-path line cannot show: the intermediate port calls a scheduled service makes on the way, restricted-water slowdowns, pilotage and berth approaches. One fraction cannot fit every trade, because an Asia–Europe loop calls at four to six ports before its first European discharge while a transpacific service sails almost direct. The library therefore reads the passages and end points of each sea leg and applies the fraction fitted for that corridor. Every leg reports the corridor it used as `operational_allowance_corridor` and the fraction as `operational_allowance_fraction`.
@@ -701,6 +702,38 @@ For the reverse Australia–UK direction, a fast indicative combination is Melbo
 | `TransshipmentConnectionHours` | `48` | Connection time before a sea leg that follows another sea leg. |
 
 Set `SeaOperationalAllowance`, `PortDwellHours` and `TransshipmentConnectionHours` to zero for pure distance-divided-by-speed time. Even with the defaults, customs clearance, cargo cut-offs, booking availability, blank sailings, disruption and the wait for a particular departure are not modelled. Carrier-published schedules or recent AIS observations are required for a scheduled or actual transit estimate; Hapag-Lloyd explains the distinction between transit, dwell and connection effects in its [shipping timings guide](https://www.hapag-lloyd.com/en/online-business/digital-insights-dock/insights/2025/01/from-berth-to-delivery-important-timings-in-shipping-that-might-.html).
+
+#### Rail allowances
+
+By default a rail leg's `transit_hours` is its travelling time alone: distance divided by the rail speed, 80 km/h unless changed. Real rail moves take far longer. Shipments from Montreal (`CAMTR`) to Detroit (`USDET`) by CN took a median of 8.3 days from arrival at Montreal to arrival at Detroit, where the default models 11.3 hours. Most of the difference is time standing still, so four optional allowances add it:
+
+| `MovementRequest` rail option | Default | Meaning |
+|---|---:|---|
+| `RailOriginTerminalHours` | `0` | Added to every rail leg for loading or ramp dwell before departure. |
+| `RailDestinationTerminalHours` | `0` | Added to every rail leg for arrival, unloading or ramp dwell. |
+| `RailInterchangeHours` | `0` | Added for each interchange between Class I railroads on the leg. |
+| `RailBorderCrossingHours` | `0` | Added for each crossing of the US–Canada or US–Mexico border. |
+| `RailInterchangeCounts` | empty | Interchange count for a leg, keyed by one-based sequence, used instead of the estimate. |
+
+```csharp
+var request = new MovementRequest
+{
+    Legs = MovementParser.Parse("Station CAMTR to Station USDET Rail"),
+    RailOriginTerminalHours = 48.0,
+    RailDestinationTerminalHours = 24.0,
+    RailBorderCrossingHours = 12.0
+};
+var leg = TradeRouterEngine.Default.CalculateMovement(request).Legs[0];
+// leg.TransitHours == leg.DurationHours + 72 + 12; leg.Feature.Properties.BorderCrossings == 1
+```
+
+Each rail leg reports `rail_terminal_hours`, `rail_interchanges`, `rail_interchange_hours`, `border_crossings` and `border_hours`, and the movement totals add `total_rail_terminal_hours`, `total_rail_interchange_hours` and `total_border_hours`. The counts are reported even when the hours are zero. Consecutive rail legs each receive both terminal allowances, as separate shipments would.
+
+Interchanges are estimated from the routed track. The rail network names who owns the track, not who runs the train, and the shortest path switches between parallel lines and crosses short pieces of terminal and commuter track: Los Angeles to Chicago changes track owner five times between Class I railroads though BNSF or Union Pacific runs the whole way. `RailServiceAllowance.CountClassIInterchanges` therefore counts the Class I railroads (BNSF, CN, CPKC, CSXT, NS and UP) that own at least 1,000 km of the leg, less one. That gives none for Los Angeles to Chicago or Montreal to Detroit and one for Los Angeles to New York, but it misses hand-offs on shorter legs and counts one where a railroad runs a long way over another's line by trackage rights. Set `RailInterchangeCounts` when you know the railroads that carry a leg; it also applies to great-circle and supplied rail legs, which otherwise receive no interchange time.
+
+Border crossings are counted from the UN/LOCODE country of each end: one between the United States and Canada or Mexico, two between Canada and Mexico. The route itself is not examined, so Detroit to Buffalo through southern Ontario counts none, and an end given only by coordinates counts none.
+
+The defaults stay at zero because no published figure fits them directly. Railroads publish terminal dwell for cars passing through their yards and average train speed between terminals, not origin or destination ramp dwell, interchange or border time. The sources and how they relate to these options are in [DATA_PROVENANCE.md](https://github.com/skuirrels/TradeRouter.Net/blob/main/DATA_PROVENANCE.md#rail-time-allowances).
 
 ### Emissions
 
@@ -752,7 +785,7 @@ Everything here is deliberate and documented, but each is a simplification you s
 - **Untagged lane links.** Three internal tags in the lane data, `segment`, `segment2` and `pacific_ocean`, stitch the antimeridian and are never reported or restrictable.
 - **Road estimates and non-road geometry.** Without a supplied value or provider, road distance comes from the calibrated distance-decay circuity model, not a road-network route. It is an average planning relationship and cannot reproduce barriers or the exact route between a particular pair. When no road geometry is available, the GeoJSON still joins the resolved endpoints with a straight display line and reports `geometry_basis: great_circle`; this does not change the separately reported estimated or routed distance. Rail legs outside North America and air legs use great-circle distance.
 - **Time and emissions are estimates.** Movement time is labelled modelled minimum and exposes every allowance, but it still has no carrier schedule, customs, cargo cut-off, booking availability or disruption data.
-- **Rail routing is shortest track, not a carrier's route.** North American rail legs follow the shortest main-line track whoever owns it, so a route can switch railroads where a real train would stay with one carrier, and can use commuter-owned track near a city-centre end. The network has no timetable or speed limits, so duration is distance divided by the configured rail speed. Rail legs elsewhere use great-circle distance unless `RailRouteOverrides` supplies a route.
+- **Rail routing is shortest track, not a carrier's route.** North American rail legs follow the shortest main-line track whoever owns it, so a route can switch railroads where a real train would stay with one carrier, and can use commuter-owned track near a city-centre end. The network has no timetable or speed limits, so duration is distance divided by the configured rail speed. Terminal, interchange and border allowances are opt-in and default to zero, so default rail transit times are far shorter than observed ones; the interchange count is a track-ownership estimate. Rail legs elsewhere use great-circle distance unless `RailRouteOverrides` supplies a route.
 - **Containers on road and rail are charged per container.** With a TEU count, road and rail legs use at least the GLEC average of 10 t per TEU. This overstates a container of light cargo somewhat, because a truck's fuel does fall a little with its load, but it is far closer than charging only the cargo inside: 100 kg in a 20-foot box would otherwise carry 1% of the truck's emissions. Heavier containers use their stated weight.
 - **Per-thread search buffers** hold about 350 KB for the lifetime of each thread that routes.
 

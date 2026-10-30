@@ -37,6 +37,15 @@ public sealed class LegResult
     /// <summary>Transshipment connection time before this leg in hours.</summary>
     public double ConnectionHours => Feature.Properties.ConnectionHours ?? 0.0;
 
+    /// <summary>Rail terminal time in hours: origin and destination dwell on a rail leg, zero for other modes.</summary>
+    public double RailTerminalHours => Feature.Properties.RailTerminalHours ?? 0.0;
+
+    /// <summary>Time for changes between Class I railroads on a rail leg in hours, zero for other modes.</summary>
+    public double RailInterchangeHours => Feature.Properties.RailInterchangeHours ?? 0.0;
+
+    /// <summary>Border-crossing time on a rail leg in hours, zero for other modes.</summary>
+    public double BorderHours => Feature.Properties.BorderHours ?? 0.0;
+
     /// <summary>Modelled minimum time in hours, including all configured allowances.</summary>
     public double TransitHours => Feature.Properties.TransitHours ?? DurationHours;
 
@@ -91,6 +100,15 @@ public sealed class MovementResult
     /// <summary>Sum of transshipment connection hours.</summary>
     public double TotalConnectionHours { get; }
 
+    /// <summary>Sum of rail terminal hours.</summary>
+    public double TotalRailTerminalHours { get; }
+
+    /// <summary>Sum of rail interchange hours.</summary>
+    public double TotalRailInterchangeHours { get; }
+
+    /// <summary>Sum of rail border-crossing hours.</summary>
+    public double TotalBorderHours { get; }
+
     /// <summary>Modelled minimum hours across all legs.</summary>
     public double TotalTransitHours { get; }
 
@@ -121,6 +139,9 @@ public sealed class MovementResult
         double totalPortHours = 0.0;
         double totalOperationalAllowanceHours = 0.0;
         double totalConnectionHours = 0.0;
+        double totalRailTerminalHours = 0.0;
+        double totalRailInterchangeHours = 0.0;
+        double totalBorderHours = 0.0;
         double totalTransitHours = 0.0;
         double totalCo2ePerTonne = 0.0;
         double totalCo2eKg = 0.0;
@@ -133,6 +154,9 @@ public sealed class MovementResult
             totalPortHours += leg.PortHours;
             totalOperationalAllowanceHours += leg.OperationalAllowanceHours;
             totalConnectionHours += leg.ConnectionHours;
+            totalRailTerminalHours += leg.RailTerminalHours;
+            totalRailInterchangeHours += leg.RailInterchangeHours;
+            totalBorderHours += leg.BorderHours;
             totalTransitHours += leg.TransitHours;
             totalCo2ePerTonne += leg.Co2eKgPerTonne;
             if (leg.Co2eKg.HasValue)
@@ -149,6 +173,9 @@ public sealed class MovementResult
         TotalPortHours = totalPortHours;
         TotalOperationalAllowanceHours = totalOperationalAllowanceHours;
         TotalConnectionHours = totalConnectionHours;
+        TotalRailTerminalHours = totalRailTerminalHours;
+        TotalRailInterchangeHours = totalRailInterchangeHours;
+        TotalBorderHours = totalBorderHours;
         TotalTransitHours = totalTransitHours;
         LengthByMode = byMode;
         TotalCo2eKgPerTonne = totalCo2ePerTonne;
@@ -175,6 +202,9 @@ public sealed class MovementResult
                 TotalPortHours = TotalPortHours,
                 TotalOperationalAllowanceHours = TotalOperationalAllowanceHours,
                 TotalConnectionHours = TotalConnectionHours,
+                TotalRailTerminalHours = TotalRailTerminalHours,
+                TotalRailInterchangeHours = TotalRailInterchangeHours,
+                TotalBorderHours = TotalBorderHours,
                 TotalTransitHours = TotalTransitHours,
                 LegCount = Legs.Count,
                 TotalCo2eKgPerTonne = TotalCo2eKgPerTonne,

@@ -24,7 +24,7 @@ internal static class MovementTextFormatter
         AppendInvariant(output,
             $"{"Total",-34}{movement.TotalLength,9:N0} {movement.Units}{"",20}{movement.TotalTransitHours,24:N1}{"",16}{movement.TotalCo2eKgPerTonne,16:N1}{FormatNullable(movement.TotalCo2eKg),12}{"",20}  {FormatCargo(movement)}");
         AppendInvariant(output,
-            $"Modelled minimum = {movement.TotalDurationHours:N1} h travel + {movement.TotalOperationalAllowanceHours:N1} h sea operations + {movement.TotalPortHours:N0} h port handling + {movement.TotalConnectionHours:N0} h connections = {movement.TotalTransitHours:N1} h ({movement.TotalTransitHours / 24.0:N1} days)");
+            $"Modelled minimum = {movement.TotalDurationHours:N1} h travel + {movement.TotalOperationalAllowanceHours:N1} h sea operations + {movement.TotalPortHours:N0} h port handling + {movement.TotalConnectionHours:N0} h connections{FormatRailAllowances(movement)} = {movement.TotalTransitHours:N1} h ({movement.TotalTransitHours / 24.0:N1} days)");
 
         if (includeExplanations)
         {
@@ -64,6 +64,15 @@ internal static class MovementTextFormatter
             ? FormattableString.Invariant($"{(tonnes.Length == 0 ? "for" : "in")} {movement.CargoTeu:N0} TEU")
             : string.Empty;
         return string.Join(" ", new[] { tonnes, teu }.Where(value => value.Length > 0));
+    }
+
+    // Rail allowances default to zero; the summary names them only when a request sets them.
+    private static string FormatRailAllowances(MovementResult movement)
+    {
+        if (movement.TotalRailTerminalHours + movement.TotalRailInterchangeHours + movement.TotalBorderHours <= 0.0)
+            return string.Empty;
+        return string.Create(CultureInfo.InvariantCulture,
+            $" + {movement.TotalRailTerminalHours:N0} h rail terminals + {movement.TotalRailInterchangeHours:N0} h rail interchanges + {movement.TotalBorderHours:N0} h border crossings");
     }
 
     private static string FormatNullable(double? value) =>
