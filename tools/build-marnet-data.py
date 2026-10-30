@@ -5,6 +5,7 @@ from Eurostat SeaRoute."""
 from __future__ import annotations
 
 import argparse
+import contextlib
 import gzip
 import hashlib
 import json
@@ -30,10 +31,11 @@ PASSAGE_STRETCHES = [
 
 # Lines added from the Eurostat SeaRoute network, which searoute-py dropped. Each path runs along consecutive vertices
 # of Eurostat lines. A path with a join continues from its last vertex to that existing Marnet vertex; a path without
-# one starts on an earlier path. The Kiel Canal is the one Eurostat line tagged kiel, from Brunsbuettel on the Elbe to Kiel-Holtenau.
-# The approaches are Eurostat's own lines from each canal end, joined to the nearest Marnet vertices: up and down the
-# Elbe, and out to Kiel Bay. Husum, Toenning and Eckernfoerde have no lane in searoute-py and lie nearer the canal than
-# any other Marnet vertex, so Eurostat's lanes to them are added too; without them they would snap to the canal.
+# one starts on an earlier path. The Kiel Canal is the one Eurostat line tagged kiel, from Brunsbuettel on the Elbe to
+# Kiel-Holtenau. The approaches are Eurostat's own lines from each canal end, joined to the nearest Marnet vertices:
+# up and down the Elbe, and out to Kiel Bay. Husum, Toenning and Eckernfoerde have no lane in searoute-py and lie
+# nearer the canal than any other Marnet vertex, so Eurostat's lanes to them are added too; without them they would
+# snap to the canal.
 EUROSTAT_LINES = [
     {
         "passage": "kiel",
@@ -84,7 +86,7 @@ def load_eurostat(path: Path) -> list[tuple[list[list[float]], str | None]]:
     actual = hashlib.sha256(content).hexdigest()
     if actual != EXPECTED_HASHES["eurostat"]:
         raise ValueError(f"eurostat SHA-256 is {actual}, expected {EXPECTED_HASHES['eurostat']}")
-    with sqlite3.connect(f"file:{path}?mode=ro", uri=True) as connection:
+    with contextlib.closing(sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)) as connection:
         rows = connection.execute("SELECT geometry, pass FROM type ORDER BY fid").fetchall()
     return [(geopackage_line(blob), passage or None) for blob, passage in rows]
 
@@ -102,7 +104,10 @@ def geopackage_line(blob: bytes) -> list[list[float]]:
     return [list(struct.unpack(order + "dd", wkb[9 + 16 * i:25 + 16 * i])) for i in range(count)]
 
 
-def eurostat_paths(source: list[tuple[list[list[float]], str | None]], nodes: set[tuple[float, float]]) -> list[tuple[list[list[float]], str | None]]:
+Line = list[list[float]]
+
+
+def eurostat_paths(source: list[tuple[Line, str | None]], nodes: set[tuple[float, float]]) -> list[tuple[Line, str | None]]:
     """Checks each added path against the Eurostat network and returns it with its join to Marnet."""
     segments = {}
     for line, passage in source:
@@ -116,10 +121,11 @@ def eurostat_paths(source: list[tuple[list[list[float]], str | None]], nodes: se
             raise ValueError(f"{path[0]} is neither on an earlier added path nor joined to Marnet")
         added_vertices.update(map(tuple, path))
         for a, b in zip(path, path[1:]):
-            if (tuple(a), tuple(b)) not in segments:
+            key = (tuple(a), tuple(b))
+            if key not in segments:
                 raise ValueError(f"{a} to {b} is not a segment of the Eurostat network")
-            if segments[(tuple(a), tuple(b))] != passage:
-                raise ValueError(f"{a} to {b} is tagged {segments[(tuple(a), tuple(b))]} in Eurostat, expected {passage}")
+            if segments[key] != passage:
+                raise ValueError(f"{a} to {b} is tagged {segments[key]} in Eurostat, expected {passage}")
         if passage is not None:
             tagged = [line for line, tag in source if tag == passage]
             if tagged not in ([path], [path[::-1]]):
@@ -132,6 +138,24 @@ def eurostat_paths(source: list[tuple[list[list[float]], str | None]], nodes: se
                 raise ValueError(f"join {join} is more than {MAX_JOIN_KM} km from {path[-1]}")
             path = [*path, join]
         result.append((path, passage))
+
+    # Each end of a tagged path must reach Marnet over untagged added paths, or the passage would be a dead end.
+    untagged: dict[tuple[float, float], set[tuple[float, float]]] = {}
+    for path, passage in result:
+        if passage is None:
+            for a, b in zip(map(tuple, path), map(tuple, path[1:])):
+                untagged.setdefault(a, set()).add(b)
+                untagged.setdefault(b, set()).add(a)
+    for path, passage in result:
+        if passage is None:
+            continue
+        for end in (tuple(path[0]), tuple(path[-1])):
+            seen, frontier = {end}, [end]
+            while frontier and not seen & nodes:
+                frontier = [n for vertex in frontier for n in untagged.get(vertex, ()) if n not in seen]
+                seen.update(frontier)
+            if not seen & nodes:
+                raise ValueError(f"{passage}: the end at {list(end)} does not reach a Marnet vertex")
     return result
 
 
@@ -188,17 +212,20 @@ def main() -> None:
             nodes.append([*key])
         return node_ids[key]
 
+    def add_segment(start: list[float], end: list[float], passage: str | None) -> None:
+        u = node_id(start)
+        v = node_id(end)
+        weight = round(distance_km(tuple(start), tuple(end)), 1)
+        edges.append([u, v, weight, passage])
+        edges.append([v, u, weight, passage])
+
     matched = [0] * len(PASSAGE_STRETCHES)
     for source in (load(args.segments, "segments"), load(args.marnet, "marnet")):
         for feature in source["features"]:
             passage = feature.get("properties", {}).get("passage")
             for line in lines(feature):
                 for start, end, segment_passage in zip(line, line[1:], stretch_passages(line, passage, matched)):
-                    u = node_id(start)
-                    v = node_id(end)
-                    weight = round(distance_km(tuple(start), tuple(end)), 1)
-                    edges.append([u, v, weight, segment_passage])
-                    edges.append([v, u, weight, segment_passage])
+                    add_segment(start, end, segment_passage)
 
     for stretch, count in zip(PASSAGE_STRETCHES, matched):
         if count != 1:
@@ -207,11 +234,7 @@ def main() -> None:
     # Added after every searoute-py line, so the existing nodes and edges keep their positions in the file.
     for path, passage in eurostat_paths(load_eurostat(args.eurostat), set(node_ids)):
         for start, end in zip(path, path[1:]):
-            u = node_id(start)
-            v = node_id(end)
-            weight = round(distance_km(tuple(start), tuple(end)), 1)
-            edges.append([u, v, weight, passage])
-            edges.append([v, u, weight, passage])
+            add_segment(start, end, passage)
 
     encoded = json.dumps({"nodes": nodes, "edges": edges}, separators=(",", ":")).encode()
     with args.output.open("wb") as raw:

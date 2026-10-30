@@ -25,7 +25,7 @@ The Kiel Canal, passage `kiel`, was added on 30 October 2026. searoute-py has no
 
 The added paths contribute 40 nodes and 84 directed edges: 12 tagged `kiel`, and 72 untagged covering 198.7 km. The script fails if a path leaves Eurostat's segments, if the canal path is not the whole of the one `kiel` line, or if a join is not a Marnet vertex within 5 km. The paths are appended after every searoute-py line, so the first 9,708 nodes and 31,950 directed edges are those of the previous embedded file, SHA-256 `7cb0ea865b4e080abf6caa8e28baef2146b4a644a37dad71fa80d001f4c9a074`, unchanged and in the same order. Eurostat's coordinates are copied exactly, including binary rounding artefacts such as 8.524999999999999.
 
-Brunsbüttel, Holtenau, Kiel, Laboe, Rendsburg, Eckernförde, Schleswig, Kappeln, Husum, Tönning, Büsum and Cuxhaven now snap to an added vertex. Rendsburg is the one that lies on the canal itself.
+Brunsbüttel, Holtenau, Kiel, Laboe, Rendsburg, Eckernförde, Schleswig, Kappeln, Husum, Tönning, Büsum and Cuxhaven now snap to an added vertex. Rendsburg is the one that lies on the canal itself. Among UN/LOCODE sea ports, which movements can name, eight snap to the canal: Achterwehr, Audorf, Borgstedt, Budelsdorf, Obereiderhafen and Osterronfeld on or beside it, and Eiderdeich and Pahlhude on the Eider. They have no sea route with it closed.
 
 The searoute-py project credits [Eurostat SeaRoute](https://github.com/eurostat/searoute) as the origin of the maritime network. Eurostat describes that network as based on the Oak Ridge National Labs CTA global shipping lane network, enriched around European coasts with AIS-derived lines.
 
