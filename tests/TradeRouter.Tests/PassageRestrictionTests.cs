@@ -13,6 +13,7 @@ public class PassageRestrictionTests
     [InlineData(Passage.SouthAfrica, "Cape of Good Hope")]
     [InlineData(Passage.Chili, "Magellan Strait")]
     [InlineData(Passage.VolgaDon, "Volga-Don Canal")]
+    [InlineData(Passage.Kiel, "Kiel Canal")]
     public void DisplayName_UsesRecognizableGeographicNames(string passage, string expected)
     {
         Passage.GetDisplayName(passage).Should().Be(expected);
@@ -200,6 +201,82 @@ public class PassageRestrictionTests
         open.Properties.TraversedPassages.Should().BeEmpty();
         closed.Geometry.Should().NotBeNull();
         closed.Properties.Length.Should().Be(open.Properties.Length);
+    }
+
+    [Theory]
+    [InlineData("DEHAM", "DKFRC", 350, 450, 956.3)] // Hamburg to Fredericia
+    [InlineData("DEHAM", "PLSZZ", 450, 650, 1177.8)] // Hamburg to Szczecin
+    public void Kiel_IsOpenByDefaultAndShortensElbeToBalticRoutes(string origin, string destination, double minKm, double maxKm, double skagenKm)
+    {
+        var open = TradeRoutes.Calculate(origin, destination, new TradeRouterOptions { ReturnPassages = true });
+        var closed = TradeRoutes.Calculate(origin, destination, new TradeRouterOptions
+        {
+            Restrictions = [Passage.Kiel],
+            ReturnPassages = true
+        });
+
+        new TradeRouterOptions().GetClosedPassages().Should().NotContain(Passage.Kiel);
+        open.Properties.TraversedPassages.Should().BeEquivalentTo([Passage.Kiel]);
+        open.Properties.Length.Should().BeInRange(minKm, maxKm);
+        open.Geometry!.Positions.Max(position => position[1]).Should().BeLessThan(56.0);
+
+        // Closed, the route goes back round Skagen, at 57.7 N, with its 2.6.1 length.
+        closed.Properties.TraversedPassages.Should().BeEmpty();
+        closed.Properties.Length.Should().BeApproximately(skagenKm, 0.1);
+        closed.Geometry!.Positions.Max(position => position[1]).Should().BeGreaterThan(57.5);
+    }
+
+    [Theory]
+    [InlineData("NLRTM", "SGSIN", 15521.4)] // Rotterdam to Singapore
+    [InlineData("DEHAM", "USNYC", 6479.9)] // Hamburg to New York
+    [InlineData("DEHAM", "GBFXT", 688.0)] // Hamburg to Felixstowe
+    [InlineData("DEHAM", "NLRTM", 574.9)] // Hamburg to Rotterdam
+    [InlineData("DEHAM", "NOBGO", 1010.3)] // Hamburg to Bergen
+    [InlineData("PLGDN", "FIHEL", 791.7)] // Gdansk to Helsinki
+    [InlineData("DKAAR", "SESTO", 1007.3)] // Aarhus to Stockholm
+    [InlineData("SEGOT", "NOOSL", 278.7)] // Gothenburg to Oslo
+    public void Kiel_LeavesRoutesThatDoNotUseItUnchanged(string origin, string destination, double expectedKm)
+    {
+        var open = TradeRoutes.Calculate(origin, destination, new TradeRouterOptions { ReturnPassages = true });
+        var closed = TradeRoutes.Calculate(origin, destination, new TradeRouterOptions
+        {
+            Restrictions = [Passage.Kiel],
+            ReturnPassages = true
+        });
+
+        open.Properties.TraversedPassages.Should().NotContain(Passage.Kiel);
+        open.Properties.Length.Should().BeApproximately(expectedKm, 0.1);
+        closed.Properties.Length.Should().Be(open.Properties.Length);
+    }
+
+    [Theory]
+    [InlineData("DEBRB")] // Brunsbuettel, at the Elbe end
+    [InlineData("DEKEL")] // Kiel, at the Baltic end
+    [InlineData("DEHUS")] // Husum, on the North Sea
+    [InlineData("DETOE")] // Toenning, on the North Sea
+    [InlineData("DEECK")] // Eckernfoerde, on the Baltic
+    [InlineData("DESLS")] // Schleswig, on the Baltic
+    public void Kiel_Closed_KeepsPortsBesideTheCanalOnTheirOwnSeas(string port)
+    {
+        var options = new TradeRouterOptions { Restrictions = [Passage.Kiel], ReturnPassages = true };
+
+        var toRotterdam = TradeRoutes.Calculate(port, "NLRTM", options);
+        var toGdansk = TradeRoutes.Calculate(port, "PLGDN", options);
+
+        toRotterdam.Geometry.Should().NotBeNull();
+        toGdansk.Geometry.Should().NotBeNull();
+        toRotterdam.Properties.TraversedPassages.Should().BeEmpty();
+        toGdansk.Properties.TraversedPassages.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Kiel_Closed_LeavesRendsburgOnTheCanalWithoutARoute()
+    {
+        var open = TradeRoutes.Calculate("DEREN", "NLRTM", new TradeRouterOptions { ReturnPassages = true });
+        var closed = TradeRoutes.Calculate("DEREN", "NLRTM", new TradeRouterOptions { Restrictions = [Passage.Kiel] });
+
+        open.Properties.TraversedPassages.Should().BeEquivalentTo([Passage.Kiel]);
+        closed.Geometry.Should().BeNull();
     }
 
     private static Coordinate At(string code) => TradeRoutes.Locate(code).Coordinate;
