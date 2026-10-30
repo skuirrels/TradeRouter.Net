@@ -47,7 +47,9 @@ public class RailSupplementTests
             var record = TradeRouterEngine.Default.UnLocodes.GetByCode(entry.Code);
             record.Should().NotBeNull($"{entry.Code} must be a UN/LOCODE");
             record!.Name.Should().Be(entry.Name, $"{entry.Code} must name its UN/LOCODE record");
-            record.Coordinate.Should().NotBeNull($"{entry.Code} must resolve to a position for rail legs");
+            // Beaumont (USBPT) has no UN/LOCODE coordinate and resolves from the port list.
+            FluentActions.Invoking(() => TradeRoutes.Locate(entry.Code))
+                .Should().NotThrow($"{entry.Code} must resolve to a position for rail legs");
             entry.Source.Should().Contain("https://", $"{entry.Code} must cite a source");
         }
     }
@@ -93,5 +95,53 @@ public class RailSupplementTests
         rail.Feature.Properties.DistanceBasis.Should().Be("rail_network");
         rail.Feature.Properties.Railroads.Should().Contain("CN");
         rail.Length.Should().BeInRange(850.0, 1_000.0);
+    }
+
+    [Theory]
+    [InlineData("USJOT", "USLAX")] // Chicago-area ramp to the Los Angeles ports.
+    [InlineData("USCHS", "USATL")] // Port of Charleston inland.
+    [InlineData("USSLC", "USOAK")]
+    [InlineData("USEZA", "USCHI")] // Port Elizabeth on-dock rail to Chicago.
+    [InlineData("USMIA", "USJAX")] // FEC from PortMiami.
+    [InlineData("USSAT", "USLRD")]
+    [InlineData("USPIT", "USCMH")]
+    public void Movement_SupplementedUsRampsRouteOnTheRailNetworkByCode(string origin, string destination)
+    {
+        var plan = MovementPlan
+            .From(Waypoint.Station(origin))
+            .ThenTo(Waypoint.Station(destination), TransportMode.Rail);
+
+        var leg = TradeRoutes.CalculateMovement(plan).Legs.Single();
+
+        leg.Feature.Properties.DistanceBasis.Should().Be("rail_network");
+        leg.Feature.Properties.DistanceWarning.Should().BeNull();
+        leg.Length.Should().BeGreaterThan(leg.Feature.Properties.StraightLineLength!.Value);
+    }
+
+    [Fact]
+    public void Movement_AnchorageHasNoRailLinkToTheLower48()
+    {
+        var plan = MovementPlan
+            .From(Waypoint.Station("USANC"))
+            .ThenTo(Waypoint.Station("USCHI"), TransportMode.Rail);
+
+        var leg = TradeRoutes.CalculateMovement(plan).Legs.Single();
+
+        leg.Feature.Properties.DistanceBasis.Should().NotBe("rail_network");
+        leg.Feature.Properties.DistanceWarning.Should().Contain("No connected main line");
+    }
+
+    [Theory]
+    [InlineData("USBNA")] // Nashville: no source names a container terminal.
+    [InlineData("USBHM")] // Birmingham: the NS terminal at McCalla is 31 km out.
+    [InlineData("USTUL")] // Tulsa: only the bulk Port of Catoosa, 24 km out.
+    public void Movement_UnsourcedUsMarketsStillNeedADeclaredRailFunction(string code)
+    {
+        var plan = MovementPlan
+            .From(Waypoint.Station("USCHI"))
+            .ThenTo(Waypoint.Station(code), TransportMode.Rail);
+
+        FluentActions.Invoking(() => TradeRoutes.CalculateMovement(plan))
+            .Should().Throw<ArgumentException>().WithMessage("*AdditionalLocationFunctions*");
     }
 }

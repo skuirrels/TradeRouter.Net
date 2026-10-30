@@ -15,6 +15,10 @@ All notable changes to TradeRouter.Net are recorded here. The format follows [Ke
 - Rail legs report `rail_terminal_hours`, `rail_interchanges`, `rail_interchange_hours`, `border_crossings` and `border_hours`, and movements report `total_rail_terminal_hours`, `total_rail_interchange_hours` and `total_border_hours`. The same figures are on `LegResult` and `MovementResult`, and the text summary names them when a request sets them.
 - Interchanges are estimated by `RailServiceAllowance.CountClassIInterchanges` as the number of Class I railroads owning at least 1,000 km of a routed leg, less one, because the rail network names track owners rather than train operators. `MovementRequest.RailInterchangeCounts` sets the count for a leg when it is known, including great-circle and supplied rail legs. Border crossings are counted from the UN/LOCODE country of each end.
 
+### Rail terminals
+
+- 44 more US codes are rail terminals in the rail supplement, so they can be named as stations and joined by rail legs without declaring `AdditionalLocationFunctions`. UNECE records no rail function for them, and a probe of 81 major US rail markets found 54 rejected. Each entry cites a page naming the terminal, mostly the Norfolk Southern, BNSF, CN and Union Pacific terminal lists. They include Joliet, Portland, Stockton, Lathrop, Charleston, Jacksonville, Mobile, Columbus, Philadelphia, Worcester, Charlotte, Greer, Salt Lake City, Phoenix, Reno, Saint Paul, Omaha, Indianapolis, Cincinnati, Louisville, San Antonio, Pittsburgh and Elizabeth. Albuquerque, Birmingham, Boston, Nashville, Orlando, Tampa and Tulsa still need `AdditionalLocationFunctions`, because no source documents a terminal within 25 km.
+
 ## [2.5.0] - 2026-10-30
 
 ### Location data
