@@ -920,7 +920,10 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
 
         // The port list has positions tuned to the lane network, so it wins when UN/LOCODE agrees on the name.
         // When the names disagree (the port list's CNSHG is Sanshan, UN/LOCODE's is Shanghai Pt) UN/LOCODE wins.
-        if (port != null && (unLocode == null || NamesAgree(port.Name, unLocode.Name)))
+        // It also wins when the port list puts a same-named place far from the UN/LOCODE position: that is a
+        // namesake filed under the code, such as the port list's USPIT, Pilottown in Louisiana, not Pittsburgh.
+        if (port != null && (unLocode == null || NamesAgree(port.Name, unLocode.Name))
+            && (unLocode?.Coordinate is not { } listed || Haversine.DistanceKm(port.Coordinate, listed) <= PortListNamesakeKm))
             return new ResolvedLocation(code, port.Name, port.Coordinate, port, "ports", unLocode?.Functions ?? LocationFunctions.SeaPort);
 
         if (unLocode?.Coordinate is { } position)
@@ -937,6 +940,13 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
             : $"Location '{code}' is in neither the embedded port list nor the UN/LOCODE list.";
         throw new ArgumentException($"{known} Add its coordinate to MovementRequest.Coordinates or supply an ILocationResolver.");
     }
+
+    /// <summary>
+    /// How far a same-named port-list position may lie from the code's UN/LOCODE position and still be taken as
+    /// the same place. A harbour can sit some way from the town UN/LOCODE places, as Cabo Negro (CLCNX) does at
+    /// 49 km, but a port-list entry further away than this is a namesake filed under the code.
+    /// </summary>
+    private const double PortListNamesakeKm = 50.0;
 
     private static bool NamesAgree(string portName, string unLocodeName)
     {
