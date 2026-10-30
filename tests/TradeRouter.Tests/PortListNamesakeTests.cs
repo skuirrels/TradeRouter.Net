@@ -51,8 +51,8 @@ public class PortListNamesakeTests
     }
 
     [Theory]
-    [InlineData("USLBE", "Latrobe", "Laguna Beach")]
-    [InlineData("USMDN", "Madison", "Mandan")]
+    [InlineData("USAAB", "Anamosa", "Bell Bay")]
+    [InlineData("USLIL", "Lakeville", "Lilesville")]
     [InlineData("CASKE", "Saint-Anne-de-Kent", "Sherbrooke")]
     public void Locate_RejectsAPortListNamesakeWhenUnLocodeHasNoPosition(string code, string unLocodeName, string portListName)
     {
@@ -64,7 +64,7 @@ public class PortListNamesakeTests
 
     [Theory]
     [InlineData("FIHEL")] // Helsinki, filed by UN/LOCODE as Helsingfors (Helsinki).
-    [InlineData("CNHRB")] // Haerbin and Harbin Taiping International Apt.
+    [InlineData("RUPRN")] // Poronaysk and Poronaisk.
     [InlineData("RUNIA")] // Nikolaevsk on Amur and Nikolayevsk-na-Amure.
     [InlineData("JPSGM")] // Shiogama and Sendaishiogama.
     [InlineData("SNMBA")] // M'Bao Oil Terminal and M'bao Terminal.
