@@ -105,7 +105,18 @@ public class RailSupplementTests
     [InlineData("USMIA", "USJAX")] // FEC from PortMiami.
     [InlineData("USSAT", "USLRD")]
     [InlineData("USPIT", "USCMH")]
-    public void Movement_SupplementedUsRampsRouteOnTheRailNetworkByCode(string origin, string destination)
+    [InlineData("USEWI", "USLAX")] // BNSF Logistics Park Chicago.
+    [InlineData("USNTI", "USOAK")] // UP Global 2.
+    [InlineData("USEEU", "USCHI")] // BNSF Logistics Park Kansas City.
+    [InlineData("USV7X", "USCHI")] // NS Croxton.
+    [InlineData("USMQM", "USLAX")] // UP Marion, across the river from Memphis.
+    [InlineData("USSXT", "USLAX")] // UP Santa Teresa.
+    [InlineData("CABRP", "CAMTR")] // CN Brampton.
+    [InlineData("CAEDM", "CAPRR")]
+    [InlineData("CAREG", "CAWNP")]
+    [InlineData("CADEL", "CATOR")] // Deltaport on-dock rail.
+    [InlineData("CAMNT", "CAHAL")]
+    public void Movement_SupplementedRampsRouteOnTheRailNetworkByCode(string origin, string destination)
     {
         var plan = MovementPlan
             .From(Waypoint.Station(origin))
@@ -135,6 +146,7 @@ public class RailSupplementTests
     [InlineData("USBNA")] // Nashville: no source names a container terminal.
     [InlineData("USBHM")] // Birmingham: the NS terminal at McCalla is 31 km out.
     [InlineData("USTUL")] // Tulsa: only the bulk Port of Catoosa, 24 km out.
+    [InlineData("USRCX")] // Rochelle: UP idled Global III in 2019.
     public void Movement_UnsourcedUsMarketsStillNeedADeclaredRailFunction(string code)
     {
         var plan = MovementPlan
