@@ -7,7 +7,7 @@
     <LangVersion>latest</LangVersion>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <PackageId>TradeRouter.Net</PackageId>
-    <Version>2.6.1</Version>
+    <Version>2.7.0</Version>
     <Authors>Tyrone Omidi</Authors>
     <Copyright>Copyright 2026 Tyrone Omidi</Copyright>
     <Description>High-performance .NET maritime shortest-path routing library on the Marnet network from searoute-py 1.6.0, derived from Eurostat SeaRoute, with North American rail routing on the BTS North American Rail Network.</Description>
