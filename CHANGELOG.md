@@ -2,7 +2,7 @@
 
 All notable changes to TradeRouter.Net are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.8.0] - 2026-10-30
 
 ### Location data
 
@@ -134,6 +134,7 @@ First release on nuget.org.
 - All data is embedded as compressed JSON. A symbols package with Source Link ships alongside.
 - Releases are published from GitHub Actions through nuget.org Trusted Publishing.
 
+[2.8.0]: https://github.com/skuirrels/TradeRouter.Net/releases/tag/v2.8.0
 [2.7.0]: https://github.com/skuirrels/TradeRouter.Net/releases/tag/v2.7.0
 [2.6.1]: https://github.com/skuirrels/TradeRouter.Net/releases/tag/v2.6.1
 [2.6.0]: https://github.com/skuirrels/TradeRouter.Net/releases/tag/v2.6.0
