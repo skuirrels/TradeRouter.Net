@@ -9,10 +9,9 @@ namespace TradeRouter.Caching;
 /// <c>Unavailable</c> results never.
 /// </summary>
 /// <remarks>
-/// Google Maps Platform terms do not allow Routes API distances, durations or geometry to be cached, so the provider
-/// refuses to wrap <see cref="GoogleRoutesRoadRouteProvider"/> and never stores a result whose source is
-/// <see cref="GoogleRoutesRoadRouteProvider.SourceName"/>. Concurrent requests for the same uncached leg each call the
-/// wrapped provider.
+/// The provider caches whatever the wrapped provider returns, so check that provider's terms allow it: Google Maps
+/// Platform terms do not allow Routes API distances, durations or geometry from <see cref="GoogleRoutesRoadRouteProvider"/>
+/// to be cached. Concurrent requests for the same uncached leg each call the wrapped provider.
 /// </remarks>
 public sealed class CachingRoadRouteProvider : IRoadRouteProvider
 {
@@ -30,13 +29,6 @@ public sealed class CachingRoadRouteProvider : IRoadRouteProvider
         ArgumentNullException.ThrowIfNull(inner);
         ArgumentNullException.ThrowIfNull(cache);
         ArgumentNullException.ThrowIfNull(options);
-        if (inner is GoogleRoutesRoadRouteProvider)
-        {
-            throw new ArgumentException(
-                "Google Maps Platform terms do not allow Routes API results to be cached.",
-                nameof(inner));
-        }
-
         RoadRouteCacheKey.ValidatePartition(options.Partition);
         ValidateTimeToLive(options.TimeToLive, nameof(options.TimeToLive));
         if (options.NegativeTimeToLive is { } negative)
@@ -92,18 +84,12 @@ public sealed class CachingRoadRouteProvider : IRoadRouteProvider
         return result;
     }
 
-    private TimeSpan? TimeToLiveFor(RoadRouteResult result)
+    private TimeSpan? TimeToLiveFor(RoadRouteResult result) => result.Status switch
     {
-        if (string.Equals(result.Source, GoogleRoutesRoadRouteProvider.SourceName, StringComparison.Ordinal))
-            return null;
-
-        return result.Status switch
-        {
-            RoadRouteStatus.Success when result.DistanceKm is not null => _options.TimeToLive,
-            RoadRouteStatus.NoRoute or RoadRouteStatus.OutsideCoverage => _options.NegativeTimeToLive,
-            _ => null
-        };
-    }
+        RoadRouteStatus.Success when result.DistanceKm is not null => _options.TimeToLive,
+        RoadRouteStatus.NoRoute or RoadRouteStatus.OutsideCoverage => _options.NegativeTimeToLive,
+        _ => null
+    };
 
     // A stored success must pass the checks the engine applies to a provider's result, so a bad entry is routed
     // again rather than failing the movement.

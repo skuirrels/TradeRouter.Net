@@ -1,4 +1,3 @@
-using System.Net;
 using System.Text;
 using AwesomeAssertions;
 using Microsoft.Extensions.Caching.Distributed;
@@ -107,38 +106,6 @@ public class RoadRouteCachingTests
 
         result.Geometry.Should().NotBeNull("the provider's own result is returned unchanged");
         store.Writes.Should().ContainSingle().Which.Result.Geometry.Should().BeNull();
-    }
-
-    [Fact]
-    public void Constructor_RefusesToWrapGoogleRoutes()
-    {
-        var google = new GoogleRoutesRoadRouteProvider(new HttpClient(), "test-key-not-real");
-
-        var act = () => new CachingRoadRouteProvider(google, new RecordingStore(), Options());
-
-        act.Should().Throw<ArgumentException>().WithMessage("*Google Maps Platform terms*");
-    }
-
-    [Fact]
-    public async Task RouteAsync_NeverStoresGoogleRoutesResultsReachedThroughAnotherProvider()
-    {
-        const string json = """{"routes":[{"distanceMeters":157000,"duration":"7200s","polyline":{"geoJsonLinestring":{"type":"LineString","coordinates":[[0,0],[1,1]]}}}]}""";
-        int calls = 0;
-        using var client = new HttpClient(new StubHandler(() =>
-        {
-            calls++;
-            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(json, Encoding.UTF8, "application/json") };
-        }));
-        var google = new GoogleRoutesRoadRouteProvider(client, "test-key-not-real");
-        var store = new RecordingStore();
-        var provider = CreateProvider(new PassThroughProvider(google), store);
-
-        var result = await provider.RouteAsync(CreateRequest());
-        await provider.RouteAsync(CreateRequest());
-
-        result.Source.Should().Be(GoogleRoutesRoadRouteProvider.SourceName);
-        store.Writes.Should().BeEmpty();
-        calls.Should().Be(2);
     }
 
     [Fact]
@@ -438,12 +405,6 @@ public class RoadRouteCachingTests
         }
     }
 
-    private sealed class PassThroughProvider(IRoadRouteProvider inner) : IRoadRouteProvider
-    {
-        public ValueTask<RoadRouteResult> RouteAsync(RoadRouteRequest request, CancellationToken cancellationToken = default) =>
-            inner.RouteAsync(request, cancellationToken);
-    }
-
     private sealed class RecordingStore : IRoadRouteCache
     {
         public RoadRouteResult? Stored { get; init; }
@@ -497,11 +458,5 @@ public class RoadRouteCachingTests
         public void Remove(string key) => _inner.Remove(key);
 
         public Task RemoveAsync(string key, CancellationToken token = default) => _inner.RemoveAsync(key, token);
-    }
-
-    private sealed class StubHandler(Func<HttpResponseMessage> respond) : HttpMessageHandler
-    {
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
-            Task.FromResult(respond());
     }
 }

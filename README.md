@@ -465,7 +465,7 @@ Each application chooses its own road-network provider by setting `MovementReque
 | `GoogleRoutesRoadRouteProvider` | Google's global road network | Google Maps Platform Routes API | Per request, after a monthly free allowance | Google Maps Platform Terms: limited caching, Google Map or attribution when displayed |
 | Your own `IRoadRouteProvider` | Any | Any | Any | The provider's own terms |
 
-Any provider except Google Routes can be wrapped in a cache; see [Caching road routes](#caching-road-routes).
+Any provider can be wrapped in a cache, subject to its terms; see [Caching road routes](#caching-road-routes).
 
 #### OSRM
 
@@ -657,7 +657,7 @@ Implement `IRoadRouteCache` instead to keep results somewhere else, such as a da
 | `CacheGeometry` | Whether route geometry is stored, true by default. Without it entries are much smaller, but legs served from the cache are drawn as straight lines. |
 | `OnCacheError` | Called when the store throws or returns a result that fails the engine's checks. The leg is then routed by the wrapped provider, so a store outage costs provider calls rather than failing movements. Exceptions from the callback are ignored. |
 
-The Google Maps Platform Service Specific Terms for billing accounts outside the European Economic Area allow only latitude and longitude values from the Routes API to be cached, for up to 30 days, so distances, durations and geometry cannot be; billing accounts in the EEA have their own [EEA terms](https://cloud.google.com/terms/maps-platform/eea/maps-service-terms). `CachingRoadRouteProvider` refuses to wrap `GoogleRoutesRoadRouteProvider` and never stores a result whose source is `GoogleRoutesRoadRouteProvider.SourceName`, `google-routes`. Check the terms of any other provider before choosing a time to live. Concurrent requests for the same uncached leg each call the provider.
+The Google Maps Platform Service Specific Terms for billing accounts outside the European Economic Area allow only latitude and longitude values from the Routes API to be cached, for up to 30 days, so distances, durations and geometry cannot be; billing accounts in the EEA have their own [EEA terms](https://cloud.google.com/terms/maps-platform/eea/maps-service-terms). `CachingRoadRouteProvider` caches whatever the wrapped provider returns and does not check where a result came from, so do not wrap `GoogleRoutesRoadRouteProvider` in it, and check the terms of any other provider before choosing a time to live. Concurrent requests for the same uncached leg each call the provider.
 
 #### Fallback and errors
 

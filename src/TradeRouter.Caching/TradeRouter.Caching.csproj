@@ -18,7 +18,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\TradeRouter\TradeRouter.csproj" />
-    <InternalsVisibleTo Include="TradeRouter.Tests" />
     <None Include="README.md" Pack="true" PackagePath="\" />
     <None Include="..\..\LICENSE" Pack="true" PackagePath="\" />
   </ItemGroup>
