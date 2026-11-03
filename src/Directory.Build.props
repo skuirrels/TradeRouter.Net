@@ -4,7 +4,7 @@
 
   <!-- TradeRouter.Net and TradeRouter.Net.Caching are released together under one version and one tag. -->
   <PropertyGroup>
-    <Version>2.8.0</Version>
+    <Version>2.9.0</Version>
     <Authors>Tyrone Omidi</Authors>
     <Copyright>Copyright 2026 Tyrone Omidi</Copyright>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
