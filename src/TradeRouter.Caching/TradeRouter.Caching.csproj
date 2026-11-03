@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <PackageId>TradeRouter.Net.Caching</PackageId>
+    <Description>Caching for TradeRouter.Net road-route providers, stored through any IDistributedCache such as Redis, SQL Server or PostgreSQL, or through your own store.</Description>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>routing;road;cache;osrm;distributed-cache;redis;postgresql</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Caching.Abstractions" Version="10.0.14" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TradeRouter\TradeRouter.csproj" />
+    <None Include="README.md" Pack="true" PackagePath="\" />
+    <None Include="..\..\LICENSE" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>

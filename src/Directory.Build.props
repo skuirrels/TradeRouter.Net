@@ -1,0 +1,23 @@
+<Project>
+
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <!-- TradeRouter.Net and TradeRouter.Net.Caching are released together under one version and one tag. -->
+  <PropertyGroup>
+    <Version>2.8.0</Version>
+    <Authors>Tyrone Omidi</Authors>
+    <Copyright>Copyright 2026 Tyrone Omidi</Copyright>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/skuirrels/TradeRouter.Net</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/skuirrels/TradeRouter.Net</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReleaseNotes>https://github.com/skuirrels/TradeRouter.Net/blob/main/CHANGELOG.md</PackageReleaseNotes>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(GITHUB_ACTIONS)' == 'true'">
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
+</Project>

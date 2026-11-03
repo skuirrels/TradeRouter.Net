@@ -213,6 +213,12 @@ Changes in each release are listed in the [changelog](https://github.com/skuirre
 
 Targets `net8.0` and `net10.0`. The package has no dependencies beyond the base class library and `System.Text.Json`.
 
+To cache road routes, also install the companion package, which depends on `Microsoft.Extensions.Caching.Abstractions`. Both packages share a version. See [Caching road routes](#caching-road-routes).
+
+```bash
+dotnet add package TradeRouter.Net.Caching
+```
+
 Breaking changes in 2.0.0: `GeoJsonFeature.Geometry` is now nullable `GeoJsonGeometry`; antimeridian routes use `GeoJsonMultiLineString`, and no-route features use null geometry. `Geometry.Coordinates` remains a flattened convenience view; use `Geometry.Positions` for explicit intent or cast a multi-line geometry to access its segments. Indexed custom graphs are immutable, and invalid algorithms, restrictions and physical values now throw instead of being ignored or producing invalid output.
 
 ## Usage
@@ -459,6 +465,8 @@ Each application chooses its own road-network provider by setting `MovementReque
 | `GoogleRoutesRoadRouteProvider` | Google's global road network | Google Maps Platform Routes API | Per request, after a monthly free allowance | Google Maps Platform Terms: limited caching, Google Map or attribution when displayed |
 | Your own `IRoadRouteProvider` | Any | Any | Any | The provider's own terms |
 
+Any provider can be wrapped in a cache, subject to its terms; see [Caching road routes](#caching-road-routes).
+
 #### OSRM
 
 For network distance, run OSRM separately and configure the included HTTP adapter. The library does not start, stop or download data for the OSRM service:
@@ -608,6 +616,48 @@ public sealed class MyRoadRouteProvider(HttpClient httpClient) : IRoadRouteProvi
 | `Unavailable` | Timeouts, transport failures or unusable responses | Falls back to the estimate with a `distance_warning` | Throws |
 
 `Source` is required and becomes `distance_source` in the output. `Geometry` is in traversal order with longitude first. Let the caller's cancellation propagate. One provider instance may be shared by concurrent movement calculations, so keep it thread-safe.
+
+#### Caching road routes
+
+The same pickup and delivery legs recur across many movements, so a cache can save most provider calls. The `TradeRouter.Net.Caching` package wraps any `IRoadRouteProvider` in `CachingRoadRouteProvider`, which looks each leg up in a store before calling the provider:
+
+```csharp
+var request = new MovementRequest
+{
+    Legs = plan.Legs.ToList(),
+    RoadRouteProvider = new CachingRoadRouteProvider(
+        new OsrmRoadRouteProvider(httpClient, osrmUri),
+        new DistributedRoadRouteCache(distributedCache),
+        new RoadRouteCacheOptions
+        {
+            Partition = configuration["RoadRouting:CachePartition"]!,
+            TimeToLive = TimeSpan.FromDays(configuration.GetValue<int>("RoadRouting:CacheDays"))
+        }),
+    RoadRoutingMode = RoadRoutingMode.PreferNetworkThenEstimate
+};
+```
+
+`DistributedRoadRouteCache` stores each result as one JSON entry in any `IDistributedCache`, with an absolute expiry, so the store deletes it when its time is up. The application registers the cache it already runs, and moving between stores changes only that registration:
+
+| Store | `IDistributedCache` package |
+| --- | --- |
+| Redis | `Microsoft.Extensions.Caching.StackExchangeRedis` |
+| SQL Server | `Microsoft.Extensions.Caching.SqlServer` |
+| PostgreSQL | a community package such as `Community.Microsoft.Extensions.Caching.PostgreSql` |
+| In memory, for tests | `MemoryDistributedCache` in `Microsoft.Extensions.Caching.Memory` |
+
+Implement `IRoadRouteCache` instead to keep results somewhere else, such as a database table you want to query. Its two methods get and set a `RoadRouteResult` by `RoadRouteCacheKey`, which carries the partition and the rounded endpoints as well as a single string `Value`.
+
+| Option | Meaning |
+| --- | --- |
+| `Partition` | Required. Names the provider, profile and road dataset, for example `osrm-driving-europe-261001`. Change it when any of them changes, so routes from the old setup are no longer served. |
+| `TimeToLive` | Required. How long a successful route is kept from the time it was fetched, up to `RoadRouteCacheOptions.MaximumTimeToLive` (100 years). Set it from the provider's terms. |
+| `NegativeTimeToLive` | How long `NoRoute` and `OutsideCoverage` results are kept. Null, the default, fetches them again every time. `Unavailable` results are never cached. |
+| `CoordinateDecimals` | Decimal places the endpoints are rounded to in the key, 5 by default (about a metre). Longitude is first normalised to [-180, 180). The leg sequence and the endpoints' codes and names are not part of the key. |
+| `CacheGeometry` | Whether route geometry is stored, true by default. Without it entries are much smaller, but legs served from the cache are drawn as straight lines. |
+| `OnCacheError` | Called when the store throws or returns a result that fails the engine's checks. The leg is then routed by the wrapped provider, so a store outage costs provider calls rather than failing movements. Exceptions from the callback are ignored. |
+
+The Google Maps Platform Service Specific Terms for billing accounts outside the European Economic Area allow only latitude and longitude values from the Routes API to be cached, for up to 30 days, so distances, durations and geometry cannot be; billing accounts in the EEA have their own [EEA terms](https://cloud.google.com/terms/maps-platform/eea/maps-service-terms). `CachingRoadRouteProvider` caches whatever the wrapped provider returns and does not check where a result came from, so do not wrap `GoogleRoutesRoadRouteProvider` in it, and check the terms of any other provider before choosing a time to live. Concurrent requests for the same uncached leg each call the provider.
 
 #### Fallback and errors
 
@@ -832,6 +882,7 @@ dotnet run -c Release --project benchmarks/TradeRouter.Benchmarks
 ```
 TradeRouter.Net.slnx
 Directory.Build.props
+src/Directory.Build.props   version and package metadata shared by both packages
 LICENSE                     Apache-2.0
 CLAUDE.md                   contributor rules for AI-assisted changes
 AGENTS.md                   engineering principles for contributors
@@ -854,9 +905,10 @@ src/
     TradeRouterEngine.cs    ITradeRouterEngine implementation
     TradeRouterOptions.cs   request options
     TradeRoutes.cs          static facade
+  TradeRouter.Caching/      road-route caching, packed as TradeRouter.Net.Caching
   TradeRouter.Sample/       console app exercising every entry point
 tests/
-  TradeRouter.Tests/        multi-target xunit suite: routing, passages, sea areas, ports, spatial, graph and movements
+  TradeRouter.Tests/        multi-target xunit suite: routing, passages, sea areas, ports, spatial, graph, movements and road-route caching
 benchmarks/
   TradeRouter.Benchmarks/   BenchmarkDotNet routing benchmarks
 docs/
@@ -890,10 +942,14 @@ To prepare or reuse the default local OSRM container and run the same sample:
 
 The sample contains seventeen numbered examples covering coordinates, port codes, restrictions, terminal resolution, area weighting, A*, blocked routes, GeoJSON output, the Shanghai to London walkthrough and multi-leg movements. Examples 13 and 14 compare the built-in road estimate with OSRM for the same Gatwick-to-Heathrow leg. Example 15 demonstrates OSRM-backed road legs in South Africa and the United Kingdom around a Johannesburg-to-Heathrow air leg. Examples 14 and 15 run when `TRADEROUTER_OSRM_URL` is set as shown in [Road routing](#road-routing); otherwise they report that they were skipped. Examples 16 and 17 repeat them with the Google Routes API when `TRADEROUTER_GOOGLE_MAPS_API_KEY` is set. Add `--geojson` to print a full feature.
 
-To produce the NuGet package locally:
+To produce the NuGet packages locally:
 
 ```bash
 dotnet pack src/TradeRouter/TradeRouter.csproj -c Release -m:1 -nr:false -o ./artifacts
+```
+
+```bash
+dotnet pack src/TradeRouter.Caching/TradeRouter.Caching.csproj -c Release -m:1 -nr:false -o ./artifacts
 ```
 
 ## Data

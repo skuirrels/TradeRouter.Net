@@ -17,10 +17,12 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="AwesomeAssertions" Version="9.6.0" />
+    <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="10.0.14" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\TradeRouter\TradeRouter.csproj" />
+    <ProjectReference Include="..\..\src\TradeRouter.Caching\TradeRouter.Caching.csproj" />
   </ItemGroup>
 
 </Project>
