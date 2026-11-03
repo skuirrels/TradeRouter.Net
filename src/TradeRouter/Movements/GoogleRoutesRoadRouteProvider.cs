@@ -7,8 +7,6 @@ namespace TradeRouter.Movements;
 
 /// <summary>
 /// Routes road legs through the Google Maps Platform Routes API <c>computeRoutes</c> method.
-/// Google's terms restrict caching of most Routes API content and require Routes results drawn on a map to be
-/// shown on a Google Map; callers are responsible for complying with them when they store or display results.
 /// </summary>
 public sealed class GoogleRoutesRoadRouteProvider : IRoadRouteProvider
 {

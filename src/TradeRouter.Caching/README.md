@@ -24,6 +24,4 @@ var request = new MovementRequest
 
 Successful routes are kept for `TimeToLive` from the time they were fetched. `NoRoute` and `OutsideCoverage` results are kept only when `NegativeTimeToLive` is set, and `Unavailable` results never. If the store fails, the leg is routed without it and `OnCacheError` is called.
 
-The provider caches whatever the wrapped provider returns, so check that provider's terms before choosing a time to live. Google Maps Platform terms do not allow Routes API results from `GoogleRoutesRoadRouteProvider` to be cached.
-
 See the [TradeRouter.Net README](https://github.com/skuirrels/TradeRouter.Net#caching-road-routes) for the full description.

@@ -459,13 +459,13 @@ request.RoadDistanceEstimator = new CircuityRoadDistanceEstimator(
 
 Each application chooses its own road-network provider by setting `MovementRequest.RoadRouteProvider`. The library includes two adapters, and any other service can be plugged in through `IRoadRouteProvider`:
 
-| Provider | Road data | Runs where | Cost | Result restrictions |
-| --- | --- | --- | --- | --- |
-| `OsrmRoadRouteProvider` | OpenStreetMap extract you load | Your own OSRM service | Your hosting | ODbL attribution and share-alike for derived databases |
-| `GoogleRoutesRoadRouteProvider` | Google's global road network | Google Maps Platform Routes API | Per request, after a monthly free allowance | Google Maps Platform Terms: limited caching, Google Map or attribution when displayed |
-| Your own `IRoadRouteProvider` | Any | Any | Any | The provider's own terms |
+| Provider | Road data | Runs where | Cost |
+| --- | --- | --- | --- |
+| `OsrmRoadRouteProvider` | OpenStreetMap extract you load | Your own OSRM service | Your hosting |
+| `GoogleRoutesRoadRouteProvider` | Google's global road network | Google Maps Platform Routes API | Per request, after a monthly free allowance |
+| Your own `IRoadRouteProvider` | Any | Any | Any |
 
-Any provider can be wrapped in a cache, subject to its terms; see [Caching road routes](#caching-road-routes).
+Any provider can be wrapped in a cache; see [Caching road routes](#caching-road-routes).
 
 #### OSRM
 
@@ -563,8 +563,6 @@ var movement = await TradeRouterEngine.Default.CalculateMovementAsync(request);
 Read the key from configuration or a secret store; never commit it. The key is sent only in the `X-Goog-Api-Key` header and never appears in result messages. In Google Cloud, restrict the key to the Routes API and to your servers.
 
 The adapter requests `DRIVE` routes without live traffic, asks only for distance, duration and geometry, and receives the geometry as a GeoJSON line. Those choices keep requests on Google's Compute Routes Essentials SKU. Other travel modes are accepted through the `travelMode` argument, but Google bills two-wheeler and large-vehicle routing at a higher SKU, and `TRUCK` needs vehicle attributes this adapter does not send. Google snaps endpoints to roads without a distance limit, so the adapter compares each endpoint with the start and end of the returned route and reports `OutsideCoverage` when either is more than `maximumSnapDistanceMeters` away, 10 km by default. Google does not version its road data, so `routing_data_version` is empty and the same request can return a different route later.
-
-Google's terms apply to every result from this adapter, and they differ from OpenStreetMap's. Google's [Routes API policies](https://developers.google.com/maps/documentation/routes/policies) restrict caching of most Routes API content, require Routes results drawn on a map to be shown on a Google Map, and require Google Maps attribution when a result is displayed without one. A movement's GeoJSON carries Google's route geometry, so do not store it long-term or draw it on another map provider's tiles. Read the [Google Maps Platform Terms](https://cloud.google.com/maps-platform/terms) before using the adapter in production.
 
 For prototyping, Google's [Maps Demo Key](https://developers.google.com/maps/demo-key) covers Compute Routes without a billing account. It is available only to personal Google accounts, has an unpublished daily limit and is not for production use. Production use needs a project with billing enabled.
 
@@ -758,7 +756,7 @@ var store = new DistributedRoadRouteCache(
     new MemoryDistributedCache(Options.Create(new MemoryDistributedCacheOptions())));
 ```
 
-The Google Maps Platform Service Specific Terms for billing accounts outside the European Economic Area allow only latitude and longitude values from the Routes API to be cached, for up to 30 days, so distances, durations and geometry cannot be; billing accounts in the EEA have their own [EEA terms](https://cloud.google.com/terms/maps-platform/eea/maps-service-terms). `CachingRoadRouteProvider` caches whatever the wrapped provider returns and does not check where a result came from, so do not wrap `GoogleRoutesRoadRouteProvider` in it, and check the terms of any other provider before choosing a time to live. Concurrent requests for the same uncached leg each call the provider.
+`CachingRoadRouteProvider` caches whatever the wrapped provider returns. Concurrent requests for the same uncached leg each call the provider.
 
 #### Fallback and errors
 

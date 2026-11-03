@@ -9,9 +9,8 @@ namespace TradeRouter.Caching;
 /// <c>Unavailable</c> results never.
 /// </summary>
 /// <remarks>
-/// The provider caches whatever the wrapped provider returns, so check that provider's terms allow it: Google Maps
-/// Platform terms do not allow Routes API distances, durations or geometry from <see cref="GoogleRoutesRoadRouteProvider"/>
-/// to be cached. Concurrent requests for the same uncached leg each call the wrapped provider.
+/// The provider caches whatever the wrapped provider returns. Concurrent requests for the same uncached leg each call
+/// the wrapped provider.
 /// </remarks>
 public sealed class CachingRoadRouteProvider : IRoadRouteProvider
 {

@@ -17,8 +17,7 @@ public sealed record RoadRouteCacheOptions
     public required string Partition { get; init; }
 
     /// <summary>
-    /// How long a successful route is kept from the time it was fetched. Set it from the provider's terms: some allow
-    /// caching only for a limited number of days, and some not at all. It must be positive and at most
+    /// How long a successful route is kept from the time it was fetched. It must be positive and at most
     /// <see cref="MaximumTimeToLive"/>.
     /// </summary>
     public required TimeSpan TimeToLive { get; init; }
