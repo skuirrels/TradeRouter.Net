@@ -524,7 +524,7 @@ TRADEROUTER_OSRM_PBF_URL=https://planet.openstreetmap.org/pbf/planet-latest.osm.
 
 See the Geofabrik pages for the [England](https://download.geofabrik.de/europe/united-kingdom/england.html) and [South Africa](https://download.geofabrik.de/africa/south-africa.html) extracts, and the OpenStreetMap [planet documentation](https://wiki.openstreetmap.org/wiki/Planet.osm). The runner never moves or deletes a downloaded PBF. `TRADEROUTER_OSRM_DATA_DIR`, `TRADEROUTER_OSRM_DATASET` and `TRADEROUTER_OSRM_PBF_URL` remain available when you deliberately want a different stored dataset.
 
-The script accepts `--geojson` and passes it to the sample. `TRADEROUTER_OSRM_IMAGE` and `TRADEROUTER_OSRM_CONTAINER` override the OSRM container defaults. `TRADEROUTER_OSMIUM_IMAGE` can name an existing Osmium image instead of building the included helper. `TRADEROUTER_OSRM_DATA_VERSION` optionally records an immutable provenance label; it does not select the dataset.
+The script accepts `--geojson` and passes it to the sample. `TRADEROUTER_OSRM_IMAGE` and `TRADEROUTER_OSRM_CONTAINER` override the OSRM container defaults. `TRADEROUTER_OSMIUM_IMAGE` can name an existing Osmium image instead of building the included helper. `TRADEROUTER_OSRM_DATA_VERSION` optionally records an immutable provenance label; it does not select the dataset. `TRADEROUTER_ROAD_CACHE_PARTITION` and `TRADEROUTER_ROAD_CACHE_DAYS` configure example 18's road-route cache, and default to `osrm-driving-` followed by the dataset name, and 30 days.
 
 Set `TRADEROUTER_OSRM_SAMPLE_REGIONS_FILE` to another tab-separated region file when the sample routes change. Each non-comment row contains an extract name, its download URL, an Osmium bounding box and a readiness-probe coordinate. `TRADEROUTER_OSRM_PROBE_COORDINATE` can override the probe. This keeps dataset coverage in configuration instead of embedding it in the runner.
 
@@ -538,6 +538,8 @@ dotnet run --project src/TradeRouter.Sample
 ```
 
 Example 13 always shows the built-in `EstimateOnly` result. Examples 14 and 15 use `OsrmRoadRouteProvider` and `RequireNetwork`, so they must return OSRM routes rather than silently fall back. Example 15 covers two continents: Cape Town to Johannesburg by road, Johannesburg to London Heathrow by air, and Heathrow to Guildford by road. When `TRADEROUTER_OSRM_URL` is not set, both OSRM examples are clearly reported as skipped and the rest of the sample still runs. `TRADEROUTER_OSRM_DATA_VERSION` is optional output provenance and may be omitted.
+
+Example 18 puts a [road-route cache](#caching-road-routes) in front of the same OSRM provider and calculates two movements that share the Gatwick-to-Heathrow pickup leg: Gatwick to Heathrow alone, then Gatwick to Heathrow by road, Heathrow to Johannesburg by air and Johannesburg to Cape Town by road. Three road legs take two OSRM calls, because the second movement's Gatwick-to-Heathrow leg is served from the cache. The store is the in-memory `IDistributedCache`, which lasts only for the run. The example needs `TRADEROUTER_ROAD_CACHE_PARTITION` and `TRADEROUTER_ROAD_CACHE_DAYS` as well as `TRADEROUTER_OSRM_URL`; `run-with-osrm.sh` sets them, and otherwise it reports that it was skipped.
 
 #### Google Routes API
 
@@ -656,6 +658,105 @@ Implement `IRoadRouteCache` instead to keep results somewhere else, such as a da
 | `CoordinateDecimals` | Decimal places the endpoints are rounded to in the key, 5 by default (about a metre). Longitude is first normalised to [-180, 180). The leg sequence and the endpoints' codes and names are not part of the key. |
 | `CacheGeometry` | Whether route geometry is stored, true by default. Without it entries are much smaller, but legs served from the cache are drawn as straight lines. |
 | `OnCacheError` | Called when the store throws or returns a result that fails the engine's checks. The leg is then routed by the wrapped provider, so a store outage costs provider calls rather than failing movements. Exceptions from the callback are ignored. |
+
+##### Example: a cached OSRM provider in an ASP.NET Core app
+
+Register the store and the cached provider once at startup. The provider is thread-safe, so one instance serves every request:
+
+```csharp
+using Microsoft.Extensions.Caching.Distributed;
+using TradeRouter;
+using TradeRouter.Caching;
+using TradeRouter.Movements;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// The store: Redis here, from Microsoft.Extensions.Caching.StackExchangeRedis.
+builder.Services.AddStackExchangeRedisCache(options =>
+    options.Configuration = builder.Configuration.GetConnectionString("Redis"));
+
+builder.Services.AddHttpClient("osrm", client => client.Timeout = TimeSpan.FromSeconds(5));
+
+builder.Services.AddSingleton<IRoadRouteProvider>(services =>
+{
+    var settings = builder.Configuration.GetSection("RoadRouting");
+    var logger = services.GetRequiredService<ILogger<CachingRoadRouteProvider>>();
+
+    return new CachingRoadRouteProvider(
+        new OsrmRoadRouteProvider(
+            services.GetRequiredService<IHttpClientFactory>().CreateClient("osrm"),
+            new Uri(settings["OsrmUrl"]!)),
+        new DistributedRoadRouteCache(services.GetRequiredService<IDistributedCache>()),
+        new RoadRouteCacheOptions
+        {
+            Partition = settings["CachePartition"]!,
+            TimeToLive = TimeSpan.FromDays(settings.GetValue<int>("CacheDays")),
+            OnCacheError = ex => logger.LogWarning(ex, "Road-route cache unavailable; routing without it.")
+        });
+});
+```
+
+The settings come from configuration, so the routing data and the cache policy can change without a code change:
+
+```json
+{
+  "ConnectionStrings": { "Redis": "localhost:6379" },
+  "RoadRouting": {
+    "OsrmUrl": "http://localhost:5000",
+    "CachePartition": "osrm-driving-europe-261001",
+    "CacheDays": 30
+  }
+}
+```
+
+Code that calculates movements takes the provider from dependency injection and sets it on each request:
+
+```csharp
+public sealed class MovementCalculator(ITradeRouterEngine engine, IRoadRouteProvider roadRoutes)
+{
+    public ValueTask<MovementResult> CalculateAsync(MovementPlan plan, CancellationToken cancellationToken) =>
+        engine.CalculateMovementAsync(new MovementRequest
+        {
+            Legs = plan.Legs.ToList(),
+            RoadRouteProvider = roadRoutes,
+            RoadRoutingMode = RoadRoutingMode.PreferNetworkThenEstimate
+        }, cancellationToken);
+}
+```
+
+Register the engine with `builder.Services.AddSingleton<ITradeRouterEngine>(TradeRouterEngine.Default);`. The first movement through a pickup or delivery leg calls OSRM, and later movements through the same leg are answered from Redis until `CacheDays` have passed. When you load a new OSM extract into OSRM, change `CachePartition` so the old routes are no longer served.
+
+To move to another store, replace only the `AddStackExchangeRedisCache` registration. For SQL Server, create the cache table once with `dotnet sql-cache create`, then:
+
+```csharp
+builder.Services.AddDistributedSqlServerCache(options =>
+{
+    options.ConnectionString = builder.Configuration.GetConnectionString("RouteCache");
+    options.SchemaName = "dbo";
+    options.TableName = "RoadRouteCache";
+});
+```
+
+For PostgreSQL, with `Community.Microsoft.Extensions.Caching.PostgreSql`:
+
+```csharp
+using Community.Microsoft.Extensions.Caching.PostgreSql;
+
+builder.Services.AddDistributedPostgreSqlCache(options =>
+{
+    options.ConnectionString = builder.Configuration.GetConnectionString("RouteCache");
+    options.SchemaName = "public";
+    options.TableName = "road_route_cache";
+    options.CreateInfrastructure = true;
+});
+```
+
+In tests, use the in-memory cache, so nothing outside the process is needed:
+
+```csharp
+var store = new DistributedRoadRouteCache(
+    new MemoryDistributedCache(Options.Create(new MemoryDistributedCacheOptions())));
+```
 
 The Google Maps Platform Service Specific Terms for billing accounts outside the European Economic Area allow only latitude and longitude values from the Routes API to be cached, for up to 30 days, so distances, durations and geometry cannot be; billing accounts in the EEA have their own [EEA terms](https://cloud.google.com/terms/maps-platform/eea/maps-service-terms). `CachingRoadRouteProvider` caches whatever the wrapped provider returns and does not check where a result came from, so do not wrap `GoogleRoutesRoadRouteProvider` in it, and check the terms of any other provider before choosing a time to live. Concurrent requests for the same uncached leg each call the provider.
 
@@ -940,7 +1041,7 @@ To prepare or reuse the default local OSRM container and run the same sample:
 ./src/TradeRouter.Sample/run-with-osrm.sh
 ```
 
-The sample contains seventeen numbered examples covering coordinates, port codes, restrictions, terminal resolution, area weighting, A*, blocked routes, GeoJSON output, the Shanghai to London walkthrough and multi-leg movements. Examples 13 and 14 compare the built-in road estimate with OSRM for the same Gatwick-to-Heathrow leg. Example 15 demonstrates OSRM-backed road legs in South Africa and the United Kingdom around a Johannesburg-to-Heathrow air leg. Examples 14 and 15 run when `TRADEROUTER_OSRM_URL` is set as shown in [Road routing](#road-routing); otherwise they report that they were skipped. Examples 16 and 17 repeat them with the Google Routes API when `TRADEROUTER_GOOGLE_MAPS_API_KEY` is set. Add `--geojson` to print a full feature.
+The sample contains eighteen numbered examples covering coordinates, port codes, restrictions, terminal resolution, area weighting, A*, blocked routes, GeoJSON output, the Shanghai to London walkthrough and multi-leg movements. Examples 13 and 14 compare the built-in road estimate with OSRM for the same Gatwick-to-Heathrow leg. Example 15 demonstrates OSRM-backed road legs in South Africa and the United Kingdom around a Johannesburg-to-Heathrow air leg. Examples 14 and 15 run when `TRADEROUTER_OSRM_URL` is set as shown in [Road routing](#road-routing); otherwise they report that they were skipped. Examples 16 and 17 repeat them with the Google Routes API when `TRADEROUTER_GOOGLE_MAPS_API_KEY` is set. Example 18 runs the OSRM provider through `CachingRoadRouteProvider` and shows a repeated road leg served from the cache. Add `--geojson` to print a full feature.
 
 To produce the NuGet packages locally:
 

@@ -1,5 +1,10 @@
 using System.Diagnostics;
+using System.Globalization;
+using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Options;
 using TradeRouter;
+using TradeRouter.Caching;
 using TradeRouter.Common;
 using TradeRouter.Movements;
 using TradeRouter.Passages;
@@ -156,7 +161,10 @@ var estimatedRoadRequest = new MovementRequest
 PrintMovementRequest("13. Gatwick to Heathrow using the built-in road estimate", estimatedRoadRequest);
 
 const string osrmUrlVariable = "TRADEROUTER_OSRM_URL";
+const string cachedOsrmTitle = "18. Two movements sharing the Gatwick to Heathrow leg through a road-route cache";
 string? osrmUrl = Environment.GetEnvironmentVariable(osrmUrlVariable);
+using var osrmHttpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+OsrmRoadRouteProvider? osrmRoadRouteProvider = null;
 if (string.IsNullOrWhiteSpace(osrmUrl))
 {
     string skippedOsrm = $"Skipped: set {osrmUrlVariable}=http://127.0.0.1:5000 after starting OSRM as shown in the README.";
@@ -172,8 +180,7 @@ else
     if (!Uri.TryCreate(osrmUrl, UriKind.Absolute, out var osrmBaseUri))
         throw new ArgumentException($"{osrmUrlVariable} must be an absolute HTTP or HTTPS URI. Received: {osrmUrl}");
 
-    using var osrmHttpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
-    var osrmRoadRouteProvider = new OsrmRoadRouteProvider(
+    osrmRoadRouteProvider = new OsrmRoadRouteProvider(
         osrmHttpClient,
         osrmBaseUri,
         dataVersion: Environment.GetEnvironmentVariable("TRADEROUTER_OSRM_DATA_VERSION"));
@@ -241,6 +248,63 @@ else
         googleCapeTownToGuildfordRequest);
 }
 
+// 18. A road-route cache in front of the OSRM provider from examples 14 and 15. The cache partition and how long routes are kept are deployment
+//     settings, so they come from the environment; run-with-osrm.sh sets both. The store here is the in-memory
+//     IDistributedCache, which lasts only for this run; an application registers Redis, SQL Server or PostgreSQL.
+const string cachePartitionVariable = "TRADEROUTER_ROAD_CACHE_PARTITION";
+const string cacheDaysVariable = "TRADEROUTER_ROAD_CACHE_DAYS";
+string? cachePartition = Environment.GetEnvironmentVariable(cachePartitionVariable);
+string? cacheDays = Environment.GetEnvironmentVariable(cacheDaysVariable);
+if (osrmRoadRouteProvider is null)
+{
+    Print(cachedOsrmTitle, $"Skipped: set {osrmUrlVariable} as for examples 14 and 15.");
+}
+else if (string.IsNullOrWhiteSpace(cachePartition) || string.IsNullOrWhiteSpace(cacheDays))
+{
+    Print(cachedOsrmTitle, $"Skipped: set {cachePartitionVariable} and {cacheDaysVariable}, or run run-with-osrm.sh, as shown in the README.");
+}
+else
+{
+    if (!int.TryParse(cacheDays, NumberStyles.None, CultureInfo.InvariantCulture, out int days) || days < 1)
+        throw new ArgumentException($"{cacheDaysVariable} must be a whole number of days of at least 1. Received: {cacheDays}");
+
+    var countedOsrm = new CountingRoadRouteProvider(osrmRoadRouteProvider);
+    var cachedOsrm = new CachingRoadRouteProvider(
+        countedOsrm,
+        new DistributedRoadRouteCache(new MemoryDistributedCache(Options.Create(new MemoryDistributedCacheOptions()))),
+        new RoadRouteCacheOptions { Partition = cachePartition, TimeToLive = TimeSpan.FromDays(days) });
+
+    // Gatwick to Heathrow by road, then the same pickup leg ahead of a flight to Johannesburg and a road leg
+    // to Cape Town. The second movement's Gatwick to Heathrow leg is served from the cache.
+    var heathrowOnly = await TradeRoutes.CalculateMovementAsync(new MovementRequest
+    {
+        Legs = roadPlan.Legs.ToList(),
+        CargoTonnes = 20.0,
+        RoadRouteProvider = cachedOsrm,
+        RoadRoutingMode = RoadRoutingMode.RequireNetwork
+    });
+    var onToCapeTown = await TradeRoutes.CalculateMovementAsync(new MovementRequest
+    {
+        Legs = MovementPlan
+            .From(Waypoint.Place("GBLGW"))
+            .PickupTo(Waypoint.Airport("GBLHR"), TransportMode.Road)
+            .ThenTo(Waypoint.Airport("ZAJNB"), TransportMode.Air)
+            .DeliverTo(Waypoint.Place("ZACPT"), TransportMode.Road)
+            .Legs.ToList(),
+        CargoTonnes = 20.0,
+        RoadRouteProvider = cachedOsrm,
+        RoadRoutingMode = RoadRoutingMode.RequireNetwork
+    });
+
+    int roadLegs = heathrowOnly.Legs.Concat(onToCapeTown.Legs).Count(leg => leg.Leg.Mode == TransportMode.Road);
+    Console.WriteLine();
+    Console.WriteLine(cachedOsrmTitle);
+    Console.WriteLine(onToCapeTown.ToText());
+    Console.WriteLine(
+        $"   {roadLegs} road legs across the two movements took {countedOsrm.Calls} OSRM calls; " +
+        $"Gatwick to Heathrow was {heathrowOnly.Legs[0].Length:N1} km both times, the second from cache partition {cachePartition}.");
+}
+
 static void PrintMovement(string title, MovementPlan plan, double tonnes = 20.0, double? teu = null)
 {
     // CO2e per leg uses GLEC well-to-wheel defaults per mode. With a TEU count, sea legs are charged per
@@ -287,4 +351,18 @@ static void Print(string title, string detail)
     Console.WriteLine();
     Console.WriteLine(title);
     Console.WriteLine("   " + detail);
+}
+
+// Counts the calls that reach the wrapped provider, so example 18 can show how many legs the cache answered.
+sealed class CountingRoadRouteProvider(IRoadRouteProvider inner) : IRoadRouteProvider
+{
+    private int _calls;
+
+    public int Calls => Volatile.Read(ref _calls);
+
+    public ValueTask<RoadRouteResult> RouteAsync(RoadRouteRequest request, CancellationToken cancellationToken = default)
+    {
+        Interlocked.Increment(ref _calls);
+        return inner.RouteAsync(request, cancellationToken);
+    }
 }

@@ -11,9 +11,13 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Consumers of the published package replace this with:
-         <PackageReference Include="TradeRouter.Net" Version="2.9.0" /> -->
+    <!-- Consumers of the published packages replace these with:
+         <PackageReference Include="TradeRouter.Net" Version="2.9.0" />
+         <PackageReference Include="TradeRouter.Net.Caching" Version="2.9.0" /> -->
     <ProjectReference Include="..\TradeRouter\TradeRouter.csproj" />
+    <ProjectReference Include="..\TradeRouter.Caching\TradeRouter.Caching.csproj" />
+    <!-- In-memory IDistributedCache for example 18; an application registers Redis, SQL Server or PostgreSQL instead. -->
+    <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="10.0.14" />
   </ItemGroup>
 
 </Project>

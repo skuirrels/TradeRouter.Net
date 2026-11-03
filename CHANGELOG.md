@@ -2,6 +2,13 @@
 
 All notable changes to TradeRouter.Net are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Documentation and sample
+
+- The README shows a cached OSRM provider in an ASP.NET Core app, with Redis, SQL Server, PostgreSQL and in-memory stores, its settings coming from configuration.
+- Sample example 18 sends two movements that share the Gatwick to Heathrow leg through `CachingRoadRouteProvider` in front of OSRM, and reports how many OSRM calls the cache saved. It needs `TRADEROUTER_OSRM_URL`, `TRADEROUTER_ROAD_CACHE_PARTITION` and `TRADEROUTER_ROAD_CACHE_DAYS`, which `run-with-osrm.sh` sets.
+
 ## [2.9.0] - 2026-11-03
 
 ### Road-route caching
