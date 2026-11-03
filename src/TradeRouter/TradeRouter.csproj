@@ -7,23 +7,9 @@
     <LangVersion>latest</LangVersion>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <PackageId>TradeRouter.Net</PackageId>
-    <Version>2.8.0</Version>
-    <Authors>Tyrone Omidi</Authors>
-    <Copyright>Copyright 2026 Tyrone Omidi</Copyright>
     <Description>High-performance .NET maritime shortest-path routing library on the Marnet network from searoute-py 1.6.0, derived from Eurostat SeaRoute, with North American rail routing on the BTS North American Rail Network.</Description>
-    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
-    <PackageProjectUrl>https://github.com/skuirrels/TradeRouter.Net</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/skuirrels/TradeRouter.Net</RepositoryUrl>
-    <RepositoryType>git</RepositoryType>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>https://github.com/skuirrels/TradeRouter.Net/blob/main/CHANGELOG.md</PackageReleaseNotes>
     <PackageTags>maritime;searoute;rail;routing;geospatial;ports;geojson;dijkstra;eurostat</PackageTags>
-    <IncludeSymbols>true</IncludeSymbols>
-    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(GITHUB_ACTIONS)' == 'true'">
-    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
   </PropertyGroup>
 
   <ItemGroup>

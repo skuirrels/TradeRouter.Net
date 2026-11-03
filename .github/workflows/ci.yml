@@ -33,10 +33,12 @@ jobs:
         run: dotnet test tests/TradeRouter.Tests/TradeRouter.Tests.csproj -c Release --no-build -m:1 -nr:false
 
       - name: Pack
-        run: dotnet pack src/TradeRouter/TradeRouter.csproj -c Release --no-build -m:1 -nr:false -o artifacts
+        run: |
+          dotnet pack src/TradeRouter/TradeRouter.csproj -c Release --no-build -m:1 -nr:false -o artifacts
+          dotnet pack src/TradeRouter.Caching/TradeRouter.Caching.csproj -c Release --no-build -m:1 -nr:false -o artifacts
 
       - uses: actions/upload-artifact@v7
         with:
-          name: TradeRouter.Net-package
+          name: TradeRouter.Net-packages
           path: artifacts/*.nupkg
           if-no-files-found: error

@@ -2,6 +2,16 @@
 
 All notable changes to TradeRouter.Net are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Road-route caching
+
+- New companion package `TradeRouter.Net.Caching`. `CachingRoadRouteProvider` wraps any `IRoadRouteProvider` and serves repeated road legs from a store, keyed on a caller-chosen partition and the endpoints rounded to `CoordinateDecimals`. Successful routes are kept for `TimeToLive` from the time they were fetched, `NoRoute` and `OutsideCoverage` results only when `NegativeTimeToLive` is set, and `Unavailable` results never. A store failure is reported to `OnCacheError` and the leg is routed without the cache.
+- `DistributedRoadRouteCache` stores results in any `IDistributedCache`, such as Redis, SQL Server or PostgreSQL, with an absolute expiry. Implement `IRoadRouteCache` to use another store.
+- Google Maps Platform terms do not allow Routes API results to be cached, so the caching provider refuses to wrap `GoogleRoutesRoadRouteProvider` and never stores a result whose source is `google-routes`.
+- `GoogleRoutesRoadRouteProvider.SourceName` is public, so callers can recognise Google results without repeating `google-routes`.
+- Both packages take their version from `src/Directory.Build.props` and are released together under one tag.
+
 ## [2.8.0] - 2026-10-30
 
 ### Location data

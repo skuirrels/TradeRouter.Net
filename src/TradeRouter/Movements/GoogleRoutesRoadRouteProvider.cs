@@ -15,7 +15,11 @@ public sealed class GoogleRoutesRoadRouteProvider : IRoadRouteProvider
     /// <summary>Base URI of the public Google Routes API.</summary>
     public static Uri DefaultBaseUri { get; } = new("https://routes.googleapis.com/");
 
-    private const string SourceName = "google-routes";
+    /// <summary>
+    /// <see cref="RoadRouteResult.Source"/> of every result from this provider, reported as <c>distance_source</c>.
+    /// </summary>
+    public const string SourceName = "google-routes";
+
     private const string FieldMask = "routes.distanceMeters,routes.duration,routes.polyline.geoJsonLinestring";
 
     private readonly HttpClient _httpClient;
