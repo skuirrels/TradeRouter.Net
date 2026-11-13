@@ -517,16 +517,58 @@ public class MovementTests
     {
         var f = EmissionFactors.GlecDefaults;
 
-        f.GramsPerTonneKm(TransportMode.Sea, 15000).Should().Be(7.17);
+        f.GramsPerTonneKm(TransportMode.Sea, 15000).Should().Be(7.34);
         f.GramsPerTonneKm(TransportMode.Road, 100).Should().Be(125.0);
         f.GramsPerTonneKm(TransportMode.Rail, 500).Should().Be(30.7);
-        f.GramsPerTonneKm(TransportMode.Air, 1499).Should().Be(1363.0);
-        f.GramsPerTonneKm(TransportMode.Air, 1500).Should().Be(788.0);
-        f.GramsPerTonneKm(TransportMode.Air, 1499, AirCargoService.Freighter).Should().Be(1516.0);
-        f.GramsPerTonneKm(TransportMode.Air, 9000, AirCargoService.Freighter).Should().Be(608.0);
-        f.GramsPerTonneKm(TransportMode.Air, 1499, AirCargoService.Belly).Should().Be(1239.0);
-        f.GramsPerTonneKm(TransportMode.Air, 9000, AirCargoService.Belly).Should().Be(936.0);
+        f.GramsPerTonneKm(TransportMode.Air, 1499).Should().Be(1413.0);
+        f.GramsPerTonneKm(TransportMode.Air, 1500).Should().Be(799.0);
+        f.GramsPerTonneKm(TransportMode.Air, 1499, AirCargoService.Freighter).Should().Be(1512.0);
+        f.GramsPerTonneKm(TransportMode.Air, 9000, AirCargoService.Freighter).Should().Be(638.0);
+        f.GramsPerTonneKm(TransportMode.Air, 1499, AirCargoService.Belly).Should().Be(1332.0);
+        f.GramsPerTonneKm(TransportMode.Air, 9000, AirCargoService.Belly).Should().Be(930.0);
         f.GramsPerTonneKm(TransportMode.Road, 100, AirCargoService.Freighter).Should().Be(125.0, "only air legs depend on the service");
+    }
+
+    [Theory]
+    [MemberData(nameof(GlecFactorSets))]
+    public void Emissions_GlecDefaultsAreInternallyConsistent(string version, EmissionFactors f)
+    {
+        f.SeaGramsPerTonneKm.Should().BeApproximately(f.SeaGramsPerTeuKm / f.AverageTonnesPerTeu, 1e-9,
+            $"GLEC {version} per-tonne sea value is the per-TEU value at the average tonnes per TEU");
+        f.AirUnknownShortHaulGramsPerTonneKm.Should().BeApproximately(
+            0.55 * f.AirBellyShortHaulGramsPerTonneKm + 0.45 * f.AirFreighterShortHaulGramsPerTonneKm, 1.0,
+            $"GLEC {version} unknown air service is 55% belly freight and 45% freighter, rounded to whole grams");
+        f.AirUnknownLongHaulGramsPerTonneKm.Should().BeApproximately(
+            0.55 * f.AirBellyLongHaulGramsPerTonneKm + 0.45 * f.AirFreighterLongHaulGramsPerTonneKm, 1.0,
+            $"GLEC {version} unknown air service is 55% belly freight and 45% freighter, rounded to whole grams");
+    }
+
+    public static TheoryData<string, EmissionFactors> GlecFactorSets => new()
+    {
+        { "v3.3", EmissionFactors.GlecDefaults },
+        { "v3.2", EmissionFactors.GlecV32Defaults }
+    };
+
+    [Fact]
+    public void Emissions_GlecV32DefaultsDifferFromV33OnlyForSeaAndAir()
+    {
+        var v32 = EmissionFactors.GlecV32Defaults;
+        var v33 = EmissionFactors.GlecDefaults;
+
+        v32.SeaGramsPerTeuKm.Should().Be(71.7);
+        v32.SeaGramsPerTonneKm.Should().Be(7.17);
+        v32.GramsPerTonneKm(TransportMode.Air, 1499, AirCargoService.Freighter).Should().Be(1516.0);
+        v32.GramsPerTonneKm(TransportMode.Air, 9000, AirCargoService.Freighter).Should().Be(608.0);
+        v32.GramsPerTonneKm(TransportMode.Air, 1499, AirCargoService.Belly).Should().Be(1239.0);
+        v32.GramsPerTonneKm(TransportMode.Air, 9000, AirCargoService.Belly).Should().Be(936.0);
+        v32.GramsPerTonneKm(TransportMode.Air, 1499).Should().Be(1363.0);
+        v32.GramsPerTonneKm(TransportMode.Air, 9000).Should().Be(788.0);
+
+        v32.RoadGramsPerTonneKm.Should().Be(v33.RoadGramsPerTonneKm);
+        v32.RailGramsPerTonneKm.Should().Be(v33.RailGramsPerTonneKm);
+        v32.RailNorthAmericaGramsPerTonneKm.Should().Be(v33.RailNorthAmericaGramsPerTonneKm);
+        v32.AverageTonnesPerTeu.Should().Be(v33.AverageTonnesPerTeu);
+        v32.AirShortHaulMaxKm.Should().Be(v33.AirShortHaulMaxKm);
     }
 
     [Fact]
@@ -542,11 +584,11 @@ public class MovementTests
         var belly = Fly(AirCargoService.Belly).Legs[0];
         var unknown = Fly(AirCargoService.Unknown).Legs[0];
 
-        freighter.Feature.Properties.Co2eGramsPerTonneKm.Should().Be(608.0);
-        freighter.Feature.Properties.Co2eKg.Should().BeApproximately(608.0 * 2.0 * freighter.Length / 1000.0, 1e-6,
+        freighter.Feature.Properties.Co2eGramsPerTonneKm.Should().Be(638.0);
+        freighter.Feature.Properties.Co2eKg.Should().BeApproximately(638.0 * 2.0 * freighter.Length / 1000.0, 1e-6,
             "the GLEC air factors already include the +95 km adjustment, so no distance is added");
         freighter.Feature.Properties.AirService.Should().Be("freighter");
-        belly.Feature.Properties.Co2eGramsPerTonneKm.Should().Be(936.0);
+        belly.Feature.Properties.Co2eGramsPerTonneKm.Should().Be(930.0);
         unknown.Feature.Properties.AirService.Should().Be("unknown");
     }
 
@@ -561,8 +603,8 @@ public class MovementTests
         road.Co2eKg.Should().BeApproximately(road.Co2eKgPerTonne * 20.0, 1e-9);
 
         var sea = result.Legs[1];
-        sea.Co2eGramsPerTonneKm.Should().Be(7.17);
-        sea.Co2eKgPerTonne.Should().BeApproximately(7.17 * sea.Length / 1000.0, 1e-9);
+        sea.Co2eGramsPerTonneKm.Should().Be(7.34);
+        sea.Co2eKgPerTonne.Should().BeApproximately(7.34 * sea.Length / 1000.0, 1e-9);
 
         result.CargoTonnes.Should().Be(20.0);
         result.TotalCo2eKgPerTonne.Should().BeApproximately(result.Legs.Sum(l => l.Co2eKgPerTonne), 1e-9);
@@ -577,11 +619,11 @@ public class MovementTests
         result.CargoTonnes.Should().BeNull();
         result.TotalCo2eKg.Should().BeNull();
         result.Legs[0].Co2eKg.Should().BeNull();
-        result.Legs[0].Co2eKgPerTonne.Should().BeGreaterThan(100.0, "15,400 km at 7.17 g per tonne-km");
+        result.Legs[0].Co2eKgPerTonne.Should().BeGreaterThan(100.0, "15,400 km at 7.34 g per tonne-km");
 
         using var doc = JsonDocument.Parse(result.ToJson());
         var props = doc.RootElement.GetProperty("features")[0].GetProperty("properties");
-        props.GetProperty("co2e_g_per_tonne_km").GetDouble().Should().Be(7.17);
+        props.GetProperty("co2e_g_per_tonne_km").GetDouble().Should().Be(7.34);
         props.TryGetProperty("co2e_kg", out _).Should().BeFalse();
         doc.RootElement.GetProperty("properties").GetProperty("total_co2e_kg_per_tonne").GetDouble().Should().BeGreaterThan(100.0);
     }
@@ -616,8 +658,8 @@ public class MovementTests
 
         var sea = result.Legs[1];
         sea.Co2eBasis.Should().Be("teu");
-        sea.Feature.Properties.Co2eGramsPerTeuKm.Should().Be(71.7);
-        sea.Co2eKg.Should().BeApproximately(71.7 * 2.0 * sea.Length / 1000.0, 1e-9);
+        sea.Feature.Properties.Co2eGramsPerTeuKm.Should().Be(73.4);
+        sea.Co2eKg.Should().BeApproximately(73.4 * 2.0 * sea.Length / 1000.0, 1e-9);
 
         var road = result.Legs[0];
         road.Co2eBasis.Should().Be("teu_average_weight", "12 t in 2 TEU is below the 20 t a pair of average containers carries");
@@ -629,7 +671,7 @@ public class MovementTests
         using var doc = JsonDocument.Parse(result.ToJson());
         var seaProps = doc.RootElement.GetProperty("features")[1].GetProperty("properties");
         seaProps.GetProperty("co2e_basis").GetString().Should().Be("teu");
-        seaProps.GetProperty("co2e_g_per_teu_km").GetDouble().Should().Be(71.7);
+        seaProps.GetProperty("co2e_g_per_teu_km").GetDouble().Should().Be(73.4);
         doc.RootElement.GetProperty("properties").GetProperty("cargo_teu").GetDouble().Should().Be(2.0);
     }
 
