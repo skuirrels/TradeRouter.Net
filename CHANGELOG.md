@@ -4,6 +4,17 @@ All notable changes to TradeRouter.Net are recorded here. The format follows [Ke
 
 ## [Unreleased]
 
+### Added
+
+- `EmissionFactors.GlecV32Defaults` carries the v3.2 values, for reporting that must stay comparable with a baseline calculated before v3.3. Pass it as `MovementRequest.Emissions`.
+
+### Changed
+
+- `EmissionFactors.GlecDefaults` now carries the [GLEC Framework v3.3](https://smartfreightcentre.org/news/13311209) (Smart Freight Centre, October 2026) Module 2 defaults, so default CO2e figures for sea and air legs change.
+- Sea: 73.4 g per TEU-km from Table 18, industry-average dry container, end-user intensity, up from 71.7, or 7.34 g per tonne-km at 10 t per TEU, up from 7.17.
+- Air, Table 1, including the +95 km distance adjustment: freighter 1,512 g per tonne-km under 1,500 km and 638 from 1,500 km (were 1,516 and 608), belly freight 1,332 and 930 (were 1,239 and 936), service unknown 1,413 and 799 (were 1,363 and 788).
+- Road, 125 g, and rail, 30.7 g in Europe and 16.1 g in North America, are unchanged in v3.3.
+
 ### Documentation and sample
 
 - The README shows a cached OSRM provider in an ASP.NET Core app, with Redis, SQL Server, PostgreSQL and in-memory stores, its settings coming from configuration.
