@@ -2,6 +2,12 @@
 
 All notable changes to TradeRouter.Net are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- Malmesbury, South Africa (`ZAZCO`), is now in the embedded UN/LOCODE list at its UNECE position, 33°27'S 18°44'E, so movements naming it resolve. It was missing from the embedded resource.
+
 ## [2.10.0] - 2026-11-13
 
 ### Added

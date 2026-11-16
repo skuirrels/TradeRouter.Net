@@ -1,6 +1,7 @@
 using System.Text.Json;
 using AwesomeAssertions;
 using TradeRouter.Common;
+using TradeRouter.Locations;
 using TradeRouter.Movements;
 using Xunit;
 
@@ -233,7 +234,24 @@ public class MovementTests
         var resolved = TradeRoutes.Locate("GBLGE");
         resolved.Source.Should().Be("unlocode");
         resolved.Coordinate.Should().Be(lightwater.Coordinate.Value);
-        database.CountWithCoordinates.Should().Be(103846);
+        database.CountWithCoordinates.Should().Be(103847);
+    }
+
+    [Fact]
+    public void Movement_SouthAfricanInlandCodes_ResolveAtUnecePositions()
+    {
+        // UNECE: ZA BFN Bloemfontein 2908S 02612E; ZA ZCO Malmesbury 3327S 01844E, added to the embedded list.
+        var bloemfontein = TradeRoutes.Locate("ZABFN");
+        bloemfontein.Source.Should().Be("unlocode");
+        bloemfontein.Coordinate.Should().Be(new Coordinate(26.2, -29.13333));
+
+        var malmesbury = TradeRouterEngine.Default.UnLocodes.GetByCode("ZAZCO")!;
+        malmesbury.Name.Should().Be("Malmesbury");
+        malmesbury.Functions.Should().Be(LocationFunctions.Multimodal);
+        malmesbury.CoordinateSource.Should().Be("UNECE");
+        var resolved = TradeRoutes.Locate("ZAZCO");
+        resolved.Source.Should().Be("unlocode");
+        resolved.Coordinate.Should().Be(new Coordinate(18.73333, -33.45));
     }
 
     [Fact]
@@ -247,7 +265,7 @@ public class MovementTests
         // A flipped sign (Luque, Paraguay, published in the northern hemisphere) and swapped latitude and longitude.
         TradeRouterEngine.Default.UnLocodes.GetByCode("PYLUQ")!.Coordinate!.Value.Latitude.Should().BeApproximately(-25.27, 0.01);
         TradeRouterEngine.Default.UnLocodes.GetByCode("DEGKO")!.Coordinate!.Value.Latitude.Should().BeApproximately(52.17, 0.01);
-        TradeRouterEngine.Default.UnLocodes.CountWithCoordinates.Should().Be(103846);
+        TradeRouterEngine.Default.UnLocodes.CountWithCoordinates.Should().Be(103847);
     }
 
     [Fact]
