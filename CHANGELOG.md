@@ -2,6 +2,12 @@
 
 All notable changes to TradeRouter.Net are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- Charleston, Illinois (`USILC`) now resolves to Charleston, the Coles County seat, rather than St. Charles, Illinois, 269 km north. The generated GeoNames row is replaced by a reviewed one, because the St. Charles feature in GeoNames also carries the code.
+
 ## [2.11.0] - 2026-11-16
 
 ### Added

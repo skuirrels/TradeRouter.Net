@@ -70,6 +70,7 @@ public class AddedCoordinateFillTests
     [InlineData("GBDNG", "GeoNames, Donnington, geonameId 13269858", -2.44, 52.72)]
     [InlineData("CNYCG", "GeoNames, Yichang, geonameId 1786764", 111.28, 30.71)]
     [InlineData("CZPRB", "GeoNames, Pardubice, geonameId 3068582", 15.78, 50.04)]
+    [InlineData("USILC", "GeoNames, Charleston, geonameId 4235668", -88.18, 39.50)] // Replaces a generated row at St. Charles, Illinois.
     public void Locate_PlacesHandReviewedCodes(string code, string source, double lon, double lat)
     {
         var record = TradeRouterEngine.Default.UnLocodes.GetByCode(code)!;
