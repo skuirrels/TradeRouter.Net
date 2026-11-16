@@ -2,6 +2,13 @@
 
 All notable changes to TradeRouter.Net are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- 9,434 UN/LOCODEs that the embedded list lacked, from the UNECE 2025-1 release, 8,177 of them with a coordinate, so 112,023 of 116,022 codes now resolve without a caller coordinate. Examples are Allach (`DEAL9`), Chonburi (`THCHO`), Tay Ninh (`VNTNT`) and Malmesbury (`ZAZCO`). The merge is add-only: existing codes keep their name, coordinate and functions, and codes the port list uses are left alone, so every code that resolved before resolves as it did. 55 added coordinates that fall far outside their country, such as Bystrocice (`CZBYT`) at 171°E, are held back for review.
+- `tools/merge-unlocode-release.py` repeats the merge from a pinned UNECE release zip.
+
 ## [2.10.0] - 2026-11-13
 
 ### Added
