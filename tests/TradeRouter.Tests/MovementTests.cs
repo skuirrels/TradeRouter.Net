@@ -174,10 +174,10 @@ public class MovementTests
     [Fact]
     public void Movement_CodeKnownToUnLocodeButUncoordinated_ThrowsWithItsName()
     {
-        // Khalidia has no coordinate in UNECE or a verified supplement, and is not in the port list.
-        var act = () => TradeRoutes.CalculateMovement("Delivery from port AEJEA to place AEKHA Road");
+        // Indooroodilly has no coordinate in UNECE or a verified supplement, and is not in the port list.
+        var act = () => TradeRoutes.CalculateMovement("Delivery from port AEJEA to place AEIND Road");
 
-        act.Should().Throw<ArgumentException>().WithMessage("*AEKHA*Khalidia*no coordinates*");
+        act.Should().Throw<ArgumentException>().WithMessage("*AEIND*Indooroodilly*no coordinates*");
     }
 
     [Fact]
@@ -233,7 +233,7 @@ public class MovementTests
         var resolved = TradeRoutes.Locate("GBLGE");
         resolved.Source.Should().Be("unlocode");
         resolved.Coordinate.Should().Be(lightwater.Coordinate.Value);
-        database.CountWithCoordinates.Should().Be(112023);
+        database.CountWithCoordinates.Should().Be(113532);
     }
 
     [Fact]
@@ -247,7 +247,7 @@ public class MovementTests
         // A flipped sign (Luque, Paraguay, published in the northern hemisphere) and swapped latitude and longitude.
         TradeRouterEngine.Default.UnLocodes.GetByCode("PYLUQ")!.Coordinate!.Value.Latitude.Should().BeApproximately(-25.27, 0.01);
         TradeRouterEngine.Default.UnLocodes.GetByCode("DEGKO")!.Coordinate!.Value.Latitude.Should().BeApproximately(52.17, 0.01);
-        TradeRouterEngine.Default.UnLocodes.CountWithCoordinates.Should().Be(112023);
+        TradeRouterEngine.Default.UnLocodes.CountWithCoordinates.Should().Be(113532);
     }
 
     [Fact]

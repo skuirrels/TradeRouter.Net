@@ -8,6 +8,7 @@ All notable changes to TradeRouter.Net are recorded here. The format follows [Ke
 
 - 9,434 UN/LOCODEs that the embedded list lacked, from the UNECE 2025-1 release, 8,177 of them with a coordinate, so 112,023 of 116,022 codes now resolve without a caller coordinate. Examples are Allach (`DEAL9`), Chonburi (`THCHO`), Tay Ninh (`VNTNT`) and Malmesbury (`ZAZCO`). The merge is add-only: existing codes keep their name, coordinate and functions, and codes the port list uses are left alone, so every code that resolved before resolves as it did. 55 added coordinates that fall far outside their country, such as Bystrocice (`CZBYT`) at 171°E, are held back for review.
 - `tools/merge-unlocode-release.py` repeats the merge from a pinned UNECE release zip.
+- Coordinates for 1,509 more UN/LOCODEs that UNECE publishes without one, so 113,532 of 116,022 codes now resolve. 1,485 come from `tools/fill-added-unlocode-coordinates.py`: GeoNames features linked to the code, Wikidata items confirmed by GeoNames, or the only GeoNames place of the code's name in its country, each confirmed in its UNECE subdivision where it has one. 24 more were researched by hand, such as Yichang port (`CNYCG`) and the Taba Border Crossing (`ILTAB`). Existing supplement rows are unchanged, and codes the port list uses, and the original sea-port and airport codes reviewed earlier, are left alone. Of the 55 coordinates the 2025-1 merge held back, 45 are now placed from GeoNames.
 
 ## [2.10.0] - 2026-11-13
 

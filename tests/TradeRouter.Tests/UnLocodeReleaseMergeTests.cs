@@ -14,7 +14,7 @@ public class UnLocodeReleaseMergeTests
     public void Database_HoldsTheOriginalImportPlusTheAddedCodes()
     {
         TradeRouterEngine.Default.UnLocodes.Count.Should().Be(116_022);
-        TradeRouterEngine.Default.UnLocodes.CountWithCoordinates.Should().Be(112_023);
+        TradeRouterEngine.Default.UnLocodes.CountWithCoordinates.Should().Be(113_532);
     }
 
     [Theory]
@@ -54,14 +54,14 @@ public class UnLocodeReleaseMergeTests
     }
 
     [Theory]
-    [InlineData("CZBYT")] // Bystrocice, published at 171.33E.
-    [InlineData("LKHET")] // Hettimulla, Sri Lanka, published at 80.08W.
-    [InlineData("LKWLP")] // Wellampitiya, published at 0,0.
-    public void AddedCodes_WithACoordinateFarOutsideTheirCountry_HaveNone(string code)
+    [InlineData("CZBYT", 17.19, 49.54)] // Bystrocice, published at 171.33E.
+    [InlineData("LKHET", 80.48, 7.51)]  // Hettimulla, Sri Lanka, published at 80.08W.
+    [InlineData("LKWLP", 79.89, 6.94)]  // Wellampitiya, published at 0,0.
+    public void AddedCodes_WithACoordinateFarOutsideTheirCountry_IgnoreTheUneceValue(string code, double lon, double lat)
     {
+        // The merge held the UNECE coordinate back; the added-code fill places the code from its GeoNames link.
         var record = TradeRouterEngine.Default.UnLocodes.GetByCode(code)!;
-        record.Coordinate.Should().BeNull();
-        var act = () => TradeRoutes.Locate(code);
-        act.Should().Throw<ArgumentException>().WithMessage("*publishes no coordinates*");
+        record.CoordinateSource.Should().StartWith("Added fill, GeoNames ");
+        Haversine.DistanceKm(record.Coordinate!.Value, new Coordinate(lon, lat)).Should().BeLessThan(2.0);
     }
 }
