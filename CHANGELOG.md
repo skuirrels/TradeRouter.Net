@@ -2,6 +2,14 @@
 
 All notable changes to TradeRouter.Net are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- 33 UN/LOCODEs that UNECE records as named airports, such as Ningbo Lishe (`CNNGB`), Shanghai Hongqiao (`CNSHA`), Qingdao Jiaodong (`CNTAO`), Tianjin Binhai (`CNTSN`) and John F. Kennedy (`USJFK`), now resolve to the airport rather than to the port list's record under the same code, 2.5 to 45 km away, which is the city or its port filed under the airport's IATA code. Each now lies within 2 km of its airport. The resolver lets UN/LOCODE win when it records the code with the airport function, without the sea-port function, under a name containing "Apt" or "Airport", and has a position for it. A sea leg is still rejected at these codes, because UN/LOCODE records no sea-port function for them, and a caller who declares the sea-port function in `MovementRequest.AdditionalLocationFunctions` still gets the port-list record. Port-to-port `TradeRoutes.Calculate` still reads the port list alone and is unchanged.
+- Ningbo (`CNNBO`) now carries the rail-terminal and airport functions that UNECE 2025-1 lists, besides the sea port, so it can end a rail or air leg. The rail supplement gains the entry and a new airport supplement, `unlocode-airport-supplement.json`, holds the airport function; the embedded UNECE row is unchanged.
+- `TradeRoutes.Calculate` accepts Ningbo's own code: `CNNBO` and 21 other official Chinese and Thai city or port codes, such as Tianjin Pt (`CNTNG`), Xiamen (`CNXAM`), Dalian Pt (`CNDAG`) and Krabi (`THKRV`), are aliased to the port-list record that the port list files under the city's airport code, within 10 km and under the same name. They threw "not found" before. `tools/find-port-code-aliases.py` now lists these candidates too.
+
 ## [2.12.0] - 2026-11-17
 
 ### Added

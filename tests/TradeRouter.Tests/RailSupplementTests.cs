@@ -9,9 +9,9 @@ namespace TradeRouter.Tests;
 
 public class RailSupplementTests
 {
-    private sealed record Entry(string Code, string Name, string Source);
+    internal sealed record Entry(string Code, string Name, string Source);
 
-    private static List<Entry> LoadEntries()
+    internal static List<Entry> LoadEntries()
     {
         using var stream = typeof(TradeRouterEngine).Assembly.GetManifestResourceStream("TradeRouter.Data.unlocode-rail-supplement.json")
             ?? throw new InvalidOperationException("Rail supplement is not embedded.");
@@ -58,14 +58,16 @@ public class RailSupplementTests
     public void Entries_AddOnlyTheRailFunctionWhereUnecePublishesNone()
     {
         var published = LoadPublishedFunctions();
+        var airports = AirportSupplementTests.LoadEntries().Select(entry => entry.Code).ToHashSet();
 
         foreach (var entry in LoadEntries())
         {
             var original = published[entry.Code];
             (original & (LocationFunctions.RailTerminal | LocationFunctions.Multimodal))
                 .Should().Be(LocationFunctions.None, $"{entry.Code} is supplemented only because UNECE records no rail function");
+            var airport = airports.Contains(entry.Code) ? LocationFunctions.Airport : LocationFunctions.None;
             TradeRouterEngine.Default.UnLocodes.GetByCode(entry.Code)!.Functions
-                .Should().Be(original | LocationFunctions.RailTerminal, $"{entry.Code} must keep its published functions");
+                .Should().Be(original | LocationFunctions.RailTerminal | airport, $"{entry.Code} must keep its published functions");
         }
     }
 

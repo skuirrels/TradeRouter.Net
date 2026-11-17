@@ -959,17 +959,19 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
             return new ResolvedLocation(code, knownLocation?.Name ?? knownPort?.Name, overridden, null, "coordinates", functions);
         }
 
-        return ResolveCode(code, request.Resolver);
+        bool declaredSeaPort = request.AdditionalLocationFunctions.TryGetValue(code, out var declared)
+            && (declared & LocationFunctions.SeaPort) != 0;
+        return ResolveCode(code, request.Resolver, declaredSeaPort);
     }
 
     /// <inheritdoc />
     public ResolvedLocation Locate(string code)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(code);
-        return ResolveCode(code.Trim().ToUpperInvariant(), null);
+        return ResolveCode(code.Trim().ToUpperInvariant(), null, declaredSeaPort: false);
     }
 
-    private ResolvedLocation ResolveCode(string code, ILocationResolver? resolver)
+    private ResolvedLocation ResolveCode(string code, ILocationResolver? resolver, bool declaredSeaPort)
     {
         UnLocode? unLocode = UnLocodes.GetByCode(code);
         Port? port = SelectPortRecord(code, unLocode);
@@ -978,7 +980,12 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
         // When the names disagree (the port list's CNSHG is Sanshan, UN/LOCODE's is Shanghai Pt) UN/LOCODE wins.
         // It also wins when the port list puts a same-named place far from the UN/LOCODE position: that is a
         // namesake filed under the code, such as the port list's USPIT, Pilottown in Louisiana, not Pittsburgh.
-        if (port != null && (unLocode == null || NamesAgree(port.Name, unLocode.Name))
+        // And it wins when it records the code as a named airport with a position, because the port-list record is
+        // then the city's port filed under the airport's IATA code: UN/LOCODE's CNNGB is Ningbo Lishe International
+        // Apt, 11 km from the port list's Ningbo, whose own code is CNNBO. A caller who declares the sea-port
+        // function for the code in MovementRequest.AdditionalLocationFunctions means the port, so the port list stands.
+        bool portIsOtherFacility = !declaredSeaPort && unLocode is { Coordinate: not null } && IsNamedAirport(unLocode);
+        if (port != null && !portIsOtherFacility && (unLocode == null || NamesAgree(port.Name, unLocode.Name))
             && (unLocode?.Coordinate is not { } listed || Haversine.DistanceKm(port.Coordinate, listed) <= PortListNamesakeKm))
             return new ResolvedLocation(code, port.Name, port.Coordinate, port, "ports", unLocode?.Functions ?? LocationFunctions.SeaPort);
 
@@ -1008,6 +1015,19 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
     /// 49 km, but a port-list entry further away than this is a namesake filed under the code.
     /// </summary>
     private const double PortListNamesakeKm = 50.0;
+
+    /// <summary>
+    /// Whether UN/LOCODE files the code as an airport and nothing on the water: the airport function without the
+    /// sea-port function (after the sea-port supplement), and a name containing the word "Apt" or "Airport".
+    /// </summary>
+    private static bool IsNamedAirport(UnLocode unLocode) =>
+        (unLocode.Functions & LocationFunctions.Airport) != 0
+        && (unLocode.Functions & LocationFunctions.SeaPort) == 0
+        && AirportNameWord.IsMatch(unLocode.Name);
+
+    private static readonly System.Text.RegularExpressions.Regex AirportNameWord = new(
+        @"\b(?:apt|airport)\b",
+        System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant);
 
     private static bool NamesAgree(string portName, string unLocodeName)
     {

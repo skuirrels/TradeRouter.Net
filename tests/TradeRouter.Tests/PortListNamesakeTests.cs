@@ -27,6 +27,58 @@ public class PortListNamesakeTests
         Haversine.DistanceKm(resolved.Coordinate, new Coordinate(lon, lat)).Should().BeLessThan(25.0);
     }
 
+    // UN/LOCODE files these as airports, under the IATA code the port list uses for the city or its port.
+    [Theory]
+    [InlineData("CNNGB", 121.462, 29.827)]  // Ningbo Lishe; the port list's CNNGB is the port of Ningbo, 11 km away.
+    [InlineData("CNSHA", 121.336, 31.198)]  // Shanghai Hongqiao, 27 km from the port list's Shanghai.
+    [InlineData("CNTAO", 120.088, 36.362)]  // Qingdao Jiaodong, 42 km from the port list's Qingdao.
+    [InlineData("USJFK", -73.779, 40.640)]  // John F. Kennedy, 39 km from the port list's position.
+    [InlineData("BHBAH", 50.638, 26.267)]   // Bahrain International Airport.
+    public void Locate_PrefersUnLocodeWhenItRecordsANamedAirport(string code, double lon, double lat)
+    {
+        var resolved = TradeRoutes.Locate(code);
+
+        resolved.Source.Should().Be("unlocode");
+        resolved.Port.Should().BeNull();
+        Haversine.DistanceKm(resolved.Coordinate, new Coordinate(lon, lat)).Should().BeLessThan(2.0);
+    }
+
+    [Fact]
+    public void Locate_KeepsThePortListForAnAirportWithACityName()
+    {
+        // UN/LOCODE files USATL as Atlanta, an airport without "Apt" in its name, so the port list's Atlanta stands.
+        TradeRoutes.Locate("USATL").Source.Should().Be("ports");
+    }
+
+    [Fact]
+    public void Movement_AirLegFromNingboAirportStartsAtTheAirport()
+    {
+        var leg = TradeRoutes.CalculateMovement("CNNGB to GBLHR Air").Legs.Single();
+
+        Haversine.DistanceKm(leg.From.Coordinate, new Coordinate(121.462, 29.827)).Should().BeLessThan(1.0);
+    }
+
+    [Fact]
+    public void Movement_SeaLegFromAnAirportCodeDeclaredASeaPortStartsAtThePortListPort()
+    {
+        var request = new MovementRequest { Legs = MovementParser.Parse("CNNGB to NLRTM Sea") };
+        request.AdditionalLocationFunctions["CNNGB"] = LocationFunctions.SeaPort;
+
+        var leg = TradeRouterEngine.Default.CalculateMovement(request).Legs.Single();
+
+        leg.From.Source.Should().Be("ports", "the caller declared CNNGB a sea port, so it means the port of Ningbo");
+        leg.Feature.Properties.PortOrigin!.Name.Should().Be("Ningbo");
+    }
+
+    [Fact]
+    public void CalculateRoute_StillRoutesAnAirportCodeFromThePortList()
+    {
+        // The port-code route API reads the port list alone, so CNNGB stays the port of Ningbo there.
+        var route = TradeRoutes.Calculate("CNNGB", "NLRTM");
+
+        route.Properties.PortOrigin!.Name.Should().Be("Ningbo");
+    }
+
     [Fact]
     public void Locate_KeepsThePortListWithin50KmAndDropsItBeyond()
     {

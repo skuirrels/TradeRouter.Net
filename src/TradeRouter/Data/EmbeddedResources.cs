@@ -107,6 +107,7 @@ public static class EmbeddedResources
         var supplement = LoadUnLocodeSupplement();
         var confirmedSeaPorts = LoadFunctionSupplement("unlocode-seaport-supplement.json");
         var confirmedRailTerminals = LoadFunctionSupplement("unlocode-rail-supplement.json");
+        var confirmedAirports = LoadFunctionSupplement("unlocode-airport-supplement.json");
         var entries = new List<UnLocode>(110_000);
         foreach (var item in doc.RootElement.EnumerateArray())
         {
@@ -122,6 +123,9 @@ public static class EmbeddedResources
             // Codes UNECE lists without the rail function but that are documented freight rail terminals.
             if (confirmedRailTerminals.Contains(code))
                 functions |= LocationFunctions.RailTerminal;
+            // Codes a newer UNECE release lists as airports that the embedded row does not.
+            if (confirmedAirports.Contains(code))
+                functions |= LocationFunctions.Airport;
             string coordinateSource = coordinate.HasValue ? "UNECE" : "";
 
             // The supplement fills codes UNECE publishes without coordinates; a reviewed row also replaces a UNECE
@@ -163,7 +167,8 @@ public static class EmbeddedResources
     /// <summary>
     /// Loads a function supplement: unlocode-seaport-supplement.json lists codes that UNECE publishes without the
     /// sea-port function but that cited sources document as sea ports; unlocode-rail-supplement.json does the same
-    /// for freight rail terminals. Each entry only adds its function and never removes one.
+    /// for freight rail terminals and unlocode-airport-supplement.json for airports. Each entry only adds its
+    /// function and never removes one.
     /// </summary>
     private static HashSet<string> LoadFunctionSupplement(string fileName)
     {
