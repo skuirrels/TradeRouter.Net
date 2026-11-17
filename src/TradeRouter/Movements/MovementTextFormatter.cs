@@ -25,6 +25,7 @@ internal static class MovementTextFormatter
             $"{"Total",-34}{movement.TotalLength,9:N0} {movement.Units}{"",20}{movement.TotalTransitHours,24:N1}{"",16}{movement.TotalCo2eKgPerTonne,16:N1}{FormatNullable(movement.TotalCo2eKg),12}{"",20}  {FormatCargo(movement)}");
         AppendInvariant(output,
             $"Modelled minimum = {movement.TotalDurationHours:N1} h travel + {movement.TotalOperationalAllowanceHours:N1} h sea operations + {movement.TotalPortHours:N0} h port handling + {movement.TotalConnectionHours:N0} h connections{FormatRailAllowances(movement)} = {movement.TotalTransitHours:N1} h ({movement.TotalTransitHours / 24.0:N1} days)");
+        AppendFallbackWarnings(output, movement);
 
         if (includeExplanations)
         {
@@ -37,6 +38,25 @@ internal static class MovementTextFormatter
 
         return output.ToString().TrimEnd();
     }
+
+    // One line per leg whose distance fell back: a road-route provider was unavailable or out of coverage, or the
+    // rail network could not route the leg. Printed with or without explanations; nothing when no leg fell back.
+    // The label is padded to the 14 characters of "Distance basis", like the footnotes below it.
+    private static void AppendFallbackWarnings(StringBuilder output, MovementResult movement)
+    {
+        foreach (var leg in movement.Legs)
+        {
+            var properties = leg.Feature.Properties;
+            if (!properties.DistanceFallback || string.IsNullOrWhiteSpace(properties.DistanceWarning))
+                continue;
+            AppendInvariant(output, $"{$"Leg {leg.Sequence} warning",-14} = {ToSingleLine(properties.DistanceWarning)}");
+        }
+    }
+
+    // A provider message can contain line breaks; each warning stays on one line of the report. Every line break
+    // that ReplaceLineEndings recognises (CR, LF, CRLF, NEL, LS, PS and FF) becomes one space, and trailing
+    // whitespace is removed so a warning prints the same wherever it falls in the report.
+    private static string ToSingleLine(string text) => text.ReplaceLineEndings(" ").TrimEnd();
 
     private static string FormatPassages(IReadOnlyList<string>? passages) =>
         passages is null or { Count: 0 }

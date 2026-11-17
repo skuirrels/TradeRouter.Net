@@ -61,6 +61,14 @@ public sealed class TradeRouterProperties
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? DistanceWarning { get; set; }
 
+    /// <summary>
+    /// Whether <see cref="DistanceWarning"/> reports a fallback: a road-route provider returned Unavailable or
+    /// OutsideCoverage and the leg was estimated, or a rail leg the rail network could not route was left at
+    /// great-circle distance. The movement text report prints these warnings. Not serialised.
+    /// </summary>
+    [JsonIgnore]
+    internal bool DistanceFallback { get; set; }
+
     /// <summary>Origin port details if ports are included.</summary>
     [JsonPropertyName("port_origin")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

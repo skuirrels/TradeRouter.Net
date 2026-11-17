@@ -550,6 +550,7 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
 
         var feature = CalculateStraightLeg(from, to, TransportMode.Rail, units, request.SpeedsKmh);
         feature.Properties.DistanceWarning = warning;
+        feature.Properties.DistanceFallback = true;
         return feature;
     }
 
@@ -772,10 +773,11 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
                 $"Road-distance estimator '{estimate.Model}' returned {estimate.DistanceKm} km for a {straightLineKm} km great-circle lower bound.");
         }
 
-        string warning = string.IsNullOrWhiteSpace(providerWarning)
-            ? estimate.Warning
-            : $"{providerWarning} {estimate.Warning}";
-        return CreateRoadLegFeature(
+        bool providerFellBack = !string.IsNullOrWhiteSpace(providerWarning);
+        string warning = providerFellBack
+            ? $"{providerWarning} {estimate.Warning}"
+            : estimate.Warning;
+        var feature = CreateRoadLegFeature(
             from,
             to,
             units,
@@ -790,6 +792,8 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
             dataVersion: null,
             warning,
             straightLineKm);
+        feature.Properties.DistanceFallback = providerFellBack;
+        return feature;
     }
 
     private static GeoJsonFeature CreateRoadLegFeature(
