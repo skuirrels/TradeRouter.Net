@@ -84,7 +84,7 @@ var movement = TradeRoutes.CalculateMovement(
 Console.WriteLine(movement.ToText());
 ```
 
-The container weighs more than the GLEC average of 10 t per TEU, so the rail and road legs report the `tonnes` basis while the sea leg stays per TEU. Hamburg and Prague lie outside the embedded North American rail network, so without a supplied rail route the rail leg keeps great-circle distance at the default 80 km/h and carries a `distance_warning`; its 491 km is a lower bound on the track distance. No handling or connection time is added at the rail terminals; only sea legs carry port dwell and transshipment allowances.
+The container weighs more than the GLEC average of 10 t per TEU, so the rail and road legs report the `tonnes` basis while the sea leg stays per TEU. Hamburg and Prague lie outside the embedded North American rail network, so without a supplied rail route the rail leg keeps great-circle distance at the default 80 km/h and carries a `distance_warning`, which the report prints after the summary line; its 491 km is a lower bound on the track distance. No handling or connection time is added at the rail terminals; only sea legs carry port dwell and transshipment allowances.
 
 ```text
 Leg Kind      Mode  From   To      Distance       Distance basis   Modelled transit time       CO2e rate  CO2e per tonne  CO2e total               Basis  Choke points
@@ -94,6 +94,7 @@ Leg Kind      Mode  From   To      Distance       Distance basis   Modelled tran
 3   Delivery  Road  CZPRG  CZPLZ        112 km   circuity_estimate                     1.9           125.0            14.1         337              tonnes
 Total                                20,595 km                                     1,155.7                           175.9       3,634                      for 24 t of cargo in 2 TEU
 Modelled minimum = 682.7 h travel + 425.0 h sea operations + 48 h port handling + 0 h connections = 1,155.7 h (48.2 days)
+Leg 2 warning  = CZPRG is 5,216 km from the nearest main line of the embedded North American rail network, beyond the 25 km limit; great-circle distance used.
 Distance basis = maritime_network/road_network are network routes; circuity_estimate is a planning estimate; great_circle is straight-line
 Timing         = planning lower bound from configured assumptions; excludes carrier schedules, customs and disruption
 CO2e rate      = grams of CO2e emitted moving 1 tonne 1 km (configured factor for the mode)
@@ -196,7 +197,7 @@ Example output for Jebel Ali (AEJEA) to St John's, Antigua (AGSJO) with Suez clo
 | `distance_source` | Provider, estimator or caller label that produced the distance. |
 | `routing_profile`, `routing_data_version` | Road-provider profile and caller-configured dataset version when known. |
 | `duration_basis`, `geometry_basis` | How travelling time and emitted geometry were obtained. |
-| `distance_warning` | Present when a road leg fell back to an estimate. |
+| `distance_warning` | Present on a road leg estimated rather than routed, with the provider's reason first when a provider fell back, and on a rail leg left at great-circle distance because the rail network could not route it. |
 | `port_origin`, `port_dest` | Present when routing by port code or with `IncludePorts`. |
 | `traversed_passages` | Present when `ReturnPassages` is set. Lower-case identifiers listed below. |
 | `traversed_sea_areas` | Present when `ReturnSeaAreas` is set. Named sea areas in the order the route enters them, each with `id`, `name`, `wikidata`, `enter_km` and `exit_km`. |
@@ -760,7 +761,7 @@ var store = new DistributedRoadRouteCache(
 
 #### Fallback and errors
 
-`PreferNetworkThenEstimate` falls back only when the provider is unavailable or an endpoint is outside its loaded coverage, and records the reason in `distance_warning`. A provider-confirmed `NoRoute` is an error rather than silently inventing a distance. `RequireNetwork` also treats unavailable or out-of-coverage results as errors. `EstimateOnly` never calls the provider. Because provider calls are I/O, use `CalculateMovementAsync`; synchronous calculation is available for estimates.
+`PreferNetworkThenEstimate` falls back only when the provider is unavailable or an endpoint is outside its loaded coverage, and records the reason in `distance_warning`. `ToText()` prints the warning of each such leg on its own line after the summary line, for example `Leg 1 warning  = google-routes returned Unavailable: Google Routes returned HTTP 403 PERMISSION_DENIED: ...`, so a provider outage is not mistaken for an ordinary estimate. An ordinary estimate's caveat is left to the distance basis footnote. A provider-confirmed `NoRoute` is an error rather than silently inventing a distance. `RequireNetwork` also treats unavailable or out-of-coverage results as errors. `EstimateOnly` never calls the provider. Because provider calls are I/O, use `CalculateMovementAsync`; synchronous calculation is available for estimates.
 
 ### Rail routing
 
@@ -782,7 +783,7 @@ var leg = TradeRouterEngine.Default.CalculateMovement(request).Legs[0];
 // leg.Feature.Properties.DistanceBasis == "rail_network"; Railroads lists the owners, such as BNSF
 ```
 
-A rail leg keeps great-circle distance, with the reason in `distance_warning`, when an end is more than `RailNetworkSnapKm` from the network (25 km by default, so every rail leg outside North America) or when no connected main line joins the two ends. Set `RailRoutingMode` to `GreatCircleOnly` to skip the network. Duration is distance divided by the configured rail speed; the network carries no timetable, speed limits or train paths. Terminal, interchange and border allowances can be added on top; see [Rail allowances](#rail-allowances).
+A rail leg keeps great-circle distance, with the reason in `distance_warning`, when an end is more than `RailNetworkSnapKm` from the network (25 km by default, so every rail leg outside North America) or when no connected main line joins the two ends. `ToText()` prints that reason as a `Leg <n> warning` line after the summary line. Set `RailRoutingMode` to `GreatCircleOnly` to skip the network. Duration is distance divided by the configured rail speed; the network carries no timetable, speed limits or train paths. Terminal, interchange and border allowances can be added on top; see [Rail allowances](#rail-allowances).
 
 Where the network has no coverage, or an upstream rail planner or operator knows the actual route, import it with `RailRouteOverrides`, keyed by one-based leg sequence. An entry takes precedence over both the network and great-circle distance:
 

@@ -4,8 +4,13 @@ All notable changes to TradeRouter.Net are recorded here. The format follows [Ke
 
 ## [Unreleased]
 
+### Added
+
+- `MovementResult.ToText()` prints a `Leg <n> warning = <distance_warning>` line after the summary line, before the footnotes, for each leg whose distance fell back: a road leg estimated because its road-route provider returned `Unavailable` or `OutsideCoverage`, and a rail leg the rail network could not route. A provider outage, such as a key that Google Routes rejects with HTTP 403, no longer looks like an ordinary estimate. The label is padded to the width of the other footnote names, line breaks in the warning become spaces and trailing whitespace is dropped, and the lines appear with or without explanations. Reports with no fallback are unchanged, including those with ordinary road estimates, whose caveat stays in the distance basis footnote. The GeoJSON shape is unchanged.
+
 ### Fixed
 
+- A road leg's `distance_warning` after a provider fallback no longer doubles the full stop when the provider's message already ends with one, as most built-in Google Routes and OSRM messages do: `osrm returned Unavailable: The OSRM request timed out. Estimated ...` rather than `timed out.. Estimated`. The message is trimmed, a full stop is added only when it does not already end with `.`, `!` or `?`, and a blank message reads `no reason supplied.`
 - Charleston, Illinois (`USILC`) now resolves to Charleston, the Coles County seat, rather than St. Charles, Illinois, 269 km north. The generated GeoNames row is replaced by a reviewed one, because the St. Charles feature in GeoNames also carries the code.
 
 ## [2.11.0] - 2026-11-16

@@ -550,6 +550,7 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
 
         var feature = CalculateStraightLeg(from, to, TransportMode.Rail, units, request.SpeedsKmh);
         feature.Properties.DistanceWarning = warning;
+        feature.Properties.DistanceFallback = true;
         return feature;
     }
 
@@ -740,7 +741,7 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
                         units,
                         request,
                         straightLineKm,
-                        $"{result.Source} returned {result.Status}: {result.Message ?? "no reason supplied"}.");
+                        $"{result.Source} returned {result.Status}: {FormatProviderReason(result.Message)}");
 
                 default:
                     throw new InvalidOperationException($"Road-route provider returned unknown status '{result.Status}'.");
@@ -748,6 +749,14 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
         }
 
         return EstimateRoadLeg(sequence, from, to, units, request, straightLineKm, providerWarning: null);
+    }
+
+    // The provider's reason as one sentence: "no reason supplied" when the message is blank, trimmed, and with a
+    // full stop added unless it already ends with ".", "!" or "?".
+    private static string FormatProviderReason(string? message)
+    {
+        string reason = string.IsNullOrWhiteSpace(message) ? "no reason supplied" : message.Trim();
+        return reason[^1] is '.' or '!' or '?' ? reason : reason + ".";
     }
 
     private static GeoJsonFeature EstimateRoadLeg(
@@ -772,10 +781,11 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
                 $"Road-distance estimator '{estimate.Model}' returned {estimate.DistanceKm} km for a {straightLineKm} km great-circle lower bound.");
         }
 
-        string warning = string.IsNullOrWhiteSpace(providerWarning)
-            ? estimate.Warning
-            : $"{providerWarning} {estimate.Warning}";
-        return CreateRoadLegFeature(
+        bool providerFellBack = !string.IsNullOrWhiteSpace(providerWarning);
+        string warning = providerFellBack
+            ? $"{providerWarning} {estimate.Warning}"
+            : estimate.Warning;
+        var feature = CreateRoadLegFeature(
             from,
             to,
             units,
@@ -790,6 +800,8 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
             dataVersion: null,
             warning,
             straightLineKm);
+        feature.Properties.DistanceFallback = providerFellBack;
+        return feature;
     }
 
     private static GeoJsonFeature CreateRoadLegFeature(
