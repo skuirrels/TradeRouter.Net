@@ -100,6 +100,10 @@ public class MovementTextTests
     [Theory]
     [InlineData(RoadRouteStatus.Unavailable, GoogleForbidden,
         "Leg 1 warning  = google-routes returned Unavailable: Google Routes returned HTTP 403 PERMISSION_DENIED: The caller does not have permission. Estimated with a distance-decay circuity model because no road-network route was available.")]
+    [InlineData(RoadRouteStatus.Unavailable, "The OSRM request timed out. ",
+        "Leg 1 warning  = google-routes returned Unavailable: The OSRM request timed out. Estimated with a distance-decay circuity model because no road-network route was available.")]
+    [InlineData(RoadRouteStatus.Unavailable, "  ",
+        "Leg 1 warning  = google-routes returned Unavailable: no reason supplied. Estimated with a distance-decay circuity model because no road-network route was available.")]
     [InlineData(RoadRouteStatus.OutsideCoverage, "no coverage\u2028for\r\nthis area",
         "Leg 1 warning  = google-routes returned OutsideCoverage: no coverage for this area. Estimated with a distance-decay circuity model because no road-network route was available.")]
     public async Task ToText_PrintsRoadProviderFallbackWarning(RoadRouteStatus status, string message, string expected)

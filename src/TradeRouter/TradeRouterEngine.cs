@@ -741,7 +741,7 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
                         units,
                         request,
                         straightLineKm,
-                        $"{result.Source} returned {result.Status}: {result.Message ?? "no reason supplied"}.");
+                        $"{result.Source} returned {result.Status}: {FormatProviderReason(result.Message)}");
 
                 default:
                     throw new InvalidOperationException($"Road-route provider returned unknown status '{result.Status}'.");
@@ -749,6 +749,14 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
         }
 
         return EstimateRoadLeg(sequence, from, to, units, request, straightLineKm, providerWarning: null);
+    }
+
+    // The provider's reason as one sentence: "no reason supplied" when the message is blank, trimmed, and with a
+    // full stop added unless it already ends with ".", "!" or "?".
+    private static string FormatProviderReason(string? message)
+    {
+        string reason = string.IsNullOrWhiteSpace(message) ? "no reason supplied" : message.Trim();
+        return reason[^1] is '.' or '!' or '?' ? reason : reason + ".";
     }
 
     private static GeoJsonFeature EstimateRoadLeg(
