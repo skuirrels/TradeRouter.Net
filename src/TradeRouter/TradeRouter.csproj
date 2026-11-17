@@ -16,6 +16,7 @@
     <EmbeddedResource Include="Data\*.gz" />
     <EmbeddedResource Include="Data\unlocode-seaport-supplement.json" />
     <EmbeddedResource Include="Data\unlocode-rail-supplement.json" />
+    <EmbeddedResource Include="Data\unlocode-airport-supplement.json" />
     <EmbeddedResource Include="Data\port-code-aliases.json" />
     <EmbeddedResource Include="Data\sea-areas.json" />
     <InternalsVisibleTo Include="TradeRouter.Tests" />

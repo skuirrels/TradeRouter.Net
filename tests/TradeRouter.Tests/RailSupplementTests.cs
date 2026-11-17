@@ -58,14 +58,16 @@ public class RailSupplementTests
     public void Entries_AddOnlyTheRailFunctionWhereUnecePublishesNone()
     {
         var published = LoadPublishedFunctions();
+        var airports = AirportSupplementTests.LoadEntries().Select(entry => entry.Code).ToHashSet();
 
         foreach (var entry in LoadEntries())
         {
             var original = published[entry.Code];
             (original & (LocationFunctions.RailTerminal | LocationFunctions.Multimodal))
                 .Should().Be(LocationFunctions.None, $"{entry.Code} is supplemented only because UNECE records no rail function");
+            var airport = airports.Contains(entry.Code) ? LocationFunctions.Airport : LocationFunctions.None;
             TradeRouterEngine.Default.UnLocodes.GetByCode(entry.Code)!.Functions
-                .Should().Be(original | LocationFunctions.RailTerminal, $"{entry.Code} must keep its published functions");
+                .Should().Be(original | LocationFunctions.RailTerminal | airport, $"{entry.Code} must keep its published functions");
         }
     }
 
