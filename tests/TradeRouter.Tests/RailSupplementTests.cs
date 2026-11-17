@@ -9,9 +9,9 @@ namespace TradeRouter.Tests;
 
 public class RailSupplementTests
 {
-    private sealed record Entry(string Code, string Name, string Source);
+    internal sealed record Entry(string Code, string Name, string Source);
 
-    private static List<Entry> LoadEntries()
+    internal static List<Entry> LoadEntries()
     {
         using var stream = typeof(TradeRouterEngine).Assembly.GetManifestResourceStream("TradeRouter.Data.unlocode-rail-supplement.json")
             ?? throw new InvalidOperationException("Rail supplement is not embedded.");

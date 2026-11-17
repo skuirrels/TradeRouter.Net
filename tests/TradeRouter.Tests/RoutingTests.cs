@@ -30,6 +30,8 @@ public class RoutingTests
     [Theory]
     [InlineData("AGSJO", "AGSJS")] // Saint John's, Antigua
     [InlineData("JOAQJ", "JOAQB")] // Aqaba
+    [InlineData("CNNBO", "CNNGB")] // Ningbo, filed by the port list under the airport's code
+    [InlineData("CNTNG", "CNTSN")] // Tianjin Pt
     public void PortCodeRoute_OfficialUnLocodeResolvesThroughItsAlias(string officialCode, string portListCode)
     {
         TradeRouterEngine.Default.Ports.GetByCode(officialCode).Should().BeNull("the port list holds this port under another code");
@@ -51,7 +53,15 @@ public class RoutingTests
         {
             TradeRouterEngine.Default.Ports.GetByCodeCandidates(code).Should().BeEmpty($"{code} must not shadow a port-list record");
             TradeRouterEngine.Default.UnLocodes.GetByCode(code)!.IsSeaPort.Should().BeTrue($"{code} must be a UN/LOCODE sea port");
-            TradeRouterEngine.Default.UnLocodes.GetByCode(portCode).Should().BeNull($"{portCode} is aliased only because UN/LOCODE lacks it");
+            // The port-list code is aliased because UN/LOCODE lacks it, or files it as a named airport, which the
+            // resolver places at the airport.
+            var listed = TradeRouterEngine.Default.UnLocodes.GetByCode(portCode);
+            if (listed is not null)
+            {
+                listed.Functions.Should().HaveFlag(Locations.LocationFunctions.Airport, $"{portCode} must be absent from UN/LOCODE or an airport");
+                listed.IsSeaPort.Should().BeFalse($"{portCode} must not be a UN/LOCODE sea port");
+                listed.Name.Should().MatchRegex(@"(?i)\b(apt|airport)\b", $"{portCode} must be a named airport");
+            }
             TradeRouterEngine.Default.Ports.GetByCodeCandidates(portCode).Should().ContainSingle($"{code} must map to one {portCode} record");
         }
     }

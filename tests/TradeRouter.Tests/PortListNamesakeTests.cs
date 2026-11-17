@@ -59,6 +59,18 @@ public class PortListNamesakeTests
     }
 
     [Fact]
+    public void Movement_SeaLegFromAnAirportCodeDeclaredASeaPortStartsAtThePortListPort()
+    {
+        var request = new MovementRequest { Legs = MovementParser.Parse("CNNGB to NLRTM Sea") };
+        request.AdditionalLocationFunctions["CNNGB"] = LocationFunctions.SeaPort;
+
+        var leg = TradeRouterEngine.Default.CalculateMovement(request).Legs.Single();
+
+        leg.From.Source.Should().Be("ports", "the caller declared CNNGB a sea port, so it means the port of Ningbo");
+        leg.Feature.Properties.PortOrigin!.Name.Should().Be("Ningbo");
+    }
+
+    [Fact]
     public void CalculateRoute_StillRoutesAnAirportCodeFromThePortList()
     {
         // The port-code route API reads the port list alone, so CNNGB stays the port of Ningbo there.
