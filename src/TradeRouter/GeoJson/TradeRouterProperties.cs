@@ -69,6 +69,14 @@ public sealed class TradeRouterProperties
     [JsonIgnore]
     internal bool DistanceFallback { get; set; }
 
+    /// <summary>
+    /// Warning about a leg's start or end position: coordinates given with a code that lie far from the code's listed
+    /// position, or a (0, 0) placeholder, which is replaced by the code's own position when there is a code.
+    /// </summary>
+    [JsonPropertyName("location_warning")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? LocationWarning { get; set; }
+
     /// <summary>Origin port details if ports are included.</summary>
     [JsonPropertyName("port_origin")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

@@ -40,16 +40,18 @@ internal static class MovementTextFormatter
     }
 
     // One line per leg whose distance fell back: a road-route provider was unavailable or out of coverage, or the
-    // rail network could not route the leg. Printed with or without explanations; nothing when no leg fell back.
+    // rail network could not route the leg. A leg with a location_warning, which usually means a wrong code or
+    // coordinate, gets a "location" line too. Printed with or without explanations; nothing when no leg warns.
     // The label is padded to the 14 characters of "Distance basis", like the footnotes below it.
     private static void AppendFallbackWarnings(StringBuilder output, MovementResult movement)
     {
         foreach (var leg in movement.Legs)
         {
             var properties = leg.Feature.Properties;
-            if (!properties.DistanceFallback || string.IsNullOrWhiteSpace(properties.DistanceWarning))
-                continue;
-            AppendInvariant(output, $"{$"Leg {leg.Sequence} warning",-14} = {ToSingleLine(properties.DistanceWarning)}");
+            if (properties.DistanceFallback && !string.IsNullOrWhiteSpace(properties.DistanceWarning))
+                AppendInvariant(output, $"{$"Leg {leg.Sequence} warning",-14} = {ToSingleLine(properties.DistanceWarning)}");
+            if (!string.IsNullOrWhiteSpace(properties.LocationWarning))
+                AppendInvariant(output, $"{$"Leg {leg.Sequence} location",-14} = {ToSingleLine(properties.LocationWarning)}");
         }
     }
 

@@ -300,7 +300,7 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
         seaOptions.AppendOriginDestination = true;
         var units = seaOptions.Units;
 
-        var resolvedByCode = new Dictionary<string, ResolvedLocation>(StringComparer.OrdinalIgnoreCase);
+        var resolvedByCode = new Dictionary<(string Code, Coordinate? Coordinate, string? Name), (ResolvedLocation, string?)>();
         var legResults = new List<LegResult>(request.Legs.Count);
         var seaPortCodes = CodesUsedOnlyAsSeaPorts(request);
 
@@ -309,15 +309,15 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
             cancellationToken.ThrowIfCancellationRequested();
             var leg = request.Legs[i];
             int sequence = i + 1;
-            var from = ResolveLocation(leg.From, request, resolvedByCode, seaPortCodes);
-            var to = ResolveLocation(leg.To, request, resolvedByCode, seaPortCodes);
+            var (from, fromWarning) = ResolveLocation(leg.From, request, resolvedByCode, seaPortCodes);
+            var (to, toWarning) = ResolveLocation(leg.To, request, resolvedByCode, seaPortCodes);
             ValidateWaypoint(sequence, "from", leg.FromKind, leg.Mode, from, request.AdditionalLocationFunctions);
             ValidateWaypoint(sequence, "to", leg.ToKind, leg.Mode, to, request.AdditionalLocationFunctions);
 
             if (i > 0)
             {
                 var prior = legResults[^1].To;
-                if (Haversine.DistanceKm(prior.Coordinate, from.Coordinate) > 0.001)
+                if (Haversine.DistanceKm(prior.Coordinate, from.Coordinate) > SamePlaceKm)
                 {
                     throw new ArgumentException(
                         $"Leg {sequence} starts at {from.Label}, but leg {sequence - 1} ends at {prior.Label}. " +
@@ -361,6 +361,7 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
             feature.Properties.Kind = leg.Kind.ToWireString();
             feature.Properties.From = from.Label;
             feature.Properties.To = to.Label;
+            feature.Properties.LocationWarning = fromWarning == toWarning ? fromWarning : Join(fromWarning, toWarning);
             bool isSea = leg.Mode == TransportMode.Sea;
             bool followsSeaLeg = isSea && sequence > 1 && request.Legs[sequence - 2].Mode == TransportMode.Sea;
             feature.Properties.PortHours = isSea ? 2.0 * request.PortDwellHours : 0.0;
@@ -524,7 +525,9 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
     /// </summary>
     private GeoJsonFeature CalculateRailLeg(ResolvedLocation from, ResolvedLocation to, DistanceUnit units, MovementRequest request)
     {
-        if (request.RailRoutingMode == RailRoutingMode.GreatCircleOnly)
+        // A leg that starts and ends at the same place is exactly zero, wherever it is.
+        if (request.RailRoutingMode == RailRoutingMode.GreatCircleOnly
+            || Haversine.DistanceKm(from.Coordinate, to.Coordinate) <= SamePlaceKm)
             return CalculateStraightLeg(from, to, TransportMode.Rail, units, request.SpeedsKmh);
 
         var graph = RailGraph;
@@ -533,27 +536,47 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
         double accessKm = Haversine.DistanceKm(from.Coordinate, graph.GetCoordinate(origin));
         double egressKm = Haversine.DistanceKm(graph.GetCoordinate(destination), to.Coordinate);
 
-        string warning;
-        if (accessKm > request.RailNetworkSnapKm || egressKm > request.RailNetworkSnapKm)
+        string reason;
+        if ((accessKm > request.RailNetworkSnapKm && IsListedOutsideRailNetworkCountries(from))
+            || (egressKm > request.RailNetworkSnapKm && IsListedOutsideRailNetworkCountries(to)))
+        {
+            reason = $"{from.Label} to {to.Label} is outside the United States, Canada and Mexico, the only countries the embedded rail network covers.";
+        }
+        else if (accessKm > request.RailNetworkSnapKm || egressKm > request.RailNetworkSnapKm)
         {
             var (label, gapKm) = accessKm >= egressKm ? (from.Label, accessKm) : (to.Label, egressKm);
-            warning = $"{label} is {gapKm:N0} km from the nearest main line of the embedded North American rail network, " +
-                $"beyond the {request.RailNetworkSnapKm:N0} km limit; great-circle distance used.";
+            reason = $"{label} is {gapKm:N0} km from the nearest main line of the embedded North American rail network, " +
+                $"beyond the {request.RailNetworkSnapKm:N0} km limit.";
         }
         else
         {
             var (networkKm, path) = BidirectionalDijkstra.FindPath(graph, origin, destination, null);
             if (path.Count > 0 && double.IsFinite(networkKm))
                 return CreateRailNetworkFeature(graph, from, to, units, request.SpeedsKmh, accessKm + networkKm + egressKm, path);
-            warning = $"No connected main line joins {from.Label} and {to.Label} on the embedded North American rail network; " +
-                "great-circle distance used.";
+            reason = $"No connected main line joins {from.Label} and {to.Label} on the embedded North American rail network.";
         }
 
         var feature = CalculateStraightLeg(from, to, TransportMode.Rail, units, request.SpeedsKmh);
-        feature.Properties.DistanceWarning = warning;
+        feature.Properties.DistanceWarning = reason +
+            " Great-circle distance used: a straight-line lower bound, shorter than the shortest feasible rail distance that ISO 14083 and GLEC call for." +
+            " Supply the distance in MovementRequest.RailRouteOverrides where it is known.";
         feature.Properties.DistanceFallback = true;
         return feature;
     }
+
+    /// <summary>
+    /// Whether a location is a listed UN/LOCODE or port in a country other than the United States, Canada or Mexico,
+    /// the countries the embedded rail network covers. Used only to word a rail warning; routing is decided by
+    /// distance from the network alone, so a caller's own site code that happens to start with another country's
+    /// letters cannot change the route.
+    /// </summary>
+    private static bool IsListedOutsideRailNetworkCountries(ResolvedLocation location) =>
+        location.Functions is not null
+        && RailServiceAllowance.CountryOf(location) is { } country
+        && country is not ("US" or "CA" or "MX");
+
+    /// <summary>Two positions this close are the same place: the same tolerance the leg-chaining check uses.</summary>
+    private const double SamePlaceKm = 0.001;
 
     /// <summary>
     /// A rail leg is North American when both ends lie within the request's snap distance of the embedded North
@@ -688,6 +711,26 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
                 dataVersion: null,
                 warning: null,
                 straightLineKm);
+        }
+
+        // Start and end are the same place, so the distance is exactly zero: nothing to route or estimate.
+        if (straightLineKm <= SamePlaceKm)
+        {
+            return CreateRoadLegFeature(
+                from,
+                to,
+                units,
+                request.SpeedsKmh,
+                request.RoadDurationMode,
+                distanceKm: 0.0,
+                durationHours: null,
+                geometry: null,
+                distanceBasis: "great_circle",
+                distanceSource: "built_in",
+                profile: null,
+                dataVersion: null,
+                warning: null,
+                straightLineKm: 0.0);
         }
 
         if (request.RoadRoutingMode == RoadRoutingMode.RequireNetwork && request.RoadRouteProvider is null)
@@ -836,6 +879,11 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
         {
             resolvedDuration = durationHours!.Value;
         }
+        else if (distanceKm == 0.0)
+        {
+            // No distance takes no time at any speed, so a same-place leg needs no configured road speed.
+            resolvedDuration = 0.0;
+        }
         else
         {
             if (!speedsKmh.TryGetValue(TransportMode.Road, out double speedKmh) || speedKmh <= 0.0)
@@ -944,56 +992,181 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
         }
     }
 
-    private ResolvedLocation ResolveLocation(
+    private (ResolvedLocation Resolved, string? Warning) ResolveLocation(
         Location location,
         MovementRequest request,
-        Dictionary<string, ResolvedLocation> resolvedByCode,
+        Dictionary<(string Code, Coordinate? Coordinate, string? Name), (ResolvedLocation, string?)> resolvedByCode,
         HashSet<string> seaPortCodes)
     {
-        bool cacheable = location.Code != null && !location.Coordinate.HasValue;
-        if (cacheable && resolvedByCode.TryGetValue(location.Code!, out var cached))
+        // A location with a code is cached for the movement, keyed on everything that shapes how it resolves, so a
+        // stop shared by two legs is looked up and checked once. A coordinate-only location needs no lookup.
+        if (location.Code is null)
+        {
+            var uncached = ResolveUncached(location, request, seaPortCodes);
+            uncached.Resolved.Coordinate.Validate();
+            return uncached;
+        }
+
+        var key = (location.Code, location.Coordinate, location.Name);
+        if (resolvedByCode.TryGetValue(key, out var cached))
             return cached;
 
-        var resolved = ResolveUncached(location, request, seaPortCodes);
-        resolved.Coordinate.Validate();
-
-        if (cacheable)
-            resolvedByCode[location.Code!] = resolved;
-
-        return resolved;
+        var result = ResolveUncached(location, request, seaPortCodes);
+        result.Resolved.Coordinate.Validate();
+        resolvedByCode[key] = result;
+        return result;
     }
+
+    /// <summary>
+    /// Exactly (0, 0) is the value systems store when a position was never captured. It lies in the open Atlantic
+    /// off West Africa, where no shipment is picked up or delivered, so it is treated as missing.
+    /// </summary>
+    private static bool IsPlaceholder(Coordinate coordinate) => coordinate.Longitude == 0.0 && coordinate.Latitude == 0.0;
+
+    /// <summary>The caller's <see cref="MovementRequest.Coordinates"/> entry for a code, unless it is a (0, 0) placeholder.</summary>
+    private static bool TryGetOverride(string code, MovementRequest request, out Coordinate coordinate) =>
+        request.Coordinates.TryGetValue(code, out coordinate) && !IsPlaceholder(coordinate);
 
     /// <summary>
     /// Resolution order: an explicit coordinate on the location; <see cref="MovementRequest.Coordinates"/>;
     /// the embedded port list when UN/LOCODE agrees it is the same place; the UN/LOCODE list when it carries
     /// coordinates; the port list otherwise, unless UN/LOCODE names a different place; then <see cref="MovementRequest.Resolver"/>.
+    /// A (0, 0) coordinate is a placeholder: it gives way to the code's position when there is one.
     /// </summary>
-    private ResolvedLocation ResolveUncached(Location location, MovementRequest request, HashSet<string> seaPortCodes)
+    private (ResolvedLocation Resolved, string? Warning) ResolveUncached(Location location, MovementRequest request, HashSet<string> seaPortCodes)
     {
-        if (location.Coordinate.HasValue)
-        {
-            Port? knownPort = location.Code != null ? Ports.GetByCode(location.Code, location.Coordinate.Value) : null;
-            UnLocode? knownLocation = location.Code != null ? UnLocodes.GetByCode(location.Code) : null;
-            var functions = knownLocation?.Functions ?? (knownPort is null ? null : LocationFunctions.SeaPort);
-            return new ResolvedLocation(location.Code, location.Name ?? knownLocation?.Name ?? knownPort?.Name, location.Coordinate.Value, null, "coordinates", functions);
-        }
+        if (location.Coordinate is not { } given)
+            return ResolveCodeWithOverride(location.Code!, request, seaPortCodes);
 
-        string code = location.Code!;
+        if (IsPlaceholder(given))
+            return ResolvePlaceholder(location, given, request, seaPortCodes);
 
-        // A caller-supplied coordinate wins outright and no dataset record is attached, because the
-        // stored position may differ from the override.
-        if (request.Coordinates.TryGetValue(code, out var overridden))
-        {
-            UnLocode? knownLocation = UnLocodes.GetByCode(code);
-            Port? knownPort = Ports.GetByCode(code, overridden);
-            var functions = knownLocation?.Functions ?? (knownPort is null ? null : LocationFunctions.SeaPort);
-            return new ResolvedLocation(code, knownLocation?.Name ?? knownPort?.Name, overridden, null, "coordinates", functions);
-        }
-
-        bool declaredSeaPort = request.AdditionalLocationFunctions.TryGetValue(code, out var declared)
-            && (declared & LocationFunctions.SeaPort) != 0;
-        return ResolveCode(code, request.Resolver, declaredSeaPort, seaPortCodes.Contains(code));
+        var resolved = AtGivenCoordinate(location.Code, location.Name, given);
+        return (resolved, location.Code is null ? null : DescribeCoordinateMismatch(location.Code, given, request, seaPortCodes));
     }
+
+    /// <summary>
+    /// A location at a caller-supplied coordinate. Its functions and name come from the code's records, but no port
+    /// record is attached, because the stored position may differ from the one supplied.
+    /// </summary>
+    private ResolvedLocation AtGivenCoordinate(string? code, string? name, Coordinate coordinate)
+    {
+        Port? knownPort = code != null ? Ports.GetByCode(code, coordinate) : null;
+        UnLocode? knownLocation = code != null ? UnLocodes.GetByCode(code) : null;
+        var functions = knownLocation?.Functions ?? (knownPort is null ? null : LocationFunctions.SeaPort);
+        return new ResolvedLocation(code, name ?? knownLocation?.Name ?? knownPort?.Name, coordinate, null, "coordinates", functions);
+    }
+
+    /// <summary>
+    /// (0, 0) given on a location gives way to the code's position, from <see cref="MovementRequest.Coordinates"/> or the
+    /// embedded lists, when there is one. Without a code, or with one nothing can place, it is used as given. Either way
+    /// the leg says so.
+    /// </summary>
+    private (ResolvedLocation Resolved, string? Warning) ResolvePlaceholder(Location location, Coordinate given, MovementRequest request, HashSet<string> seaPortCodes)
+    {
+        if (location.Code is not { } code)
+        {
+            string subject = location.Name is null ? "Coordinates (0, 0)" : $"Coordinates (0, 0) given for {location.Name}";
+            return (AtGivenCoordinate(null, location.Name, given),
+                $"{subject} are usually a placeholder for a missing position; they were used as given.");
+        }
+
+        string usedAsGiven =
+            $"Coordinates (0, 0) given for {code} are usually a placeholder, but {code} has no listed position to use instead, so they were used as given.";
+        ResolvedLocation byCode;
+        string? overrideWarning;
+        try
+        {
+            (byCode, overrideWarning) = ResolveCodeWithOverride(code, request, seaPortCodes);
+        }
+        catch (ArgumentException)
+        {
+            return (AtGivenCoordinate(code, location.Name, given), usedAsGiven);
+        }
+
+        byCode = byCode with { Name = location.Name ?? byCode.Name };
+        if (IsPlaceholder(byCode.Coordinate))
+            return (byCode, Join(usedAsGiven, overrideWarning));
+
+        string source = TryGetOverride(code, request, out _)
+            ? "its position in MovementRequest.Coordinates was used"
+            : "the code's own position was used";
+        return (byCode, Join($"Coordinates (0, 0) given for {code} are a placeholder and were ignored; {source}.", overrideWarning));
+    }
+
+    /// <summary>
+    /// Resolves a code: the caller's <see cref="MovementRequest.Coordinates"/> entry wins outright, then the embedded
+    /// lists and the resolver. A (0, 0) entry is a placeholder and is skipped, unless nothing else can place the code.
+    /// </summary>
+    private (ResolvedLocation Resolved, string? Warning) ResolveCodeWithOverride(string code, MovementRequest request, HashSet<string> seaPortCodes)
+    {
+        if (!request.Coordinates.TryGetValue(code, out var entry))
+            return (ResolveCode(code, request.Resolver, IsDeclaredSeaPort(code, request), seaPortCodes.Contains(code)), null);
+
+        if (!IsPlaceholder(entry))
+            return (AtGivenCoordinate(code, null, entry), null);
+
+        try
+        {
+            return (ResolveCode(code, request.Resolver, IsDeclaredSeaPort(code, request), seaPortCodes.Contains(code)),
+                $"MovementRequest.Coordinates gives (0, 0) for {code}, a placeholder, so it was ignored and the code's own position was used.");
+        }
+        catch (ArgumentException)
+        {
+            return (AtGivenCoordinate(code, null, entry),
+                $"MovementRequest.Coordinates gives (0, 0) for {code}, usually a placeholder, but {code} has no listed position to use instead, so it was used as given.");
+        }
+    }
+
+    /// <summary>
+    /// Describes coordinates given with a code that lie further than the request's tolerance from the code's position:
+    /// the caller's <see cref="MovementRequest.Coordinates"/> entry when there is one, otherwise the position in the
+    /// embedded lists. Codes the lists do not know, such as a caller's own site codes, are not checked, and the
+    /// resolver is not called for them.
+    /// </summary>
+    private string? DescribeCoordinateMismatch(string code, Coordinate given, MovementRequest request, HashSet<string> seaPortCodes)
+    {
+        if (double.IsPositiveInfinity(request.CoordinateCodeToleranceKm))
+            return null;
+
+        Coordinate reference;
+        string described;
+        if (TryGetOverride(code, request, out var overridden))
+        {
+            reference = overridden;
+            described = "its position in MovementRequest.Coordinates";
+        }
+        else
+        {
+            ResolvedLocation listed;
+            try
+            {
+                listed = ResolveCode(code, resolver: null, IsDeclaredSeaPort(code, request), seaPortCodes.Contains(code));
+            }
+            catch (ArgumentException)
+            {
+                return null;
+            }
+
+            reference = listed.Coordinate;
+            described = listed.Name is null ? "its listed position" : $"its listed position ({listed.Name})";
+        }
+
+        double gapKm = Haversine.DistanceKm(given, reference);
+        if (gapKm <= request.CoordinateCodeToleranceKm)
+            return null;
+
+        return $"Coordinates given for {code} lie {gapKm:N0} km from {described}, beyond the " +
+            $"{request.CoordinateCodeToleranceKm:N0} km tolerance; the coordinates were used. Check that the code and coordinates name the same place.";
+    }
+
+    /// <summary>A caller who declares the sea-port function for a code means the port, so the port list stands.</summary>
+    private static bool IsDeclaredSeaPort(string code, MovementRequest request) =>
+        request.AdditionalLocationFunctions.TryGetValue(code, out var declared)
+        && (declared & LocationFunctions.SeaPort) != 0;
+
+    private static string? Join(string? first, string? second) =>
+        first is null ? second : second is null ? first : $"{first} {second}";
 
     /// <inheritdoc />
     public ResolvedLocation Locate(string code)
@@ -1214,6 +1387,8 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
             throw new ArgumentException("Movement rail-routing mode is unknown.", nameof(request));
         if (!double.IsFinite(request.RailNetworkSnapKm) || request.RailNetworkSnapKm < 0)
             throw new ArgumentOutOfRangeException(nameof(request.RailNetworkSnapKm), request.RailNetworkSnapKm, "Rail network snap distance must be finite and non-negative.");
+        if (!(request.CoordinateCodeToleranceKm >= 0.0))
+            throw new ArgumentOutOfRangeException(nameof(request.CoordinateCodeToleranceKm), request.CoordinateCodeToleranceKm, "Coordinate and code tolerance must be non-negative.");
         request.Emissions.Validate();
         ValidatePositiveOptional(request.CargoTonnes, nameof(request.CargoTonnes));
         ValidatePositiveOptional(request.CargoTeu, nameof(request.CargoTeu));

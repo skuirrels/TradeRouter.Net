@@ -20,6 +20,16 @@ public sealed class MovementRequest
     public Dictionary<string, Coordinate> Coordinates { get; } = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
+    /// Furthest, in kilometres, that coordinates given with a known code may lie from the code's listed position
+    /// before the leg carries a <c>location_warning</c>. The coordinates are still used. The default is 50 km, the
+    /// distance the resolver already allows between a port and its town. Set
+    /// <see cref="double.PositiveInfinity"/> to turn the check off. Coordinates of exactly (0, 0) are always treated
+    /// as a placeholder: with a code they are ignored in favour of the code's position, and without one they are
+    /// used as given with a <c>location_warning</c>.
+    /// </summary>
+    public double CoordinateCodeToleranceKm { get; set; } = 50.0;
+
+    /// <summary>
     /// Optional resolver consulted last, for codes that are neither in <see cref="Coordinates"/> nor in the
     /// embedded port database.
     /// </summary>
