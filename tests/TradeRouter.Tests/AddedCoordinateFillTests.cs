@@ -77,4 +77,21 @@ public class AddedCoordinateFillTests
         record.CoordinateSource.Should().StartWith(source);
         Haversine.DistanceKm(TradeRoutes.Locate(code).Coordinate, new Coordinate(lon, lat)).Should().BeLessThan(2.0);
     }
+
+    // Reviewed on 18 November 2026: codes UNECE publishes without a position that no generated row could place.
+    [Theory]
+    [InlineData("USKCK", "GeoNames, Kansas City, geonameId 4273837", -94.63, 39.11)]          // Kansas, not the Missouri airport.
+    [InlineData("IDAJN", "ShipNext, Ardjuna Marine Terminal", 107.74, -5.90)]                // Offshore, not the inland village.
+    [InlineData("TRKCO", "OurAirports LTBQ Cengiz Topel Airport", 30.08, 40.74)]
+    [InlineData("CNQSE", "GeoNames, Qingshuihe, geonameId 13293570", 114.09, 22.57)]
+    [InlineData("CNFRT", "GeoNames, Foshan New Port, geonameId 11524246", 113.13, 22.98)]
+    [InlineData("GBLUT", "GeoNames, Luton, geonameId 2643339", -0.42, 51.88)]
+    [InlineData("PHCVE", "GeoNames, Cavite City, geonameId 1717641", 120.90, 14.48)]        // On Manila Bay.
+    [InlineData("GBPFT", "GeoNames, Purfleet-on-Thames, geonameId 2639845", 0.24, 51.48)]
+    [InlineData("CAYTO", "GeoNames, Metropolitan Area Apt, geonameId 11549704", -79.40, 43.72)]
+    public void Locate_PlacesCodesReviewedOn18November(string code, string source, double lon, double lat)
+    {
+        TradeRouterEngine.Default.UnLocodes.GetByCode(code)!.CoordinateSource.Should().StartWith(source);
+        Haversine.DistanceKm(TradeRoutes.Locate(code).Coordinate, new Coordinate(lon, lat)).Should().BeLessThan(2.0);
+    }
 }

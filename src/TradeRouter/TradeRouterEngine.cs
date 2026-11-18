@@ -302,14 +302,15 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
 
         var resolvedByCode = new Dictionary<string, ResolvedLocation>(StringComparer.OrdinalIgnoreCase);
         var legResults = new List<LegResult>(request.Legs.Count);
+        var seaPortCodes = CodesUsedOnlyAsSeaPorts(request);
 
         for (int i = 0; i < request.Legs.Count; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var leg = request.Legs[i];
             int sequence = i + 1;
-            var from = ResolveLocation(leg.From, request, resolvedByCode);
-            var to = ResolveLocation(leg.To, request, resolvedByCode);
+            var from = ResolveLocation(leg.From, request, resolvedByCode, seaPortCodes);
+            var to = ResolveLocation(leg.To, request, resolvedByCode, seaPortCodes);
             ValidateWaypoint(sequence, "from", leg.FromKind, leg.Mode, from, request.AdditionalLocationFunctions);
             ValidateWaypoint(sequence, "to", leg.ToKind, leg.Mode, to, request.AdditionalLocationFunctions);
 
@@ -914,16 +915,46 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
             throw new InvalidOperationException($"Road-route provider returned fewer than two geometry positions for leg {sequence}.");
     }
 
+    /// <summary>
+    /// Codes the request uses as the end of a sea leg or as a declared port, and never as the end of an air leg or
+    /// a declared airport. UN/LOCODE files some city codes as the airport (CNSHA is Shanghai Hongqiao) while the port
+    /// list holds the city's port under the same code; for these codes the movement means the port. A code used
+    /// both ways keeps the default resolution, because every leg that touches it must start or end at one position.
+    /// </summary>
+    private static HashSet<string> CodesUsedOnlyAsSeaPorts(MovementRequest request)
+    {
+        var sea = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var air = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var leg in request.Legs)
+        {
+            Add(leg.From, leg.FromKind, leg.Mode);
+            Add(leg.To, leg.ToKind, leg.Mode);
+        }
+        sea.ExceptWith(air);
+        return sea;
+
+        void Add(Location location, WaypointKind kind, TransportMode mode)
+        {
+            if (location.Code is not { } code)
+                return;
+            if (mode == TransportMode.Sea || kind == WaypointKind.Port)
+                sea.Add(code);
+            if (mode == TransportMode.Air || kind == WaypointKind.Airport)
+                air.Add(code);
+        }
+    }
+
     private ResolvedLocation ResolveLocation(
         Location location,
         MovementRequest request,
-        Dictionary<string, ResolvedLocation> resolvedByCode)
+        Dictionary<string, ResolvedLocation> resolvedByCode,
+        HashSet<string> seaPortCodes)
     {
         bool cacheable = location.Code != null && !location.Coordinate.HasValue;
         if (cacheable && resolvedByCode.TryGetValue(location.Code!, out var cached))
             return cached;
 
-        var resolved = ResolveUncached(location, request);
+        var resolved = ResolveUncached(location, request, seaPortCodes);
         resolved.Coordinate.Validate();
 
         if (cacheable)
@@ -937,7 +968,7 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
     /// the embedded port list when UN/LOCODE agrees it is the same place; the UN/LOCODE list when it carries
     /// coordinates; the port list otherwise, unless UN/LOCODE names a different place; then <see cref="MovementRequest.Resolver"/>.
     /// </summary>
-    private ResolvedLocation ResolveUncached(Location location, MovementRequest request)
+    private ResolvedLocation ResolveUncached(Location location, MovementRequest request, HashSet<string> seaPortCodes)
     {
         if (location.Coordinate.HasValue)
         {
@@ -961,17 +992,17 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
 
         bool declaredSeaPort = request.AdditionalLocationFunctions.TryGetValue(code, out var declared)
             && (declared & LocationFunctions.SeaPort) != 0;
-        return ResolveCode(code, request.Resolver, declaredSeaPort);
+        return ResolveCode(code, request.Resolver, declaredSeaPort, seaPortCodes.Contains(code));
     }
 
     /// <inheritdoc />
     public ResolvedLocation Locate(string code)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(code);
-        return ResolveCode(code.Trim().ToUpperInvariant(), null, declaredSeaPort: false);
+        return ResolveCode(code.Trim().ToUpperInvariant(), null, declaredSeaPort: false, usedAsSeaPort: false);
     }
 
-    private ResolvedLocation ResolveCode(string code, ILocationResolver? resolver, bool declaredSeaPort)
+    private ResolvedLocation ResolveCode(string code, ILocationResolver? resolver, bool declaredSeaPort, bool usedAsSeaPort)
     {
         UnLocode? unLocode = UnLocodes.GetByCode(code);
         Port? port = SelectPortRecord(code, unLocode);
@@ -982,12 +1013,21 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
         // namesake filed under the code, such as the port list's USPIT, Pilottown in Louisiana, not Pittsburgh.
         // And it wins when it records the code as a named airport with a position, because the port-list record is
         // then the city's port filed under the airport's IATA code: UN/LOCODE's CNNGB is Ningbo Lishe International
-        // Apt, 11 km from the port list's Ningbo, whose own code is CNNBO. A caller who declares the sea-port
-        // function for the code in MovementRequest.AdditionalLocationFunctions means the port, so the port list stands.
-        bool portIsOtherFacility = !declaredSeaPort && unLocode is { Coordinate: not null } && IsNamedAirport(unLocode);
+        // Apt, 11 km from the port list's Ningbo, whose own code is CNNBO. A caller who declares the sea-port function
+        // for the code in MovementRequest.AdditionalLocationFunctions means the port, so the port list stands. So does
+        // a movement that uses the code only at the end of sea legs, when the port-list record lies within
+        // PortListSeaAccessKm of the maritime network; further away it is inland, such as the port list's CNCGO,
+        // Zhengzhou, or USTUS, Tucson, and the code stays the airport. The port-list record used for a port
+        // carries the sea-port function.
+        bool namedAirport = unLocode is { Coordinate: not null } && IsNamedAirport(unLocode);
+        bool meansSeaPort = declaredSeaPort || (usedAsSeaPort && port != null && ReachesSeaNetwork(port));
+        bool portIsOtherFacility = !meansSeaPort && namedAirport;
         if (port != null && !portIsOtherFacility && (unLocode == null || NamesAgree(port.Name, unLocode.Name))
             && (unLocode?.Coordinate is not { } listed || Haversine.DistanceKm(port.Coordinate, listed) <= PortListNamesakeKm))
-            return new ResolvedLocation(code, port.Name, port.Coordinate, port, "ports", unLocode?.Functions ?? LocationFunctions.SeaPort);
+        {
+            var functions = (unLocode?.Functions ?? LocationFunctions.SeaPort) | (namedAirport ? LocationFunctions.SeaPort : LocationFunctions.None);
+            return new ResolvedLocation(code, port.Name, port.Coordinate, port, "ports", functions);
+        }
 
         if (unLocode?.Coordinate is { } position)
             return new ResolvedLocation(code, unLocode.Name, position, null, "unlocode", unLocode.Functions);
@@ -1015,6 +1055,17 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
     /// 49 km, but a port-list entry further away than this is a namesake filed under the code.
     /// </summary>
     private const double PortListNamesakeKm = 50.0;
+
+    /// <summary>
+    /// How far a port-list record may lie from the nearest maritime network node and still be taken as a sea port
+    /// for a code UN/LOCODE files as an airport. The coastal ports filed under airport codes, such as Shanghai and
+    /// Guangzhou, lie within 50 km; the others, inland cities such as Zhengzhou and Tucson and river ports the network
+    /// does not reach, such as Nanjing, lie 78 to 1,282 km away.
+    /// </summary>
+    private const double PortListSeaAccessKm = 50.0;
+
+    private bool ReachesSeaNetwork(Port port) =>
+        Haversine.DistanceKm(port.Coordinate, Graph.GetCoordinate(Graph.FindNearestNode(port.Coordinate))) <= PortListSeaAccessKm;
 
     /// <summary>
     /// Whether UN/LOCODE files the code as an airport and nothing on the water: the airport function without the

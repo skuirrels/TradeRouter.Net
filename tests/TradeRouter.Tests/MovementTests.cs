@@ -233,7 +233,7 @@ public class MovementTests
         var resolved = TradeRoutes.Locate("GBLGE");
         resolved.Source.Should().Be("unlocode");
         resolved.Coordinate.Should().Be(lightwater.Coordinate.Value);
-        database.CountWithCoordinates.Should().Be(113532);
+        database.CountWithCoordinates.Should().Be(113541);
     }
 
     [Fact]
@@ -247,16 +247,27 @@ public class MovementTests
         // A flipped sign (Luque, Paraguay, published in the northern hemisphere) and swapped latitude and longitude.
         TradeRouterEngine.Default.UnLocodes.GetByCode("PYLUQ")!.Coordinate!.Value.Latitude.Should().BeApproximately(-25.27, 0.01);
         TradeRouterEngine.Default.UnLocodes.GetByCode("DEGKO")!.Coordinate!.Value.Latitude.Should().BeApproximately(52.17, 0.01);
-        TradeRouterEngine.Default.UnLocodes.CountWithCoordinates.Should().Be(113532);
+        TradeRouterEngine.Default.UnLocodes.CountWithCoordinates.Should().Be(113541);
     }
 
     [Fact]
-    public void Movement_RejectsPortLabelWhenUnLocodeSaysAirport()
+    public void Movement_PortLabelAtANamedAirportCodeUsesThePortListPort()
     {
-        // The port list calls CNTSN Tianjin, while embedded UN/LOCODE records only an airport function.
-        var act = () => TradeRoutes.CalculateMovement("Port FRLEH to Port CNTSN Sea");
+        // The port list calls CNTSN Tianjin, while embedded UN/LOCODE records Tianjin Binhai airport. A port
+        // waypoint on a sea leg means the port.
+        var leg = TradeRoutes.CalculateMovement("Port FRLEH to Port CNTSN Sea").Legs.Single();
 
-        act.Should().Throw<ArgumentException>().WithMessage("*CNTSN*declared as Port*airport*");
+        leg.To.Source.Should().Be("ports");
+        leg.To.Port!.Name.Should().Be("Tianjin");
+    }
+
+    [Fact]
+    public void Movement_RejectsPortLabelWhenUnLocodeSaysAirportOnly()
+    {
+        // Kansas City International has no port-list record, so a port waypoint there is still rejected.
+        var act = () => TradeRoutes.CalculateMovement("Port FRLEH to Port USMCI Sea");
+
+        act.Should().Throw<ArgumentException>().WithMessage("*USMCI*declared as Port*airport*");
     }
 
     [Theory]
@@ -275,6 +286,20 @@ public class MovementTests
         destination.Source.Should().Be("ports");
         destination.Port!.PortCode.Should().Be(code);
         result.Legs[0].Length.Should().BeGreaterThan(0.0);
+    }
+
+    [Fact]
+    public void Movement_AntwerpChurchillTerminalCanEndASeaLeg()
+    {
+        // UN/LOCODE records only the multimodal function for the Churchilldok terminal; it is not in the port list.
+        var record = TradeRouterEngine.Default.UnLocodes.GetByCode("BEANT")!;
+        record.Functions.Should().Be(Locations.LocationFunctions.SeaPort | Locations.LocationFunctions.Multimodal);
+
+        var leg = TradeRoutes.CalculateMovement("CNSGH to BEANT Sea").Legs.Single();
+
+        leg.To.Source.Should().Be("unlocode");
+        Haversine.DistanceKm(leg.To.Coordinate, new Coordinate(4.367, 51.283)).Should().BeLessThan(2.0);
+        leg.Length.Should().BeInRange(18_000.0, 22_000.0);
     }
 
     [Fact]
