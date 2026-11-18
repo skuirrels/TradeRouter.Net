@@ -173,7 +173,7 @@ public class MovementTextTests
         string[] lines = result.ToText().ReplaceLineEndings("\n").Split('\n');
 
         lines.Should().Contain(
-            "Leg 1 warning  = DEDUI to PLWAW is outside North America, the only region the embedded rail network covers. " +
+            "Leg 1 warning  = DEDUI to PLWAW is outside the United States, Canada and Mexico, the only countries the embedded rail network covers. " +
             "Great-circle distance used: a straight-line lower bound, shorter than the shortest feasible rail distance that ISO 14083 and GLEC call for. " +
             "Supply the distance in MovementRequest.RailRouteOverrides where it is known.");
     }
@@ -184,7 +184,7 @@ public class MovementTextTests
         var result = TradeRoutes.CalculateMovement("DEDUS to DEDUI Road\nDEDUI to PLWAW Rail");
 
         result.ToText(includeExplanations: false).ReplaceLineEndings("\n").Split('\n').Last()
-            .Should().StartWith("Leg 2 warning  = DEDUI to PLWAW is outside North America");
+            .Should().StartWith("Leg 2 warning  = DEDUI to PLWAW is outside the United States, Canada and Mexico");
     }
 
     private static MovementResult CalculateNoFallbackMovement()

@@ -102,7 +102,7 @@ public class LocationWarningTests
 
         leg.From.Coordinate.Should().Be(Placeholder);
         leg.Feature.Properties.LocationWarning.Should()
-            .Be("Coordinates (0, 0) are usually a placeholder for a missing position; they were used as given.");
+            .Be("Coordinates (0, 0) given for Customer site are usually a placeholder for a missing position; they were used as given.");
     }
 
     [Fact]
@@ -126,6 +126,87 @@ public class LocationWarningTests
 
         leg.From.Coordinate.Should().Be(TradeRouterEngine.Default.Locate("CNSZX").Coordinate);
         leg.Feature.Properties.LocationWarning.Should().Contain("MovementRequest.Coordinates gives (0, 0) for CNSZX");
+    }
+
+    [Fact]
+    public void PlaceholderOverrideForAnUnknownCode_IsUsedAsGivenWithAWarning()
+    {
+        var request = Pickup(Location.FromCode("SITE1"));
+        request.Coordinates["SITE1"] = Placeholder;
+
+        var leg = FirstLeg(request);
+
+        leg.From.Coordinate.Should().Be(Placeholder);
+        leg.Feature.Properties.LocationWarning.Should()
+            .Be("MovementRequest.Coordinates gives (0, 0) for SITE1, usually a placeholder, but SITE1 has no listed position to use instead, so it was used as given.");
+    }
+
+    [Fact]
+    public void PlaceholderCoordinatesWithAnOverride_UseTheOverrideAndSaySo()
+    {
+        var request = Pickup(Location.FromCode("CNSZX", Placeholder));
+        request.Coordinates["CNSZX"] = ShenzhenCity;
+
+        var leg = FirstLeg(request);
+
+        leg.From.Coordinate.Should().Be(ShenzhenCity);
+        leg.Feature.Properties.LocationWarning.Should()
+            .Be("Coordinates (0, 0) given for CNSZX are a placeholder and were ignored; its position in MovementRequest.Coordinates was used.");
+    }
+
+    [Fact]
+    public void CoordinatesNearTheOverride_CarryNoWarningEvenFarFromTheListedPosition()
+    {
+        var request = Pickup(Location.FromCode("CNSZX", Alps));
+        request.Coordinates["CNSZX"] = new Coordinate(10.01, 46.51);
+
+        FirstLeg(request).Feature.Properties.LocationWarning.Should().BeNull();
+    }
+
+    [Fact]
+    public void CoordinatesFarFromTheOverride_AreComparedWithTheOverride()
+    {
+        var request = Pickup(Location.FromCode("CNSZX", Alps));
+        request.Coordinates["CNSZX"] = ShenzhenCity;
+
+        FirstLeg(request).Feature.Properties.LocationWarning.Should()
+            .StartWith("Coordinates given for CNSZX lie ")
+            .And.Contain("km from its position in MovementRequest.Coordinates");
+    }
+
+    [Fact]
+    public void SharedStop_CarriesTheWarningOnBothLegs()
+    {
+        var dock = Location.FromCode("CNSHG", Alps);
+        var request = new MovementRequest
+        {
+            Legs =
+            [
+                new MovementLeg(Location.FromCode("CNSZX"), dock, TransportMode.Road, LegKind.Pickup),
+                new MovementLeg(dock, Location.FromCode("CNSZX"), TransportMode.Road, LegKind.Delivery)
+            ]
+        };
+
+        var legs = TradeRouterEngine.Default.CalculateMovement(request).Legs;
+
+        legs[0].Feature.Properties.LocationWarning.Should().StartWith("Coordinates given for CNSHG lie ");
+        legs[1].Feature.Properties.LocationWarning.Should().Be(legs[0].Feature.Properties.LocationWarning);
+    }
+
+    [Fact]
+    public void SamePlaceRoadLeg_NeedsNoConfiguredRoadSpeed()
+    {
+        var request = new MovementRequest
+        {
+            Legs = [new MovementLeg("CNSHG", "CNSHG", TransportMode.Road, LegKind.Pickup)],
+            RoadDurationMode = RoadDurationMode.RouteDurationWhenAvailable
+        };
+        request.SpeedsKmh.Remove(TransportMode.Road);
+
+        var leg = FirstLeg(request);
+
+        leg.Length.Should().Be(0.0);
+        leg.DurationHours.Should().Be(0.0);
     }
 
     [Fact]

@@ -58,7 +58,7 @@ public class RailRoutingTests
     }
 
     [Fact]
-    public void Rail_ListedLegOutsideNorthAmerica_SaysSoRatherThanMeasuringToTheNetwork()
+    public void Rail_ListedLegOutsideTheNetworkCountries_SaysSoRatherThanMeasuringToTheNetwork()
     {
         var request = new MovementRequest { Legs = [new MovementLeg("DEDUI", "NLRTM", TransportMode.Rail)] };
 
@@ -66,7 +66,7 @@ public class RailRoutingTests
 
         leg.Feature.Properties.DistanceBasis.Should().Be("great_circle");
         leg.Feature.Properties.DistanceWarning.Should()
-            .StartWith("DEDUI to NLRTM is outside North America, the only region the embedded rail network covers.")
+            .StartWith("DEDUI to NLRTM is outside the United States, Canada and Mexico, the only countries the embedded rail network covers.")
             .And.Contain("straight-line lower bound")
             .And.Contain("MovementRequest.RailRouteOverrides")
             .And.NotContain("km from the nearest main line");
