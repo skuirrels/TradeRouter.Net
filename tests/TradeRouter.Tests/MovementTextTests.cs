@@ -173,7 +173,9 @@ public class MovementTextTests
         string[] lines = result.ToText().ReplaceLineEndings("\n").Split('\n');
 
         lines.Should().Contain(
-            "Leg 1 warning  = PLWAW is 5,419 km from the nearest main line of the embedded North American rail network, beyond the 25 km limit; great-circle distance used.");
+            "Leg 1 warning  = DEDUI to PLWAW is outside North America, the only region the embedded rail network covers. " +
+            "Great-circle distance used: a straight-line lower bound, shorter than the shortest feasible rail distance that ISO 14083 and GLEC call for. " +
+            "Supply the distance in MovementRequest.RailRouteOverrides where it is known.");
     }
 
     [Fact]
@@ -182,7 +184,7 @@ public class MovementTextTests
         var result = TradeRoutes.CalculateMovement("DEDUS to DEDUI Road\nDEDUI to PLWAW Rail");
 
         result.ToText(includeExplanations: false).ReplaceLineEndings("\n").Split('\n').Last()
-            .Should().StartWith("Leg 2 warning  = PLWAW is ");
+            .Should().StartWith("Leg 2 warning  = DEDUI to PLWAW is outside North America");
     }
 
     private static MovementResult CalculateNoFallbackMovement()

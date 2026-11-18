@@ -2,6 +2,18 @@
 
 All notable changes to TradeRouter.Net are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Each leg can carry a `location_warning` (`TradeRouterProperties.LocationWarning`). It appears when coordinates given with a known code lie more than `MovementRequest.CoordinateCodeToleranceKm` (50 km by default) from the code's listed position, which usually means the code or the coordinates are wrong. The coordinates are still used. Codes neither embedded list knows are not checked, and `double.PositiveInfinity` turns the check off. `MovementResult.ToText()` prints it as a `Leg <n> location` line.
+
+### Fixed
+
+- Coordinates of exactly (0, 0), the value many systems store when no position was captured, are no longer routed from as given when a code is present. The code resolves instead and the leg carries a `location_warning`; a (0, 0) entry in `MovementRequest.Coordinates` is skipped the same way. Previously CNSZX with (0, 0) produced a 14,152 km road leg from the Atlantic. Without a usable code the coordinates are still used, now with a `location_warning`.
+- A road or rail leg that starts and ends at the same place is exactly 0 km with `distance_basis` `great_circle` and no `distance_warning`. Road legs previously reported a 0 km `circuity_estimate` with the estimator's warning, and could call the road-network provider for nothing. A supplied route still takes precedence.
+- A rail leg with a listed end outside the United States, Canada and Mexico now says it is outside North America, the only region the embedded rail network covers, instead of reporting a gap of thousands of kilometres to the nearest North American line. Every rail great-circle warning now adds that the distance is a straight-line lower bound, shorter than the shortest feasible distance ISO 14083 and GLEC call for on rail, and points to `RailRouteOverrides`. Routing is unchanged.
+
 ## [2.13.0] - 2026-11-17
 
 ### Fixed
