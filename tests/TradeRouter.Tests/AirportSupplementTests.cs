@@ -70,6 +70,28 @@ public class AirportSupplementTests
         ningbo.Coordinate.Should().NotBeNull();
     }
 
+    [Theory]
+    [InlineData("FIHEL", "ports")]    // UNECE 2025-1 lists Helsinki as an airport; the port list keeps its position.
+    [InlineData("TWKHH", "ports")]    // And Kaohsiung.
+    [InlineData("ITMIL", "ports")]    // MIL is the IATA code for all Milan airports; the code stays in the city.
+    public void Movement_CityCodeWithASupplementedAirportCanEndAnAirLeg(string code, string source)
+    {
+        TradeRouterEngine.Default.UnLocodes.GetByCode(code)!.IsAirport.Should().BeTrue();
+
+        var leg = TradeRoutes.CalculateMovement($"{code} to DEFRA Air").Legs.Single();
+
+        leg.From.Source.Should().Be(source);
+        leg.Feature.Properties.DistanceBasis.Should().Be("great_circle");
+        leg.Length.Should().BeGreaterThan(400.0);
+    }
+
+    [Fact]
+    public void Movement_HelsinkiAndKaohsiungStillEndSeaLegsAtTheirPorts()
+    {
+        TradeRoutes.CalculateMovement("FIHEL to TWKHH Sea").Legs.Single()
+            .Feature.Properties.DistanceBasis.Should().Be("maritime_network");
+    }
+
     [Fact]
     public void Movement_NingboCanBeASeaPortStationAndAirport()
     {
