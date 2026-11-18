@@ -2,6 +2,15 @@
 
 All notable changes to TradeRouter.Net are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- A sea leg at a code that UN/LOCODE records as a named airport, such as Shanghai (`CNSHA`), Ningbo (`CNNGB`), Xiamen (`CNXMN`), Qingdao (`CNTAO`), Dalian (`CNDLC`) or Tianjin (`CNTSN`), now starts or ends at the port-list port under that code instead of being rejected as an airport. Since 2.13.0 these codes resolved to the airport everywhere. A movement that uses such a code only at the end of sea legs or as a `Waypoint.Port`, and never on an air leg or as a `Waypoint.Airport`, now means the port, so a road leg that joins the sea leg there ends at the port too. A movement that also uses the code on an air leg keeps the airport, because every leg touching a code shares one position, and `Locate` still returns the airport.
+- Antwerp Churchill Terminal (`BEANT`), a container terminal on the Churchilldok in the port of Antwerp that UNECE records only as multimodal, can end a sea leg. The sea-port supplement gains the entry.
+- Helsinki (`FIHEL`) and Kaohsiung (`TWKHH`) can end an air leg: UNECE 2025-1 lists both as airports, while the embedded rows record the sea port only. Milan (`ITMIL`) can too, because MIL is the IATA code for all Milan airports. Each keeps its position.
+- Nine UN/LOCODEs that UNECE publishes without a coordinate now resolve, from reviewed rows in the coordinate supplement: Kansas City, Kansas (`USKCK`), Arjuna offshore terminal (`IDAJN`), Kocaeli Cengiz Topel Airport (`TRKCO`), Qingshuihe, Shenzhen (`CNQSE`), Foshan New Port (`CNFRT`), Luton (`GBLUT`), Cavite City (`PHCVE`), Purfleet (`GBPFT`) and Toronto (`CAYTO`). 113,541 of 116,022 codes now have coordinates. Jining (`CNJII`), Jinjiang (`CNJJI`) and Samulsakom (`THSAS`) stay unplaced, because their UNECE subdivision contradicts every candidate.
+
 ## [2.13.0] - 2026-11-17
 
 ### Fixed

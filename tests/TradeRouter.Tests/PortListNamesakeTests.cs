@@ -70,6 +70,67 @@ public class PortListNamesakeTests
         leg.Feature.Properties.PortOrigin!.Name.Should().Be("Ningbo");
     }
 
+    // UN/LOCODE files each as the city's airport; the port list holds the city's port under the same code.
+    [Theory]
+    [InlineData("CNSHA", "Shanghai")]
+    [InlineData("CNNGB", "Ningbo")]
+    [InlineData("CNXMN", "Xiamen")]
+    [InlineData("CNTAO", "Qingdao")]
+    [InlineData("CNDLC", "Dalian")]
+    public void Movement_SeaLegAtANamedAirportCodeUsesThePortListPort(string code, string portName)
+    {
+        var leg = TradeRoutes.CalculateMovement($"{code} to NLRTM Sea").Legs.Single();
+
+        leg.From.Source.Should().Be("ports");
+        leg.From.Port!.Name.Should().Be(portName);
+        leg.From.Functions!.Value.Should().HaveFlag(LocationFunctions.SeaPort);
+        leg.Feature.Properties.DistanceBasis.Should().Be("maritime_network");
+    }
+
+    [Fact]
+    public void Movement_RoadLegJoiningASeaLegAtANamedAirportCodeEndsAtThePort()
+    {
+        var request = new MovementRequest
+        {
+            Legs =
+            [
+                new MovementLeg("CNSZX", "CNSHA", TransportMode.Road, LegKind.Pickup),
+                new MovementLeg("CNSHA", "NLRTM", TransportMode.Sea)
+            ],
+            RoadRoutingMode = RoadRoutingMode.EstimateOnly
+        };
+
+        var legs = TradeRouterEngine.Default.CalculateMovement(request).Legs;
+
+        legs[0].To.Source.Should().Be("ports");
+        legs[1].From.Coordinate.Should().Be(legs[0].To.Coordinate);
+    }
+
+    [Fact]
+    public void Movement_NamedAirportCodeOnAnAirLegStaysAtTheAirportEvenWithASeaLeg()
+    {
+        // Every leg touching a code shares one position, so a code used for both air and sea keeps the airport.
+        var request = new MovementRequest
+        {
+            Legs =
+            [
+                new MovementLeg("KRPUS", "CNSHA", TransportMode.Sea),
+                new MovementLeg("CNSHA", "GBLHR", TransportMode.Air)
+            ]
+        };
+
+        var act = () => TradeRouterEngine.Default.CalculateMovement(request);
+
+        act.Should().Throw<ArgumentException>().WithMessage("*Sea*CNSHA*airport*AdditionalLocationFunctions*");
+    }
+
+    [Fact]
+    public void Locate_StillPrefersTheAirportForANamedAirportCode()
+    {
+        // Locate has no leg to read the mode from, so it keeps UN/LOCODE's airport.
+        TradeRoutes.Locate("CNSHA").Source.Should().Be("unlocode");
+    }
+
     [Fact]
     public void CalculateRoute_StillRoutesAnAirportCodeFromThePortList()
     {
