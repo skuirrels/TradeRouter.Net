@@ -113,6 +113,8 @@ public class RailSupplementTests
     [InlineData("USV7X", "USCHI")] // NS Croxton.
     [InlineData("USMQM", "USLAX")] // UP Marion, across the river from Memphis.
     [InlineData("USSXT", "USLAX")] // UP Santa Teresa.
+    [InlineData("USKCK", "USLAX")] // UP Kansas City Intermodal Terminal, Armourdale.
+    [InlineData("USPHN", "USCHI")] // CN Port Huron yard.
     [InlineData("CABRP", "CAMTR")] // CN Brampton.
     [InlineData("CAEDM", "CAPRR")]
     [InlineData("CAREG", "CAWNP")]
@@ -157,6 +159,7 @@ public class RailSupplementTests
     [InlineData("USBHM")] // Birmingham: the NS terminal at McCalla is 31 km out.
     [InlineData("USTUL")] // Tulsa: only the bulk Port of Catoosa, 24 km out.
     [InlineData("USRCX")] // Rochelle: UP idled Global III in 2019.
+    [InlineData("USPQT")] // Portal, North Dakota: sources describe only the border crossing.
     [InlineData("MXCJS")] // Ciudad Juarez: sources describe only the border crossing.
     [InlineData("MXTAM")] // Tampico: no source names port rail; Altamira is about 26 km out.
     [InlineData("MXPBC")] // Puebla: the only named terminal dates from 2005.
