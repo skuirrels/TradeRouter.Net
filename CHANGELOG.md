@@ -10,13 +10,18 @@ All notable changes to TradeRouter.Net are recorded here. The format follows [Ke
 
 ### Fixed
 
+- Coordinates of exactly (0, 0), the value many systems store when no position was captured, are no longer routed from as given when a code is present. The code resolves instead and the leg carries a `location_warning`; a (0, 0) entry in `MovementRequest.Coordinates` is skipped the same way. Previously CNSZX with (0, 0) produced a 14,152 km road leg from the Atlantic. Without a usable code the coordinates are still used, now with a `location_warning`.
+- A road or rail leg that starts and ends at the same place is exactly 0 km with `distance_basis` `great_circle` and no `distance_warning`, and a 0 km road leg takes no time without needing a configured road speed. Road legs previously reported a 0 km `circuity_estimate` with the estimator's warning, and could call the road-network provider for nothing. A supplied route still takes precedence.
+- A rail leg with a listed end outside the United States, Canada and Mexico now says so, as the only countries the embedded rail network covers, instead of reporting a gap of thousands of kilometres to the nearest North American line. Every rail great-circle warning now adds that the distance is a straight-line lower bound, shorter than the shortest feasible distance ISO 14083 and GLEC call for on rail, and points to `RailRouteOverrides`. Routing is unchanged.
+
+## [2.14.0] - 2026-11-18
+
+### Fixed
+
 - A sea leg at a code that UN/LOCODE records as a named airport, such as Shanghai (`CNSHA`), Ningbo (`CNNGB`), Xiamen (`CNXMN`), Qingdao (`CNTAO`), Dalian (`CNDLC`) or Tianjin (`CNTSN`), now starts or ends at the port-list port under that code instead of being rejected as an airport. Since 2.13.0 these codes resolved to the airport everywhere. A movement that uses such a code only at the end of sea legs or as a `Waypoint.Port`, and never on an air leg or as a `Waypoint.Airport`, now means the port, so a road leg that joins the sea leg there ends at the port too. The port-list record is used only when it lies within 50 km of the maritime network; the port list also files inland cities under airport codes, such as Zhengzhou (`CNCGO`) and Tucson (`USTUS`), and a sea leg there is still rejected. A movement that also uses the code on an air leg keeps the airport, because every leg touching a code shares one position, and `Locate` still returns the airport.
 - Antwerp Churchill Terminal (`BEANT`), a container terminal on the Churchilldok in the port of Antwerp that UNECE records only as multimodal, can end a sea leg. The sea-port supplement gains the entry.
 - Helsinki (`FIHEL`) and Kaohsiung (`TWKHH`) can end an air leg: UNECE 2025-1 lists both as airports, while the embedded rows record the sea port only. Milan (`ITMIL`) can too, because MIL is the IATA code for all Milan airports. Each keeps its position.
 - Nine UN/LOCODEs that UNECE publishes without a coordinate now resolve, from reviewed rows in the coordinate supplement: Kansas City, Kansas (`USKCK`), Arjuna offshore terminal (`IDAJN`), Kocaeli Cengiz Topel Airport (`TRKCO`), Qingshuihe, Shenzhen (`CNQSE`), Foshan New Port (`CNFRT`), Luton (`GBLUT`), Cavite City (`PHCVE`), Purfleet (`GBPFT`) and Toronto (`CAYTO`). 113,541 of 116,022 codes now have coordinates. Jining (`CNJII`), Jinjiang (`CNJJI`) and Samulsakom (`THSAS`) stay unplaced, because their UNECE subdivision contradicts every candidate.
-- Coordinates of exactly (0, 0), the value many systems store when no position was captured, are no longer routed from as given when a code is present. The code resolves instead and the leg carries a `location_warning`; a (0, 0) entry in `MovementRequest.Coordinates` is skipped the same way. Previously CNSZX with (0, 0) produced a 14,152 km road leg from the Atlantic. Without a usable code the coordinates are still used, now with a `location_warning`.
-- A road or rail leg that starts and ends at the same place is exactly 0 km with `distance_basis` `great_circle` and no `distance_warning`, and a 0 km road leg takes no time without needing a configured road speed. Road legs previously reported a 0 km `circuity_estimate` with the estimator's warning, and could call the road-network provider for nothing. A supplied route still takes precedence.
-- A rail leg with a listed end outside the United States, Canada and Mexico now says so, as the only countries the embedded rail network covers, instead of reporting a gap of thousands of kilometres to the nearest North American line. Every rail great-circle warning now adds that the distance is a straight-line lower bound, shorter than the shortest feasible distance ISO 14083 and GLEC call for on rail, and points to `RailRouteOverrides`. Routing is unchanged.
 
 ## [2.13.0] - 2026-11-17
 
@@ -204,6 +209,7 @@ First release on nuget.org.
 - All data is embedded as compressed JSON. A symbols package with Source Link ships alongside.
 - Releases are published from GitHub Actions through nuget.org Trusted Publishing.
 
+[2.14.0]: https://github.com/skuirrels/TradeRouter.Net/releases/tag/v2.14.0
 [2.13.0]: https://github.com/skuirrels/TradeRouter.Net/releases/tag/v2.13.0
 [2.12.0]: https://github.com/skuirrels/TradeRouter.Net/releases/tag/v2.12.0
 [2.11.0]: https://github.com/skuirrels/TradeRouter.Net/releases/tag/v2.11.0
