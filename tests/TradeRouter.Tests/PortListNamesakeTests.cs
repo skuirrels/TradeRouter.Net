@@ -87,6 +87,29 @@ public class PortListNamesakeTests
         leg.Feature.Properties.DistanceBasis.Should().Be("maritime_network");
     }
 
+    // The port list files these inland cities under the airport's code, far from the maritime network.
+    [Theory]
+    [InlineData("CNCGO")] // Zhengzhou.
+    [InlineData("CNTYN")] // Taiyuan.
+    [InlineData("USTUS")] // Tucson.
+    [InlineData("USMSP")] // Minneapolis, flagged a terminal in the port list.
+    public void Movement_SeaLegAtANamedAirportCodeInlandIsStillRejected(string code)
+    {
+        var act = () => TradeRoutes.CalculateMovement($"{code} to NLRTM Sea");
+
+        act.Should().Throw<ArgumentException>().WithMessage($"*Sea*{code}*airport*");
+    }
+
+    [Fact]
+    public void Movement_DeclaredSeaPortStillUsesAnInlandPortListRecord()
+    {
+        // A declaration is the caller's own statement, so it is not second-guessed by the network check.
+        var request = new MovementRequest { Legs = MovementParser.Parse("CNCGO to NLRTM Sea") };
+        request.AdditionalLocationFunctions["CNCGO"] = LocationFunctions.SeaPort;
+
+        TradeRouterEngine.Default.CalculateMovement(request).Legs.Single().From.Source.Should().Be("ports");
+    }
+
     [Fact]
     public void Movement_RoadLegJoiningASeaLegAtANamedAirportCodeEndsAtThePort()
     {

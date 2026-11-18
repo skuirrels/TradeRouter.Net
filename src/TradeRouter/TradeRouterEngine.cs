@@ -992,17 +992,17 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
 
         bool declaredSeaPort = request.AdditionalLocationFunctions.TryGetValue(code, out var declared)
             && (declared & LocationFunctions.SeaPort) != 0;
-        return ResolveCode(code, request.Resolver, declaredSeaPort || seaPortCodes.Contains(code));
+        return ResolveCode(code, request.Resolver, declaredSeaPort, seaPortCodes.Contains(code));
     }
 
     /// <inheritdoc />
     public ResolvedLocation Locate(string code)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(code);
-        return ResolveCode(code.Trim().ToUpperInvariant(), null, meansSeaPort: false);
+        return ResolveCode(code.Trim().ToUpperInvariant(), null, declaredSeaPort: false, usedAsSeaPort: false);
     }
 
-    private ResolvedLocation ResolveCode(string code, ILocationResolver? resolver, bool meansSeaPort)
+    private ResolvedLocation ResolveCode(string code, ILocationResolver? resolver, bool declaredSeaPort, bool usedAsSeaPort)
     {
         UnLocode? unLocode = UnLocodes.GetByCode(code);
         Port? port = SelectPortRecord(code, unLocode);
@@ -1013,11 +1013,14 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
         // namesake filed under the code, such as the port list's USPIT, Pilottown in Louisiana, not Pittsburgh.
         // And it wins when it records the code as a named airport with a position, because the port-list record is
         // then the city's port filed under the airport's IATA code: UN/LOCODE's CNNGB is Ningbo Lishe International
-        // Apt, 11 km from the port list's Ningbo, whose own code is CNNBO. A movement that uses the code only at the
-        // end of sea legs, or a caller who declares the sea-port function for it in
-        // MovementRequest.AdditionalLocationFunctions, means the port, so the port list stands and the resolved
-        // location carries the sea-port function the port has.
+        // Apt, 11 km from the port list's Ningbo, whose own code is CNNBO. A caller who declares the sea-port function
+        // for the code in MovementRequest.AdditionalLocationFunctions means the port, so the port list stands. So does
+        // a movement that uses the code only at the end of sea legs, when the port-list record lies within
+        // PortListSeaAccessKm of the maritime network; further away it is inland, such as the port list's CNCGO,
+        // Zhengzhou, or USTUS, Tucson, and the code stays the airport. The port-list record used for a port
+        // carries the sea-port function.
         bool namedAirport = unLocode is { Coordinate: not null } && IsNamedAirport(unLocode);
+        bool meansSeaPort = declaredSeaPort || (usedAsSeaPort && port != null && ReachesSeaNetwork(port));
         bool portIsOtherFacility = !meansSeaPort && namedAirport;
         if (port != null && !portIsOtherFacility && (unLocode == null || NamesAgree(port.Name, unLocode.Name))
             && (unLocode?.Coordinate is not { } listed || Haversine.DistanceKm(port.Coordinate, listed) <= PortListNamesakeKm))
@@ -1052,6 +1055,17 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
     /// 49 km, but a port-list entry further away than this is a namesake filed under the code.
     /// </summary>
     private const double PortListNamesakeKm = 50.0;
+
+    /// <summary>
+    /// How far a port-list record may lie from the nearest maritime network node and still be taken as a sea port
+    /// for a code UN/LOCODE files as an airport. The coastal ports filed under airport codes, such as Shanghai and
+    /// Guangzhou, lie within 50 km; the others, inland cities such as Zhengzhou and Tucson and river ports the network
+    /// does not reach, such as Nanjing, lie 78 to 1,282 km away.
+    /// </summary>
+    private const double PortListSeaAccessKm = 50.0;
+
+    private bool ReachesSeaNetwork(Port port) =>
+        Haversine.DistanceKm(port.Coordinate, Graph.GetCoordinate(Graph.FindNearestNode(port.Coordinate))) <= PortListSeaAccessKm;
 
     /// <summary>
     /// Whether UN/LOCODE files the code as an airport and nothing on the water: the airport function without the
