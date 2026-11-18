@@ -6,7 +6,7 @@ All notable changes to TradeRouter.Net are recorded here. The format follows [Ke
 
 ### Fixed
 
-- Kansas City, Kansas (`USKCK`), and Port Huron (`USPHN`) can end a rail leg. UNECE records neither as a rail terminal; the rail supplement now cites Union Pacific's Kansas City Intermodal Terminal, opened beside the Armourdale yard in July 2025, and CN's rail yard at Port Huron. Portal, North Dakota (`USPQT`), a border crossing, and Nashville (`USBNA`), where no source names a terminal, still need `MovementRequest.AdditionalLocationFunctions`.
+- Kansas City, Kansas (`USKCK`), and Port Huron (`USPHN`) can end a rail leg. UNECE records neither as a rail terminal; the rail supplement now cites Union Pacific's Kansas City Intermodal Terminal, opened at 1810 Bayard Avenue in July 2025, and CN's rail yard at Port Huron. Portal, North Dakota (`USPQT`), a border crossing, and Nashville (`USBNA`), where no source names a terminal, still need `MovementRequest.AdditionalLocationFunctions`.
 
 ## [2.15.0] - 2026-11-18
 
