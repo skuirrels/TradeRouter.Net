@@ -1,12 +1,14 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using AwesomeAssertions;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using TradeRouter.Caching;
 using TradeRouter.Common;
+using TradeRouter.GeoJson;
 using TradeRouter.Movements;
 using Xunit;
 
@@ -60,6 +62,19 @@ public class NoReflectionJsonTests
         document.RootElement.GetProperty("properties").GetProperty("port_origin").GetProperty("port").GetString()
             .Should().NotBeNullOrEmpty();
         feature.ToString().Should().Be(feature.ToJson());
+    }
+
+    [Fact]
+    public void ConsumerSourceGeneratedContext_WritesTheSameGeoJson()
+    {
+        // A consumer's own context lists only the GeoJSON types it returns, not the coordinate lists behind the
+        // geometry converter; the converter must still write the geometry.
+        var feature = TradeRoutes.Calculate(new Coordinate(121.8, 31.2), new Coordinate(-118.3, 33.7));
+
+        string json = JsonSerializer.Serialize(feature, ConsumerJsonContext.Default.GeoJsonFeature);
+
+        feature.Geometry.Should().BeOfType<GeoJsonMultiLineString>();
+        json.Should().Be(feature.ToJson());
     }
 
     [Fact]
@@ -140,3 +155,7 @@ public class NoReflectionJsonTests
             send(request, cancellationToken);
     }
 }
+
+[JsonSourceGenerationOptions(DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
+[JsonSerializable(typeof(GeoJsonFeature))]
+internal sealed partial class ConsumerJsonContext : JsonSerializerContext;

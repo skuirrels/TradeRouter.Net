@@ -1,6 +1,5 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Text.Json.Serialization.Metadata;
 
 namespace TradeRouter.GeoJson;
 
@@ -22,14 +21,17 @@ internal static class GeoJsonSerializer
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     });
 
-    public static string Serialize<T>(T value, bool writeIndented)
-    {
-        var context = writeIndented ? Indented : Compact;
-        var typeInfo = (JsonTypeInfo<T>)context.GetTypeInfo(typeof(T))!;
-        return JsonSerializer.Serialize(value, typeInfo);
-    }
+    public static string Serialize(GeoJsonFeature value, bool writeIndented) =>
+        JsonSerializer.Serialize(value, (writeIndented ? Indented : Compact).GeoJsonFeature);
+
+    public static string Serialize(GeoJsonFeatureCollection value, bool writeIndented) =>
+        JsonSerializer.Serialize(value, (writeIndented ? Indented : Compact).GeoJsonFeatureCollection);
 }
 
+// The coordinate list types are listed because GeoJsonGeometryConverter serializes them through the options it is
+// given; the generator does not reach them on its own past the converter.
 [JsonSerializable(typeof(GeoJsonFeatureCollection))]
 [JsonSerializable(typeof(GeoJsonFeature))]
+[JsonSerializable(typeof(List<double[]>))]
+[JsonSerializable(typeof(List<List<double[]>>))]
 internal sealed partial class GeoJsonJsonContext : JsonSerializerContext;

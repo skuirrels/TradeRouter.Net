@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 using TradeRouter.Common;
 
 namespace TradeRouter.GeoJson;
@@ -104,8 +105,15 @@ public abstract class GeoJsonGeometry
         position[0] == longitude && position[1] == latitude;
 }
 
-internal sealed class GeoJsonGeometryConverter : JsonConverter<GeoJsonGeometry>
+/// <summary>
+/// Reads and writes <see cref="GeoJsonGeometry"/> as a GeoJSON <c>LineString</c> or <c>MultiLineString</c>. It is
+/// applied through <see cref="JsonConverterAttribute"/> on <see cref="GeoJsonGeometry"/>, and it is public so that a
+/// source-generated <see cref="JsonSerializerContext"/> in a Native AOT or trimmed app can use it when it lists the
+/// library's GeoJSON types.
+/// </summary>
+public sealed class GeoJsonGeometryConverter : JsonConverter<GeoJsonGeometry>
 {
+    /// <inheritdoc />
     public override GeoJsonGeometry? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
         if (reader.TokenType == JsonTokenType.Null)
@@ -127,6 +135,7 @@ internal sealed class GeoJsonGeometryConverter : JsonConverter<GeoJsonGeometry>
         };
     }
 
+    /// <inheritdoc />
     public override void Write(Utf8JsonWriter writer, GeoJsonGeometry value, JsonSerializerOptions options)
     {
         writer.WriteStartObject();
@@ -135,13 +144,10 @@ internal sealed class GeoJsonGeometryConverter : JsonConverter<GeoJsonGeometry>
         switch (value)
         {
             case GeoJsonLineString line:
-                WriteLine(writer, line.Coordinates);
+                WriteCoordinates(writer, line.Coordinates, options, WriteLine);
                 break;
             case GeoJsonMultiLineString multiLine:
-                writer.WriteStartArray();
-                foreach (var segment in multiLine.Coordinates)
-                    WriteLine(writer, segment);
-                writer.WriteEndArray();
+                WriteCoordinates(writer, multiLine.Coordinates, options, WriteLines);
                 break;
             default:
                 throw new JsonException($"Unsupported route geometry type '{value.GetType().Name}'.");
@@ -149,12 +155,48 @@ internal sealed class GeoJsonGeometryConverter : JsonConverter<GeoJsonGeometry>
         writer.WriteEndObject();
     }
 
-    // Written by hand rather than through JsonSerializer so the converter needs no metadata for the coordinate lists.
-    private static void WriteLine(Utf8JsonWriter writer, List<double[]> positions)
+    /// <summary>
+    /// Writes coordinates with the caller's options when they carry metadata for the list type, so the caller's
+    /// number handling and converters apply as before. The library's own context registers both list types. A
+    /// caller's source-generated context usually does not, because the generator does not look inside a type that
+    /// has its own converter; those coordinates are written by hand with the default number handling.
+    /// </summary>
+    private static void WriteCoordinates<T>(Utf8JsonWriter writer, T coordinates, JsonSerializerOptions options, Action<Utf8JsonWriter, T> fallback)
     {
+        if (options.TryGetTypeInfo(typeof(T), out var typeInfo) && typeInfo is JsonTypeInfo<T> typed)
+            JsonSerializer.Serialize(writer, coordinates, typed);
+        else
+            fallback(writer, coordinates);
+    }
+
+    private static void WriteLines(Utf8JsonWriter writer, List<List<double[]>>? lines)
+    {
+        if (lines is null)
+        {
+            writer.WriteNullValue();
+            return;
+        }
+        writer.WriteStartArray();
+        foreach (var line in lines)
+            WriteLine(writer, line);
+        writer.WriteEndArray();
+    }
+
+    private static void WriteLine(Utf8JsonWriter writer, List<double[]>? positions)
+    {
+        if (positions is null)
+        {
+            writer.WriteNullValue();
+            return;
+        }
         writer.WriteStartArray();
         foreach (var position in positions)
         {
+            if (position is null)
+            {
+                writer.WriteNullValue();
+                continue;
+            }
             writer.WriteStartArray();
             foreach (double value in position)
                 writer.WriteNumberValue(value);

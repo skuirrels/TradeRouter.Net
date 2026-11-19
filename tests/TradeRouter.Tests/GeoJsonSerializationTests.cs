@@ -65,6 +65,53 @@ public class GeoJsonSerializationTests
         geometry!.Positions.Should().BeEquivalentTo(feature.Geometry!.Positions, options => options.WithStrictOrdering());
     }
 
+    // Literal expectations, independent of the converter, so a change to how coordinates are written shows up here.
+    [Fact]
+    public void LineStringCoordinates_AreWrittenAsNestedNumberArrays()
+    {
+        var feature = new GeoJsonFeature { Geometry = new GeoJsonLineString { Coordinates = [[1.5, 2], [3, -4.25]] } };
+
+        feature.ToJson().Should().Contain("""
+            "geometry":{"type":"LineString","coordinates":[[1.5,2],[3,-4.25]]}
+            """);
+    }
+
+    [Fact]
+    public void MultiLineStringCoordinates_AreWrittenAsNestedNumberArrays()
+    {
+        var feature = new GeoJsonFeature
+        {
+            Geometry = new GeoJsonMultiLineString { Coordinates = [[[179, 1], [180, 1.5]], [[-180, 1.5], [-179, 2]]] }
+        };
+
+        feature.ToJson().Should().Contain("""
+            "geometry":{"type":"MultiLineString","coordinates":[[[179,1],[180,1.5]],[[-180,1.5],[-179,2]]]}
+            """);
+    }
+
+    [Fact]
+    public void NullCoordinateListsAndPositions_AreWrittenAsNull()
+    {
+        new GeoJsonFeature { Geometry = new GeoJsonLineString { Coordinates = null! } }.ToJson()
+            .Should().Contain("""{"type":"LineString","coordinates":null}""");
+        new GeoJsonFeature { Geometry = new GeoJsonLineString { Coordinates = [[1, 2], null!] } }.ToJson()
+            .Should().Contain("""{"type":"LineString","coordinates":[[1,2],null]}""");
+        new GeoJsonFeature { Geometry = new GeoJsonMultiLineString { Coordinates = [[[1, 2], [3, 4]], null!] } }.ToJson()
+            .Should().Contain("""{"type":"MultiLineString","coordinates":[[[1,2],[3,4]],null]}""");
+    }
+
+    [Fact]
+    public void CallerOptions_StillApplyToCoordinates()
+    {
+        var feature = new GeoJsonFeature { Geometry = new GeoJsonLineString { Coordinates = [[double.NaN, 2], [3, 4]] } };
+        var options = ReflectionOptions(false);
+        options.NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals;
+
+        JsonSerializer.Serialize(feature, options).Should().Contain("""
+            "coordinates":[["NaN",2],[3,4]]
+            """);
+    }
+
     private static readonly JsonTypeInfo<GeoJsonGeometry> ReflectionGeometry =
         (JsonTypeInfo<GeoJsonGeometry>)ReflectionOptions(false).GetTypeInfo(typeof(GeoJsonGeometry));
 
