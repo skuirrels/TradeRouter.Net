@@ -8,6 +8,7 @@
     <Project Path="src/TradeRouter.Sample/TradeRouter.Sample.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/TradeRouter.NoReflectionTests/TradeRouter.NoReflectionTests.csproj" />
     <Project Path="tests/TradeRouter.Tests/TradeRouter.Tests.csproj" />
   </Folder>
 </Solution>

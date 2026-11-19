@@ -6,6 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <IsAotCompatible>true</IsAotCompatible>
     <PackageId>TradeRouter.Net.Caching</PackageId>
     <Description>Caching for TradeRouter.Net road-route providers, stored through any IDistributedCache such as Redis, SQL Server or PostgreSQL, or through your own store.</Description>
     <PackageReadmeFile>README.md</PackageReadmeFile>

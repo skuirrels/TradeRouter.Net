@@ -1,12 +1,13 @@
 using System.Globalization;
 using System.Net.Http.Json;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using TradeRouter.Common;
 
 namespace TradeRouter.Movements;
 
 /// <summary>Routes road legs through an OSRM HTTP service, including a locally hosted OSRM container.</summary>
-public sealed class OsrmRoadRouteProvider : IRoadRouteProvider
+public sealed partial class OsrmRoadRouteProvider : IRoadRouteProvider
 {
     private readonly HttpClient _httpClient;
     private readonly Uri _baseUri;
@@ -85,7 +86,7 @@ public sealed class OsrmRoadRouteProvider : IRoadRouteProvider
         try
         {
             using var response = await _httpClient.GetAsync(requestUri, cancellationToken).ConfigureAwait(false);
-            var payload = await response.Content.ReadFromJsonAsync<OsrmResponse>(cancellationToken: cancellationToken).ConfigureAwait(false);
+            var payload = await response.Content.ReadFromJsonAsync(OsrmJsonContext.Default.OsrmResponse, cancellationToken).ConfigureAwait(false);
             if (payload is null)
                 return Unavailable("OSRM returned an empty response.");
 
@@ -196,4 +197,9 @@ public sealed class OsrmRoadRouteProvider : IRoadRouteProvider
         [JsonPropertyName("coordinates")]
         public List<double[]>? Coordinates { get; init; }
     }
+
+    // Web defaults match what ReadFromJsonAsync used before metadata was source-generated.
+    [JsonSourceGenerationOptions(JsonSerializerDefaults.Web)]
+    [JsonSerializable(typeof(OsrmResponse))]
+    private sealed partial class OsrmJsonContext : JsonSerializerContext;
 }

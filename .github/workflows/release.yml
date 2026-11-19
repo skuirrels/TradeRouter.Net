@@ -37,6 +37,9 @@ jobs:
       - name: Test .NET 8 and .NET 10
         run: dotnet test tests/TradeRouter.Tests/TradeRouter.Tests.csproj -c Release --no-build -m:1 -nr:false
 
+      - name: Test with reflection-based JSON off
+        run: dotnet test tests/TradeRouter.NoReflectionTests/TradeRouter.NoReflectionTests.csproj -c Release --no-build -m:1 -nr:false
+
       - name: Pack
         run: |
           dotnet pack src/TradeRouter/TradeRouter.csproj -c Release --no-build -m:1 -nr:false -o artifacts

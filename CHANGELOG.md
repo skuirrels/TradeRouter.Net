@@ -2,6 +2,13 @@
 
 All notable changes to TradeRouter.Net are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- `ToJson()` on a movement result, feature collection or feature, and the Google Routes and OSRM road-route providers, no longer throw `InvalidOperationException` in an app where reflection-based System.Text.Json is off. Native AOT, trimmed and .NET 10 file-based apps turn it off by default. All JSON now goes through source-generated metadata, and the output is byte-for-byte the same as before. Both packages are marked AOT-compatible, so the trimming and AOT analysers check them on every build, and a new test project runs the JSON paths with reflection off; CI and the release workflow both run it.
+- An app can now serialise the GeoJSON types through its own source-generated `JsonSerializerContext`, as an ASP.NET Core Native AOT app returning a `GeoJsonFeatureCollection` does. `GeoJsonGeometryConverter` is now public, because the source generator cannot use an internal converter. Coordinates still follow the caller's options, such as `NumberHandling`, when those options carry metadata for the coordinate lists, and are written with the default number handling otherwise.
+
 ## [2.15.1] - 2026-11-18
 
 ### Fixed
