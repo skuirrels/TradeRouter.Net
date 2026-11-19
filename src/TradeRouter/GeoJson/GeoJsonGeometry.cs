@@ -135,15 +135,32 @@ internal sealed class GeoJsonGeometryConverter : JsonConverter<GeoJsonGeometry>
         switch (value)
         {
             case GeoJsonLineString line:
-                JsonSerializer.Serialize(writer, line.Coordinates, options);
+                WriteLine(writer, line.Coordinates);
                 break;
             case GeoJsonMultiLineString multiLine:
-                JsonSerializer.Serialize(writer, multiLine.Coordinates, options);
+                writer.WriteStartArray();
+                foreach (var segment in multiLine.Coordinates)
+                    WriteLine(writer, segment);
+                writer.WriteEndArray();
                 break;
             default:
                 throw new JsonException($"Unsupported route geometry type '{value.GetType().Name}'.");
         }
         writer.WriteEndObject();
+    }
+
+    // Written by hand rather than through JsonSerializer so the converter needs no metadata for the coordinate lists.
+    private static void WriteLine(Utf8JsonWriter writer, List<double[]> positions)
+    {
+        writer.WriteStartArray();
+        foreach (var position in positions)
+        {
+            writer.WriteStartArray();
+            foreach (double value in position)
+                writer.WriteNumberValue(value);
+            writer.WriteEndArray();
+        }
+        writer.WriteEndArray();
     }
 
     private static List<double[]> ReadLine(JsonElement element) =>

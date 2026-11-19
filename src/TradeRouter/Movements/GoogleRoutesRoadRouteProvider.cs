@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Net.Http.Json;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using TradeRouter.Common;
 
@@ -8,7 +9,7 @@ namespace TradeRouter.Movements;
 /// <summary>
 /// Routes road legs through the Google Maps Platform Routes API <c>computeRoutes</c> method.
 /// </summary>
-public sealed class GoogleRoutesRoadRouteProvider : IRoadRouteProvider
+public sealed partial class GoogleRoutesRoadRouteProvider : IRoadRouteProvider
 {
     /// <summary>Base URI of the public Google Routes API.</summary>
     public static Uri DefaultBaseUri { get; } = new("https://routes.googleapis.com/");
@@ -100,7 +101,7 @@ public sealed class GoogleRoutesRoadRouteProvider : IRoadRouteProvider
                 TravelMode = _travelMode,
                 PolylineQuality = "HIGH_QUALITY",
                 PolylineEncoding = "GEO_JSON_LINESTRING"
-            })
+            }, GoogleRoutesJsonContext.Default.ComputeRoutesRequest)
         };
         httpRequest.Headers.Add("X-Goog-Api-Key", _apiKey);
         httpRequest.Headers.Add("X-Goog-FieldMask", FieldMask);
@@ -111,7 +112,7 @@ public sealed class GoogleRoutesRoadRouteProvider : IRoadRouteProvider
             if (!response.IsSuccessStatusCode)
                 return Unavailable(await ReadErrorAsync(response, cancellationToken).ConfigureAwait(false));
 
-            var payload = await response.Content.ReadFromJsonAsync<ComputeRoutesResponse>(cancellationToken: cancellationToken).ConfigureAwait(false);
+            var payload = await response.Content.ReadFromJsonAsync(GoogleRoutesJsonContext.Default.ComputeRoutesResponse, cancellationToken).ConfigureAwait(false);
             if (payload is null)
                 return Unavailable("Google Routes returned an empty response.");
 
@@ -183,7 +184,7 @@ public sealed class GoogleRoutesRoadRouteProvider : IRoadRouteProvider
         string prefix = $"Google Routes returned HTTP {(int)response.StatusCode}";
         try
         {
-            var error = (await response.Content.ReadFromJsonAsync<GoogleErrorResponse>(cancellationToken: cancellationToken).ConfigureAwait(false))?.Error;
+            var error = (await response.Content.ReadFromJsonAsync(GoogleRoutesJsonContext.Default.GoogleErrorResponse, cancellationToken).ConfigureAwait(false))?.Error;
             if (error is null)
                 return prefix + ".";
             string status = string.IsNullOrWhiteSpace(error.Status) ? "" : " " + error.Status;
@@ -322,4 +323,11 @@ public sealed class GoogleRoutesRoadRouteProvider : IRoadRouteProvider
         [JsonPropertyName("status")]
         public string? Status { get; init; }
     }
+
+    // Web defaults match what JsonContent.Create and ReadFromJsonAsync used before metadata was source-generated.
+    [JsonSourceGenerationOptions(JsonSerializerDefaults.Web)]
+    [JsonSerializable(typeof(ComputeRoutesRequest))]
+    [JsonSerializable(typeof(ComputeRoutesResponse))]
+    [JsonSerializable(typeof(GoogleErrorResponse))]
+    private sealed partial class GoogleRoutesJsonContext : JsonSerializerContext;
 }

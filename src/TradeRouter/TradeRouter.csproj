@@ -6,6 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <IsAotCompatible>true</IsAotCompatible>
     <PackageId>TradeRouter.Net</PackageId>
     <Description>High-performance .NET maritime shortest-path routing library on the Marnet network from searoute-py 1.6.0, derived from Eurostat SeaRoute, with North American rail routing on the BTS North American Rail Network.</Description>
     <PackageReadmeFile>README.md</PackageReadmeFile>
