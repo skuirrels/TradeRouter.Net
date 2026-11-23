@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <TargetFrameworks>net8.0;net10.0;net11.0</TargetFrameworks>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
@@ -13,7 +13,8 @@
     <PackageTags>routing;road;cache;osrm;distributed-cache;redis;postgresql</PackageTags>
   </PropertyGroup>
 
-  <ItemGroup>
+  <!-- .NET 11 and later ship IDistributedCache in the shared framework, so only the older targets need the package. -->
+  <ItemGroup Condition="!$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net11.0'))">
     <PackageReference Include="Microsoft.Extensions.Caching.Abstractions" Version="10.0.14" />
   </ItemGroup>
 

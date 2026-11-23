@@ -1,7 +1,7 @@
 # TradeRouter.Net
 
 [![NuGet](https://img.shields.io/nuget/v/TradeRouter.Net?logo=nuget)](https://www.nuget.org/packages/TradeRouter.Net)
-[![.NET 8 | 10](https://img.shields.io/badge/.NET-8.0%20%7C%2010.0-512BD4?logo=dotnet)](https://dotnet.microsoft.com)
+[![.NET 8 | 10 | 11](https://img.shields.io/badge/.NET-8.0%20%7C%2010.0%20%7C%2011.0-512BD4?logo=dotnet)](https://dotnet.microsoft.com)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](https://github.com/skuirrels/TradeRouter.Net/blob/main/LICENSE)
 [![Dependencies: none](https://img.shields.io/badge/dependencies-none-brightgreen)](https://github.com/skuirrels/TradeRouter.Net/blob/main/src/TradeRouter/TradeRouter.csproj)
 
@@ -213,9 +213,9 @@ dotnet add package TradeRouter.Net
 
 Changes in each release are listed in the [changelog](https://github.com/skuirrels/TradeRouter.Net/blob/main/CHANGELOG.md).
 
-Targets `net8.0` and `net10.0`. The package has no dependencies beyond the base class library and `System.Text.Json`.
+Targets `net8.0`, `net10.0` and `net11.0`. The package has no dependencies beyond the base class library and `System.Text.Json`.
 
-To cache road routes, also install the companion package, which depends on `Microsoft.Extensions.Caching.Abstractions`. Both packages share a version. See [Caching road routes](#caching-road-routes).
+To cache road routes, also install the companion package, which depends on `Microsoft.Extensions.Caching.Abstractions` on .NET 8 and 10; .NET 11 includes it in the shared framework. Both packages share a version. See [Caching road routes](#caching-road-routes).
 
 ```bash
 dotnet add package TradeRouter.Net.Caching
@@ -1028,6 +1028,8 @@ tools/                      Python generators for the embedded datasets
 ```
 
 ## Building, testing and trying it out
+
+Building from source needs the .NET 11 SDK, which builds all three targets (`net8.0`, `net10.0` and `net11.0`); running the tests on each framework also needs the .NET 8 and .NET 10 runtimes.
 
 ```bash
 dotnet build TradeRouter.Net.slnx -c Release -m:1 -nr:false
