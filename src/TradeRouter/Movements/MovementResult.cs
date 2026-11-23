@@ -55,6 +55,12 @@ public sealed class LegResult
     /// <summary>CO2e per tonne of cargo for this leg, in kilograms.</summary>
     public double Co2eKgPerTonne => Feature.Properties.Co2eKgPerTonne ?? 0.0;
 
+    /// <summary>
+    /// CO2e rate per container in grams per TEU-kilometre, on sea, road and rail legs when the movement states a TEU
+    /// count; see <see cref="GeoJson.TradeRouterProperties.Co2eGramsPerTeuKm"/>.
+    /// </summary>
+    public double? Co2eGramsPerTeuKm => Feature.Properties.Co2eGramsPerTeuKm;
+
     /// <summary>CO2e for this leg in kilograms, when the movement states a cargo weight or TEU count.</summary>
     public double? Co2eKg => Feature.Properties.Co2eKg;
 

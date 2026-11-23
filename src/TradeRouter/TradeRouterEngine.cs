@@ -446,8 +446,8 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
         }
 
         // Road and rail legs of a containerised movement are charged per container too: a light box still needs a
-        // whole truck or wagon slot, and the per-tonne default factors assume an average load (GLEC Framework,
-        // road load factor guidance). The stated weight is used only when it exceeds the average for the TEU count.
+        // whole truck or wagon slot, and the per-tonne default factors assume an average load, so these legs are
+        // charged on at least the GLEC average weight per TEU. The stated weight is used only when it exceeds that.
         // Air is not containerised in TEU terms and keeps the stated weight.
         double? containerTonnes = request.CargoTeu.HasValue && mode is TransportMode.Road or TransportMode.Rail
             ? request.CargoTeu.Value * factors.AverageTonnesPerTeu
@@ -462,6 +462,14 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
         {
             feature.Properties.Co2eKg = kgPerTonne * request.CargoTeu.Value * factors.AverageTonnesPerTeu;
             feature.Properties.Co2eBasis = "teu_average_weight";
+        }
+
+        // A road or rail leg with a TEU count also states its rate per container: the per-tonne rate times the tonnes
+        // charged per TEU. Then co2e_kg = co2e_g_per_teu_km × TEU × km / 1000 on every containerised leg, as at sea.
+        if (containerTonnes.HasValue)
+        {
+            double chargedTonnes = Math.Max(containerTonnes.Value, request.CargoTonnes ?? 0.0);
+            feature.Properties.Co2eGramsPerTeuKm = gramsPerTonneKm * chargedTonnes / request.CargoTeu!.Value;
         }
     }
 

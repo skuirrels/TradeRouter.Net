@@ -34,7 +34,11 @@ public sealed class EmissionFactors
     /// </summary>
     public double SeaGramsPerTeuKm { get; set; } = 73.4;
 
-    /// <summary>GLEC average cargo weight per TEU, 10 tonnes, used to convert between the two sea bases.</summary>
+    /// <summary>
+    /// GLEC average cargo weight per TEU, 10 tonnes. It converts between the two sea bases, is the minimum weight per TEU
+    /// that road and rail legs are charged on when a TEU count is given (and the weight assumed when none is), and so
+    /// sets the <c>co2e_g_per_teu_km</c> those legs report.
+    /// </summary>
     public double AverageTonnesPerTeu { get; set; } = 10.0;
 
     /// <summary>

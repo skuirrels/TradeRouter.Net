@@ -214,7 +214,14 @@ public sealed class TradeRouterProperties
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public double? Co2eKgPerTonne { get; set; }
 
-    /// <summary>CO2e rate per container for sea legs, in grams per TEU-kilometre. Present when the movement states a TEU count.</summary>
+    /// <summary>
+    /// CO2e rate per container, in grams per TEU-kilometre, present on sea, road and rail legs when the movement states
+    /// a TEU count. On sea it is the per-container intensity. On road and rail it is <see cref="Co2eGramsPerTonneKm"/>
+    /// times the tonnes charged per TEU, the greater of the stated weight per TEU and
+    /// <see cref="Movements.EmissionFactors.AverageTonnesPerTeu"/> (10 t by default): 1,250 for road at the default
+    /// 125 g per tonne-km and 10 t. On each of these legs <see cref="Co2eKg"/> is this rate times the TEU count times
+    /// the leg length in kilometres, divided by 1,000. Air legs are not charged per container and leave it out.
+    /// </summary>
     [JsonPropertyName("co2e_g_per_teu_km")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public double? Co2eGramsPerTeuKm { get; set; }
