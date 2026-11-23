@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <TargetFrameworks>net8.0;net10.0;net11.0</TargetFrameworks>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
@@ -9,15 +9,21 @@
     <IsTestProject>true</IsTestProject>
   </PropertyGroup>
 
+  <!-- Microsoft.Extensions 11 does not support net8.0, so the older targets keep the 10.0 line. -->
+  <PropertyGroup>
+    <CachingMemoryVersion>10.0.14</CachingMemoryVersion>
+    <CachingMemoryVersion Condition="'$(TargetFramework)' == 'net11.0'">11.0.0</CachingMemoryVersion>
+  </PropertyGroup>
+
   <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.12.0" />
     <PackageReference Include="xunit" Version="2.9.3" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="4.0.0">
+    <PackageReference Include="xunit.runner.visualstudio" Version="4.0.1">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="AwesomeAssertions" Version="9.6.0" />
-    <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="10.0.14" />
+    <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="$(CachingMemoryVersion)" />
   </ItemGroup>
 
   <ItemGroup>
