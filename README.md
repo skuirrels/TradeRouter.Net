@@ -1029,6 +1029,8 @@ tools/                      Python generators for the embedded datasets
 
 ## Building, testing and trying it out
 
+Building from source needs the .NET 11 SDK, which builds all three targets (`net8.0`, `net10.0` and `net11.0`); running the tests on each framework also needs the .NET 8 and .NET 10 runtimes.
+
 ```bash
 dotnet build TradeRouter.Net.slnx -c Release -m:1 -nr:false
 ```

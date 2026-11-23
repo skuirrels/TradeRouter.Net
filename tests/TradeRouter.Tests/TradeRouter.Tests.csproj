@@ -12,7 +12,7 @@
   <!-- Microsoft.Extensions 11 does not support net8.0, so the older targets keep the 10.0 line. -->
   <PropertyGroup>
     <CachingMemoryVersion>10.0.14</CachingMemoryVersion>
-    <CachingMemoryVersion Condition="'$(TargetFramework)' == 'net11.0'">11.0.0</CachingMemoryVersion>
+    <CachingMemoryVersion Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net11.0'))">11.0.0</CachingMemoryVersion>
   </PropertyGroup>
 
   <ItemGroup>
