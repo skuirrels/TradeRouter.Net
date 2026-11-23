@@ -683,13 +683,13 @@ public class MovementTests
 
         var sea = result.Legs[1];
         sea.Co2eBasis.Should().Be("teu");
-        sea.Feature.Properties.Co2eGramsPerTeuKm.Should().Be(73.4);
+        sea.Co2eGramsPerTeuKm.Should().Be(73.4);
         sea.Co2eKg.Should().BeApproximately(73.4 * 2.0 * sea.Length / 1000.0, 1e-9);
 
         var road = result.Legs[0];
         road.Co2eBasis.Should().Be("teu_average_weight", "12 t in 2 TEU is below the 20 t a pair of average containers carries");
         road.Co2eKg.Should().BeApproximately(road.Co2eKgPerTonne * 20.0, 1e-9);
-        road.Feature.Properties.Co2eGramsPerTeuKm.Should().BeApproximately(1250.0, 1e-9, "125 g per tonne-km at 10 t per TEU");
+        road.Co2eGramsPerTeuKm.Should().BeApproximately(1250.0, 1e-9, "125 g per tonne-km at 10 t per TEU");
 
         result.CargoTeu.Should().Be(2.0);
         result.TotalCo2eKg.Should().BeApproximately(result.Legs.Sum(l => l.Co2eKg!.Value), 1e-9);
@@ -714,7 +714,7 @@ public class MovementTests
 
         foreach (var leg in result.Legs)
         {
-            double? rate = leg.Feature.Properties.Co2eGramsPerTeuKm;
+            double? rate = leg.Co2eGramsPerTeuKm;
             rate.Should().NotBeNull($"leg {leg.Sequence} ({leg.Leg.Mode}) is charged per container");
             leg.Co2eKg.Should().BeApproximately(rate!.Value * teu * leg.Length / 1000.0, 1e-9);
         }
@@ -748,7 +748,7 @@ public class MovementTests
         var road = result.Legs[0];
         road.Co2eBasis.Should().Be(basis);
         road.Co2eKg.Should().BeApproximately(road.Co2eKgPerTonne * chargedTonnes, 1e-9);
-        road.Feature.Properties.Co2eGramsPerTeuKm.Should().BeApproximately(gramsPerTeuKm, 1e-9, "125 g per tonne-km times the tonnes charged per TEU");
+        road.Co2eGramsPerTeuKm.Should().BeApproximately(gramsPerTeuKm, 1e-9, "125 g per tonne-km times the tonnes charged per TEU");
     }
 
     [Fact]
@@ -770,17 +770,17 @@ public class MovementTests
         var rail = TradeRouterEngine.Default.CalculateMovement(railRequest).Legs[0];
         rail.Co2eBasis.Should().Be("teu_average_weight");
         rail.Co2eKg.Should().BeApproximately(rail.Co2eKgPerTonne * 10.0, 1e-9);
-        rail.Feature.Properties.Co2eGramsPerTeuKm.Should().BeApproximately(rail.Co2eGramsPerTonneKm * 10.0, 1e-9);
+        rail.Co2eGramsPerTeuKm.Should().BeApproximately(rail.Co2eGramsPerTonneKm * 10.0, 1e-9);
 
         railRequest.CargoTonnes = 15.0;
         var heavyRail = TradeRouterEngine.Default.CalculateMovement(railRequest).Legs[0];
         heavyRail.Co2eBasis.Should().Be("tonnes", "15 t is above the 10 t average for one TEU");
-        heavyRail.Feature.Properties.Co2eGramsPerTeuKm.Should().BeApproximately(heavyRail.Co2eGramsPerTonneKm * 15.0, 1e-9);
+        heavyRail.Co2eGramsPerTeuKm.Should().BeApproximately(heavyRail.Co2eGramsPerTonneKm * 15.0, 1e-9);
 
         var air = TradeRoutes.CalculateMovement("Airport GBLHR to Airport AUMEL Air", cargoTonnes: 0.5, cargoTeu: 1.0).Legs[0];
         air.Co2eBasis.Should().Be("tonnes", "air cargo is not carried in TEU slots");
         air.Co2eKg.Should().BeApproximately(air.Co2eKgPerTonne * 0.5, 1e-9);
-        air.Feature.Properties.Co2eGramsPerTeuKm.Should().BeNull("air legs are not charged per container");
+        air.Co2eGramsPerTeuKm.Should().BeNull("air legs are not charged per container");
     }
 
     [Fact]
@@ -790,7 +790,7 @@ public class MovementTests
 
         result.Legs.Should().OnlyContain(leg => leg.Co2eBasis == "tonnes");
         result.Legs.Should().OnlyContain(leg => Math.Abs(leg.Co2eKg!.Value - leg.Co2eKgPerTonne * 0.1) < 1e-9);
-        result.Legs.Should().OnlyContain(leg => leg.Feature.Properties.Co2eGramsPerTeuKm == null, "no TEU count was given");
+        result.Legs.Should().OnlyContain(leg => leg.Co2eGramsPerTeuKm == null, "no TEU count was given");
     }
 
     [Fact]
