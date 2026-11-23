@@ -2,6 +2,12 @@
 
 All notable changes to TradeRouter.Net are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Both packages target `net11.0` as well as `net8.0` and `net10.0`. On .NET 11, TradeRouter.Net.Caching takes `IDistributedCache` from the shared framework instead of the `Microsoft.Extensions.Caching.Abstractions` package, which the older targets still reference. CI and the release workflow install the .NET 11 SDK and run both test projects on all three frameworks. The sample and benchmarks now run on .NET 11.
+
 ## [2.16.0] - 2026-11-19
 
 ### Fixed
@@ -222,6 +228,7 @@ First release on nuget.org.
 - All data is embedded as compressed JSON. A symbols package with Source Link ships alongside.
 - Releases are published from GitHub Actions through nuget.org Trusted Publishing.
 
+[Unreleased]: https://github.com/skuirrels/TradeRouter.Net/compare/v2.16.0...HEAD
 [2.16.0]: https://github.com/skuirrels/TradeRouter.Net/releases/tag/v2.16.0
 [2.15.1]: https://github.com/skuirrels/TradeRouter.Net/releases/tag/v2.15.1
 [2.15.0]: https://github.com/skuirrels/TradeRouter.Net/releases/tag/v2.15.0
