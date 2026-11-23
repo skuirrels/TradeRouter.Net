@@ -2,6 +2,12 @@
 
 All notable changes to TradeRouter.Net are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- Road and rail legs of a movement with a TEU count now carry `co2e_g_per_teu_km` (`TradeRouterProperties.Co2eGramsPerTeuKm`), as sea legs already did. It is the per-tonne rate times the tonnes charged per TEU, the greater of the stated weight per TEU and the average tonnes per TEU in `EmissionFactors` (10 t by default), so 1,250 g for one road container charged at 10 t with the default factors. Every containerised leg now satisfies `co2e_kg = co2e_g_per_teu_km × TEU × km / 1000`; before, road and rail legs left the field null even though a TEU count had set their charge. CO2e figures are unchanged. Air legs, and legs of a movement without a TEU count, still leave it out. Code that took the field's presence to mean a sea leg should check `mode` instead.
+
 ## [2.16.0] - 2026-11-19
 
 ### Fixed
@@ -222,6 +228,7 @@ First release on nuget.org.
 - All data is embedded as compressed JSON. A symbols package with Source Link ships alongside.
 - Releases are published from GitHub Actions through nuget.org Trusted Publishing.
 
+[Unreleased]: https://github.com/skuirrels/TradeRouter.Net/compare/v2.16.0...HEAD
 [2.16.0]: https://github.com/skuirrels/TradeRouter.Net/releases/tag/v2.16.0
 [2.15.1]: https://github.com/skuirrels/TradeRouter.Net/releases/tag/v2.15.1
 [2.15.0]: https://github.com/skuirrels/TradeRouter.Net/releases/tag/v2.15.0

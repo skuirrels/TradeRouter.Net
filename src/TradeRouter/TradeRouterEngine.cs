@@ -463,6 +463,14 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
             feature.Properties.Co2eKg = kgPerTonne * request.CargoTeu.Value * factors.AverageTonnesPerTeu;
             feature.Properties.Co2eBasis = "teu_average_weight";
         }
+
+        // A road or rail leg with a TEU count also states its rate per container: the per-tonne rate times the tonnes
+        // charged per TEU. Then co2e_kg = co2e_g_per_teu_km × TEU × km / 1000 on every containerised leg, as at sea.
+        if (containerTonnes.HasValue)
+        {
+            double chargedTonnes = Math.Max(containerTonnes.Value, request.CargoTonnes ?? 0.0);
+            feature.Properties.Co2eGramsPerTeuKm = gramsPerTonneKm * chargedTonnes / request.CargoTeu!.Value;
+        }
     }
 
     private GeoJsonFeature CalculateSeaLeg(int sequence, MovementLeg leg, ResolvedLocation from, ResolvedLocation to, TradeRouterOptions options)
