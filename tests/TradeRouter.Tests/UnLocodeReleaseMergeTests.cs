@@ -14,7 +14,7 @@ public class UnLocodeReleaseMergeTests
     public void Database_HoldsTheOriginalImportPlusTheAddedCodes()
     {
         TradeRouterEngine.Default.UnLocodes.Count.Should().Be(116_022);
-        TradeRouterEngine.Default.UnLocodes.CountWithCoordinates.Should().Be(113_541);
+        TradeRouterEngine.Default.UnLocodes.CountWithCoordinates.Should().Be(113_543);
     }
 
     [Theory]

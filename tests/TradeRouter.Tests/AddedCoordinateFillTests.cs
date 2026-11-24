@@ -37,7 +37,7 @@ public class AddedCoordinateFillTests
         var published = LoadPublishedRows();
         var aliases = Data.EmbeddedResources.LoadPortCodeAliases();
 
-        rows.Should().HaveCount(1_485);
+        rows.Should().HaveCount(1_484); // 1,485 generated; a reviewed row replaced the Port of Palm Beach (USPBC).
         supplement.Select(item => item.GetProperty("code").GetString()).Should().OnlyHaveUniqueItems();
         foreach (var row in rows)
         {

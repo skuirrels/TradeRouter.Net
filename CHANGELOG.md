@@ -2,6 +2,13 @@
 
 All notable changes to TradeRouter.Net are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- Ten harbour towns and the Port of Palm Beach (`USPBC`), which UNECE files without the sea-port function, can end a sea leg or be a port waypoint: Moa (`CUMOA`), Namlea (`IDNAM`), San Andres Island (`COADZ`), Miquelon (`PMMQC`), Saumlaki (`IDSXK`), Narsaq (`GLJNS`), Bimini (`BSBIM`), Ebeye (`MHQEE`), Palmeira (`CVPAL`) and Sal Rei (`CVSAR`). The sea-port supplement gains an entry for each, citing the harbour.
+- Saudarkrokur harbour (`ISSAU`) and Chofu, Shimonoseki (`JPCHF`), sea ports that UNECE publishes without a coordinate, now resolve from reviewed rows in the coordinate supplement, and the Port of Palm Beach (`USPBC`) moves 13 km south to the port in Riviera Beach. 113,543 of 116,022 codes now have coordinates.
+
 ## [2.17.0] - 2026-11-23
 
 ### Added
