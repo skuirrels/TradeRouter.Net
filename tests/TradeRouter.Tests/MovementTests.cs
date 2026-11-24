@@ -288,8 +288,8 @@ public class MovementTests
         result.Legs[0].Length.Should().BeGreaterThan(0.0);
     }
 
-    // UN/LOCODE files each harbour town without the sea-port function: the airport for most, a road terminal for
-    // Ebeye and no recorded function for Palmeira and Sal Rei. The supplement cites a harbour at each.
+    // UN/LOCODE files each without the sea-port function: the airport for most, a road terminal for Ebeye and the
+    // Port of Palm Beach, and no recorded function for Palmeira and Sal Rei. The supplement cites a harbour at each.
     [Theory]
     [InlineData("CUMOA", "ports")]    // Moa, Cuba: a port-list record, so its position stands.
     [InlineData("IDNAM", "ports")]    // Namlea, Buru.
