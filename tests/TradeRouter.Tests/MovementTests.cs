@@ -233,7 +233,7 @@ public class MovementTests
         var resolved = TradeRoutes.Locate("GBLGE");
         resolved.Source.Should().Be("unlocode");
         resolved.Coordinate.Should().Be(lightwater.Coordinate.Value);
-        database.CountWithCoordinates.Should().Be(113541);
+        database.CountWithCoordinates.Should().Be(113543);
     }
 
     [Fact]
@@ -247,7 +247,7 @@ public class MovementTests
         // A flipped sign (Luque, Paraguay, published in the northern hemisphere) and swapped latitude and longitude.
         TradeRouterEngine.Default.UnLocodes.GetByCode("PYLUQ")!.Coordinate!.Value.Latitude.Should().BeApproximately(-25.27, 0.01);
         TradeRouterEngine.Default.UnLocodes.GetByCode("DEGKO")!.Coordinate!.Value.Latitude.Should().BeApproximately(52.17, 0.01);
-        TradeRouterEngine.Default.UnLocodes.CountWithCoordinates.Should().Be(113541);
+        TradeRouterEngine.Default.UnLocodes.CountWithCoordinates.Should().Be(113543);
     }
 
     [Fact]
@@ -286,6 +286,44 @@ public class MovementTests
         destination.Source.Should().Be("ports");
         destination.Port!.PortCode.Should().Be(code);
         result.Legs[0].Length.Should().BeGreaterThan(0.0);
+    }
+
+    // UN/LOCODE files each harbour town without the sea-port function: the airport for most, a road terminal for
+    // Ebeye and no recorded function for Palmeira and Sal Rei. The supplement cites a harbour at each.
+    [Theory]
+    [InlineData("CUMOA", "ports")]    // Moa, Cuba: a port-list record, so its position stands.
+    [InlineData("IDNAM", "ports")]    // Namlea, Buru.
+    [InlineData("COADZ", "unlocode")] // San Andres Island; the port list's COADZ lies 1,000 km east, a namesake.
+    [InlineData("PMMQC", "unlocode")] // Miquelon.
+    [InlineData("IDSXK", "unlocode")] // Saumlaki.
+    [InlineData("GLJNS", "unlocode")] // Narsaq.
+    [InlineData("BSBIM", "unlocode")] // Bimini.
+    [InlineData("MHQEE", "unlocode")] // Ebeye.
+    [InlineData("CVPAL", "unlocode")] // Palmeira, Sal.
+    [InlineData("CVSAR", "unlocode")] // Sal Rei, Boa Vista.
+    [InlineData("USPBC", "unlocode")] // Port of Palm Beach: UN/LOCODE records only a road terminal.
+    public void Movement_HarbourTownConfirmedBySupplementCanEndASeaLeg(string code, string source)
+    {
+        var record = TradeRouterEngine.Default.UnLocodes.GetByCode(code)!;
+        record.IsSeaPort.Should().BeTrue();
+
+        var leg = TradeRoutes.CalculateMovement($"Port NLRTM to Port {code} Sea").Legs.Single();
+
+        leg.To.Source.Should().Be(source);
+        leg.Feature.Properties.DistanceBasis.Should().Be("maritime_network");
+        leg.Length.Should().BeGreaterThan(0.0);
+    }
+
+    [Theory]
+    [InlineData("ISSAU", -19.6458, 65.7566)] // Saudarkrokur harbour, Iceland.
+    [InlineData("JPCHF", 131.0133, 34.0186)] // Chofu Wharf, Shimonoseki, not Chofu in Tokyo.
+    [InlineData("USPBC", -80.0511, 26.7669)] // Port of Palm Beach, Riviera Beach, not Paradise Port 13 km north.
+    public void Movement_ReviewedSupplementRowPlacesSeaPort(string code, double lon, double lat)
+    {
+        var leg = TradeRoutes.CalculateMovement($"Port {code} to Port NLRTM Sea").Legs.Single();
+
+        Haversine.DistanceKm(leg.From.Coordinate, new Coordinate(lon, lat)).Should().BeLessThan(0.5);
+        leg.Feature.Properties.DistanceBasis.Should().Be("maritime_network");
     }
 
     [Fact]
