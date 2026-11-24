@@ -81,6 +81,10 @@ public sealed class TradeRouterProperties
     [JsonIgnore]
     internal double DestinationNetworkAccessKm { get; set; }
 
+    /// <summary>Whether both ends of a sea route snap to the same network node. Not serialised.</summary>
+    [JsonIgnore]
+    internal bool NetworkAccessSingleNode { get; set; }
+
     /// <summary>
     /// Warning about a leg's start or end position: coordinates given with a code that lie far from the code's listed
     /// position, or a (0, 0) placeholder, which is replaced by the code's own position when there is a code.

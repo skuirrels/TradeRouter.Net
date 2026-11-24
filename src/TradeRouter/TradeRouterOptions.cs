@@ -72,10 +72,10 @@ public sealed class TradeRouterOptions
 
     /// <summary>
     /// The default <see cref="NetworkAccessWarningKm"/>, 50 km: the distance within which the engine also takes a
-    /// port-list record to reach the sea network. Half of the port list's main terminal ports lie within 15 km of a
+    /// port-list record to reach the sea network (the engine's private PortListSeaAccessKm). Half of the port list's main terminal ports lie within 15 km of a
     /// node and nine in ten within about 80 km.
     /// </summary>
-    public const double DefaultNetworkAccessWarningKm = 50.0;
+    public static readonly double DefaultNetworkAccessWarningKm = 50.0;
 
     /// <summary>
     /// Returns a copy of these options with an independent restriction set.

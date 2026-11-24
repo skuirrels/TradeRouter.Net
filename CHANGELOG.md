@@ -6,7 +6,7 @@ All notable changes to TradeRouter.Net are recorded here. The format follows [Ke
 
 ### Added
 
-- A sea route or movement sea leg whose origin or destination lies more than `TradeRouterOptions.NetworkAccessWarningKm` from the nearest maritime network node now carries a `distance_warning` naming the end and the gap, for example `BRMAO is 1,084 km from the nearest node of the maritime network`. The route joins the network there in a straight line that may cross land, and that line is counted in the length when the real endpoints are added. The default, 50 km, is the distance within which the resolver takes a port-list record to reach the sea. Set it to `double.PositiveInfinity` to turn the warning off. Lengths, durations and the `maritime_network` distance basis are unchanged.
+- A sea route or movement sea leg whose origin or destination lies more than `TradeRouterOptions.NetworkAccessWarningKm` from the nearest maritime network node now carries a `distance_warning` naming the end and the gap, for example `BRMAO is 1,084 km from the nearest node of the maritime network`. The route joins the network there in a straight line that may cross land, and that line is counted in the length when the real endpoints are added. When both ends snap to the same node, the warning says the route is a straight line between them. Numbers in the warning use the invariant culture. The default, 50 km, is the distance within which the resolver takes a port-list record to reach the sea. Set it to `double.PositiveInfinity` to turn the warning off. Lengths, durations and the `maritime_network` distance basis are unchanged.
 
 ### Fixed
 
