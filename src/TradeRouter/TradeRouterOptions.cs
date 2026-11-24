@@ -63,6 +63,21 @@ public sealed class TradeRouterOptions
     public string Algorithm { get; set; } = "dijkstra";
 
     /// <summary>
+    /// How far, in kilometres, a route's origin or destination may lie from the nearest maritime network node before
+    /// the route carries a <c>distance_warning</c>. The route joins the network at that node in a straight line, which
+    /// may cross land and is not a sailed track. Default is <see cref="DefaultNetworkAccessWarningKm"/>; set
+    /// <see cref="double.PositiveInfinity"/> to turn the warning off.
+    /// </summary>
+    public double NetworkAccessWarningKm { get; set; } = DefaultNetworkAccessWarningKm;
+
+    /// <summary>
+    /// The default <see cref="NetworkAccessWarningKm"/>, 50 km: the distance within which the engine also takes a
+    /// port-list record to reach the sea network (the engine's private PortListSeaAccessKm). Half of the port list's main terminal ports lie within 15 km of a
+    /// node and nine in ten within about 80 km.
+    /// </summary>
+    public static readonly double DefaultNetworkAccessWarningKm = 50.0;
+
+    /// <summary>
     /// Returns a copy of these options with an independent restriction set.
     /// </summary>
     public TradeRouterOptions Clone() => new()
@@ -78,7 +93,8 @@ public sealed class TradeRouterOptions
         PortParameters = PortParameters?.Clone(),
         ReturnPassages = ReturnPassages,
         ReturnSeaAreas = ReturnSeaAreas,
-        Algorithm = Algorithm
+        Algorithm = Algorithm,
+        NetworkAccessWarningKm = NetworkAccessWarningKm
     };
 
     /// <summary>
@@ -114,6 +130,8 @@ public sealed class TradeRouterOptions
         {
             throw new ArgumentException($"Unknown pathfinding algorithm '{Algorithm}'. Expected 'dijkstra' or 'astar'.", nameof(Algorithm));
         }
+        if (double.IsNaN(NetworkAccessWarningKm) || NetworkAccessWarningKm < 0)
+            throw new ArgumentOutOfRangeException(nameof(NetworkAccessWarningKm), NetworkAccessWarningKm, "Network access warning distance must be non-negative.");
         PortParameters?.Validate();
     }
 }

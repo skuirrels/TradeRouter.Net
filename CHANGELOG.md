@@ -4,6 +4,10 @@ All notable changes to TradeRouter.Net are recorded here. The format follows [Ke
 
 ## [Unreleased]
 
+### Added
+
+- A sea route or movement sea leg whose origin or destination lies more than `TradeRouterOptions.NetworkAccessWarningKm` from the nearest maritime network node now carries a `distance_warning` naming the end and the gap, for example `BRMAO is 1,084 km from the nearest node of the maritime network`. The route joins the network there in a straight line that may cross land, and that line is counted in the length when the real endpoints are added. When both ends snap to the same node, the warning says the route is a straight line between them. Numbers in the warning use the invariant culture. The default, 50 km, is the distance within which the resolver takes a port-list record to reach the sea. Set it to `double.PositiveInfinity` to turn the warning off. Lengths, durations and the `maritime_network` distance basis are unchanged.
+
 ### Fixed
 
 - Ten harbour towns and the Port of Palm Beach (`USPBC`), which UNECE files without the sea-port function, can end a sea leg or be a port waypoint: Moa (`CUMOA`), Namlea (`IDNAM`), San Andres Island (`COADZ`), Miquelon (`PMMQC`), Saumlaki (`IDSXK`), Narsaq (`GLJNS`), Bimini (`BSBIM`), Ebeye (`MHQEE`), Palmeira (`CVPAL`) and Sal Rei (`CVSAR`). The sea-port supplement gains an entry for each, citing the harbour.

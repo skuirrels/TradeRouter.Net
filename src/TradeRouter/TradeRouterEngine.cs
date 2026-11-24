@@ -1,3 +1,4 @@
+using System.Globalization;
 using TradeRouter.Common;
 using TradeRouter.Data;
 using TradeRouter.GeoJson;
@@ -198,6 +199,13 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
 
             var (lengthKm, shortestPath) = Graph.ShortestPath(routedOrigin, routedDest, restrictions, algorithm);
 
+            // How far each requested end lies from the network node the route starts or ends at. Measured before the
+            // endpoints below are inserted into the path, which the route coordinates take over.
+            bool routed = shortestPath is { Count: > 0 } && double.IsFinite(lengthKm);
+            double originAccessKm = routed ? Haversine.DistanceKm(origin, shortestPath![0]) : 0.0;
+            double destinationAccessKm = routed ? Haversine.DistanceKm(destination, shortestPath![^1]) : 0.0;
+            bool singleNode = routed && shortestPath!.Count == 1;
+
             List<Coordinate> routeCoords;
             if (shortestPath == null || double.IsInfinity(lengthKm) || shortestPath.Count == 0)
             {
@@ -245,6 +253,11 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
                     DurationHours = duration,
                     DistanceBasis = "maritime_network",
                     DistanceSource = _maritimeDistanceSource,
+                    DistanceWarning = DescribeNetworkAccess(null, originAccessKm, null, destinationAccessKm,
+                        options.NetworkAccessWarningKm, singleNode, appendOrigDest),
+                    OriginNetworkAccessKm = originAccessKm,
+                    DestinationNetworkAccessKm = destinationAccessKm,
+                    NetworkAccessSingleNode = singleNode,
                     DurationBasis = "assumed_speed",
                     GeometryBasis = "maritime_network",
                     PortOrigin = includePorts && pFrom != null ? pFrom : null,
@@ -489,7 +502,43 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
 
         feature.Properties.PortOrigin ??= from.Port;
         feature.Properties.PortDest ??= to.Port;
+        // Name the leg's own ends in the warning rather than "the origin" and "the destination".
+        feature.Properties.DistanceWarning = DescribeNetworkAccess(from.Label, feature.Properties.OriginNetworkAccessKm,
+            to.Label, feature.Properties.DestinationNetworkAccessKm, routingOptions.NetworkAccessWarningKm,
+            feature.Properties.NetworkAccessSingleNode, joinedInLength: true);
         return feature;
+    }
+
+    /// <summary>
+    /// Describes each end of a sea route that lies further than <paramref name="limitKm"/> from the network node the
+    /// route starts or ends at, or returns null when neither does. A null label stands for "the origin" or "the
+    /// destination"; a given label is used as it is. <paramref name="singleNode"/> says both ends snap to one node, so
+    /// the route never uses the network. <paramref name="joinedInLength"/> says whether the straight connector to that
+    /// node is part of the route's geometry and length. Numbers are formatted with the invariant culture so the
+    /// warning reads the same on every host.
+    /// </summary>
+    private static string? DescribeNetworkAccess(
+        string? originLabel, double originKm, string? destinationLabel, double destinationKm, double limitKm,
+        bool singleNode, bool joinedInLength)
+    {
+        var ends = new List<string>(2);
+        if (originKm > limitKm)
+            ends.Add(string.Create(CultureInfo.InvariantCulture, $"{originLabel ?? "The origin"} is {originKm:N0} km"));
+        if (destinationKm > limitKm)
+        {
+            string label = destinationLabel ?? (ends.Count == 0 ? "The destination" : "the destination");
+            ends.Add(string.Create(CultureInfo.InvariantCulture, $"{label} is {destinationKm:N0} km"));
+        }
+        if (ends.Count == 0)
+            return null;
+
+        string connector = singleNode
+            ? "Both ends snap to the same node, so the route is a straight line between them, which may cross land and is not a sailed track."
+            : joinedInLength
+                ? "The route joins the network there in a straight line, counted in the length, which may cross land and is not a sailed track."
+                : "The route does not run to the requested point, so its length leaves part or all of the gap out.";
+        return string.Create(CultureInfo.InvariantCulture,
+            $"{string.Join(" and ", ends)} from the nearest node of the maritime network, beyond the {limitKm:N0} km NetworkAccessWarningKm. {connector}");
     }
 
     private static GeoJsonFeature CalculateStraightLeg(
@@ -1241,7 +1290,8 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
     /// How far a port-list record may lie from the nearest maritime network node and still be taken as a sea port
     /// for a code UN/LOCODE files as an airport. The coastal ports filed under airport codes, such as Shanghai and
     /// Guangzhou, lie within 50 km; the others, inland cities such as Zhengzhou and Tucson and river ports the network
-    /// does not reach, such as Nanjing, lie 78 to 1,282 km away.
+    /// does not reach, such as Nanjing, lie 78 to 1,282 km away. TradeRouterOptions.DefaultNetworkAccessWarningKm is
+    /// documented as matching this value; review it when this changes.
     /// </summary>
     private const double PortListSeaAccessKm = 50.0;
 
