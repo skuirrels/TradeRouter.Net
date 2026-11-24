@@ -198,6 +198,12 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
 
             var (lengthKm, shortestPath) = Graph.ShortestPath(routedOrigin, routedDest, restrictions, algorithm);
 
+            // How far each requested end lies from the network node the route starts or ends at. Measured before the
+            // endpoints below are inserted into the path, which the route coordinates take over.
+            bool routed = shortestPath is { Count: > 0 } && double.IsFinite(lengthKm);
+            double originAccessKm = routed ? Haversine.DistanceKm(origin, shortestPath![0]) : 0.0;
+            double destinationAccessKm = routed ? Haversine.DistanceKm(destination, shortestPath![^1]) : 0.0;
+
             List<Coordinate> routeCoords;
             if (shortestPath == null || double.IsInfinity(lengthKm) || shortestPath.Count == 0)
             {
@@ -245,6 +251,10 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
                     DurationHours = duration,
                     DistanceBasis = "maritime_network",
                     DistanceSource = _maritimeDistanceSource,
+                    DistanceWarning = DescribeNetworkAccess("The origin", originAccessKm, "the destination", destinationAccessKm,
+                        options.NetworkAccessWarningKm, appendOrigDest),
+                    OriginNetworkAccessKm = originAccessKm,
+                    DestinationNetworkAccessKm = destinationAccessKm,
                     DurationBasis = "assumed_speed",
                     GeometryBasis = "maritime_network",
                     PortOrigin = includePorts && pFrom != null ? pFrom : null,
@@ -489,7 +499,34 @@ public sealed class TradeRouterEngine : ITradeRouterEngine
 
         feature.Properties.PortOrigin ??= from.Port;
         feature.Properties.PortDest ??= to.Port;
+        // Name the leg's own ends in the warning rather than "the origin" and "the destination".
+        feature.Properties.DistanceWarning = DescribeNetworkAccess(from.Label, feature.Properties.OriginNetworkAccessKm,
+            to.Label, feature.Properties.DestinationNetworkAccessKm, routingOptions.NetworkAccessWarningKm, joinedInLength: true);
         return feature;
+    }
+
+    /// <summary>
+    /// Describes each end of a sea route that lies further than <paramref name="limitKm"/> from the network node the
+    /// route starts or ends at, or returns null when neither does. <paramref name="joinedInLength"/> says whether the
+    /// straight connector to that node is part of the route's geometry and length.
+    /// </summary>
+    private static string? DescribeNetworkAccess(
+        string originLabel, double originKm, string destinationLabel, double destinationKm, double limitKm, bool joinedInLength)
+    {
+        var ends = new List<string>(2);
+        if (originKm > limitKm)
+            ends.Add($"{originLabel} is {originKm:N0} km");
+        if (destinationKm > limitKm)
+            ends.Add($"{destinationLabel} is {destinationKm:N0} km");
+        if (ends.Count == 0)
+            return null;
+
+        string text = string.Join(" and ", ends);
+        text = char.ToUpperInvariant(text[0]) + text[1..];
+        string connector = joinedInLength
+            ? "The route joins the network there in a straight line, counted in the length, which may cross land and is not a sailed track."
+            : "The route does not run to the requested point, so its length leaves part or all of the gap out.";
+        return $"{text} from the nearest node of the maritime network, beyond the {limitKm:N0} km NetworkAccessWarningKm. {connector}";
     }
 
     private static GeoJsonFeature CalculateStraightLeg(

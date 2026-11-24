@@ -56,7 +56,11 @@ public sealed class TradeRouterProperties
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? GeometryBasis { get; set; }
 
-    /// <summary>Warning attached to an estimated road distance, a provider fallback or a rail leg left at great-circle distance.</summary>
+    /// <summary>
+    /// Warning attached to an estimated road distance, a provider fallback, a rail leg left at great-circle distance,
+    /// or a sea route whose origin or destination lies further than <see cref="TradeRouterOptions.NetworkAccessWarningKm"/>
+    /// from the maritime network.
+    /// </summary>
     [JsonPropertyName("distance_warning")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? DistanceWarning { get; set; }
@@ -68,6 +72,14 @@ public sealed class TradeRouterProperties
     /// </summary>
     [JsonIgnore]
     internal bool DistanceFallback { get; set; }
+
+    /// <summary>Distance in km from a sea route's requested origin to the network node it starts at. Not serialised.</summary>
+    [JsonIgnore]
+    internal double OriginNetworkAccessKm { get; set; }
+
+    /// <summary>Distance in km from a sea route's requested destination to the network node it ends at. Not serialised.</summary>
+    [JsonIgnore]
+    internal double DestinationNetworkAccessKm { get; set; }
 
     /// <summary>
     /// Warning about a leg's start or end position: coordinates given with a code that lie far from the code's listed
